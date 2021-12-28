@@ -1,5 +1,6 @@
 ﻿using g3;
 using HelixToolkit.Wpf;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -17,13 +18,15 @@ namespace MeshSimplificationTest
     {
         //Path to the model file
         //private const string MODEL_PATH = @"C:\GitProjects\Frost3\samples\stl\dragon.stl";
-        private const string MODEL_PATH = @"C:\Users\menin\Documents\cilinder.obj";
+        //private const string MODEL_PATH = @"C:\Users\menin\Documents\cilinder.obj";
         //private const string MODEL_PATH = @"C:\Users\User\Downloads\145U_14Part_withoutRound_withoutMerge_withoutCorrect.stl";
-        private const string bufer_PATH = @"C:\Users\menin\Documents\bufer.obj";
+        private const string MODEL_PATH = @"C:\Users\User\Downloads\test2.stl";
+        private const string bufer_PATH = @"C:\GitProjects\bufer.obj";
         private const string debugBufer_PATH = @"C:\GitProjects\debugbufer.obj";
 
         private DMesh3 baseModel { get; set; }
         private DMesh3 renderModel { get; set; }
+        public RemeshTool RemeshTool { get; set; }
 
         public int TriangleCount { get; set; }
         public int TriangleFullCount { get; set; }
@@ -39,15 +42,6 @@ namespace MeshSimplificationTest
             }
         }
 
-        public double EdgeLength { get; set; }
-        public double SmoothSpeed { get; set; }
-        public double Angle { get; set; }
-        public int Iterations { get; set; }
-        public bool EnableFlips { get; set; }
-        public bool EnableCollapses { get; set; }
-        public bool EnableSplits { get; set; }
-        public bool EnableSmoothing { get; set; }
-        public bool KeepAngle { get; set; }
 
         
         protected Lazy<DelegateCommand> _applyCommand;
@@ -58,6 +52,12 @@ namespace MeshSimplificationTest
         
         protected Lazy<DelegateCommand> _returnToBaseModelCommand;
         public ICommand ReturnToBaseModelCommand => _returnToBaseModelCommand.Value;
+        
+        protected Lazy<DelegateCommand> _loadModelCommand;
+        public ICommand LoadModelCommand => _loadModelCommand.Value;
+
+        protected Lazy<DelegateCommand> _saveModelCommand;
+        public ICommand SaveModelCommand => _saveModelCommand.Value;
 
         private Model3D _mainMesh;
         public Model3D MainMesh
@@ -93,8 +93,8 @@ namespace MeshSimplificationTest
                 OnPropertyChanged();
             }
         }
-        private CancellationToken token;
-        public CancellationToken Token
+        private CancellationTokenSource token;
+        public CancellationTokenSource Token
         {
             get => token;
             set
@@ -111,6 +111,7 @@ namespace MeshSimplificationTest
             IsIndeterminate = false;
         }
 
+
         public MasterViewModel()
         {
             _applyCommand = new Lazy<DelegateCommand>(() =>
@@ -122,28 +123,34 @@ namespace MeshSimplificationTest
             _cancelCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(CancelCommandEx, CancelCommandCanEx));
 
-            EdgeLength = 0.1;
-            SmoothSpeed = 0.5;
-            Iterations = 20;
+            _loadModelCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(LoadModel));
 
-            baseModel = LoadModel(MODEL_PATH);
-            TriangleFullCount = baseModel.TriangleCount;
+            _saveModelCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(SaveModel));
+
+            RemeshTool = new RemeshTool();
+
+            LoadModel(MODEL_PATH);            
             Render();
         }
 
         private bool CancelCommandCanEx(object arg)
         {
-            return Token != null && Token.CanBeCanceled;
+            return Token != null && Token.Token.CanBeCanceled;
         }
 
         private void CancelCommandEx(object obj)
         {
-            if (Token.CanBeCanceled) Token.ThrowIfCancellationRequested();
+            if (Token.Token.CanBeCanceled) Token.Cancel();
         }
 
-        private DMesh3 LoadModel(string path)
+        private void LoadModel(string path)
         {
-            return StandardMeshReader.ReadMesh(path);
+            baseModel = StandardMeshReader.ReadMesh(path);
+            RemeshTool.SetGroupByNormal(baseModel);
+            RemeshTool.ExportByGroup(baseModel);
+            TriangleFullCount = baseModel.TriangleCount;
         }
 
         private Model3D ConvertToModel3D(DMesh3 model)
@@ -165,7 +172,7 @@ namespace MeshSimplificationTest
                 var models = import.Load(bufer_PATH);
                 var geometryModel = models.Children[0] as GeometryModel3D;
                 var mesh = geometryModel.Geometry as MeshGeometry3D;
-                var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.1);
+                var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.01);
                 DiffuseMaterial wireframe_material =
                     new DiffuseMaterial(Brushes.Black);
                 var resultTriangleMesh = new GeometryModel3D()
@@ -194,109 +201,54 @@ namespace MeshSimplificationTest
             return resultmodels;
         }
 
-        private void ApplyCommandExecute()
-        {
-            CalculateAsync();
-        }
-
-        private async void CalculateAsync()
+        private async void ApplyCommandExecute()
         {
             IProgress<int> progress = new Progress<int>((p) => ProgressProcent = p);
-            Token = new CancellationToken();
+            Token = new CancellationTokenSource();
             try
             {
-                renderModel = await Task.Run(() => Calculate(progress, Token));
+                renderModel = await RemeshTool.CalculateAsync(baseModel, Token.Token, progress);
             }
-            catch
+            catch {}
+            finally
             {
-
+                Token = null;
+                Render();
             }
-            Render();
         }
 
-        private DMesh3 Calculate(IProgress<int> progress, CancellationToken cancelToken)
-        {
-            var mesh = new DMesh3(baseModel);
-            Remesher r = new Remesher(mesh);
-
-            if (KeepAngle)
-            {
-                AxisAlignedBox3d bounds = mesh.CachedBounds;
-                // construct mesh projection target
-                DMesh3 meshCopy = new DMesh3(mesh);
-                meshCopy.CheckValidity();
-                DMeshAABBTree3 tree = new DMeshAABBTree3(meshCopy);
-                tree.Build();
-                MeshProjectionTarget target = new MeshProjectionTarget()
-                {
-                    Mesh = meshCopy,
-                    Spatial = tree
-                };
-                MeshConstraints cons = new MeshConstraints();
-                EdgeRefineFlags useFlags = EdgeRefineFlags.NoFlip;
-                foreach (int eid in mesh.EdgeIndices())
-                {
-                    double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
-                    if (fAngle > Angle)
-                    {
-                        cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(useFlags));
-                        Index2i ev = mesh.GetEdgeV(eid);
-                        int nSetID0 = (mesh.GetVertex(ev[0]).y > bounds.Center.y) ? 1 : 2;
-                        int nSetID1 = (mesh.GetVertex(ev[1]).y > bounds.Center.y) ? 1 : 2;
-                        cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
-                        cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
-                    }
-                }
-                r.Precompute();
-                r.SetExternalConstraints(cons);
-                r.SetProjectionTarget(target);
-            }
-
-            r.EnableFlips = EnableFlips;
-            r.EnableCollapses = EnableCollapses;
-            r.EnableSplits = EnableSplits;
-
-            //r.MinEdgeLength = 0.1f * EdgeLength;
-            //r.MaxEdgeLength = 0.2f * EdgeLength;
-            r.EnableSmoothing = EnableSmoothing;
-            r.SmoothSpeedT = SmoothSpeed; 
-            r.SetTargetEdgeLength(EdgeLength);
-
-            if (cancelToken.IsCancellationRequested) return null;
-            for (int k = 0; k < Iterations; ++k)
-            {
-                if (cancelToken.IsCancellationRequested) return null;
-                int val = (int)Math.Truncate(((double)k / (double)Iterations) * 100);
-                progress?.Report(val);
-                r.BasicRemeshPass();
-            }
-
-            //r.PreventNormalFlips = true;
-            //r.SetTargetEdgeLength(EdgeLength);
-            //r.EnableSmoothing = false;
-            //r.SetProjectionTarget(MeshProjectionTarget.Auto(renderModel));
-            //r.SetExternalConstraints(new MeshConstraints());
-            //MeshConstraintUtil.FixAllBoundaryEdges(r.Constraints, renderModel);
-
-            //int set_id = 1;
-            //int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(renderModel);
-            //foreach (int[] tri_list in group_tri_sets)
-            //{
-            //    MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(renderModel, tri_list);
-            //    foreach (EdgeLoop loop in loops)
-            //    {
-            //        MeshConstraintUtil.ConstrainVtxLoopTo(r, loop.Vertices,
-            //            new DCurveProjectionTarget(loop.ToCurve()), set_id++);
-            //    }
-            //}
-
-            return mesh;
-        }
         private void ResetModel(object param)
         {
             IsIndeterminate = true;
             renderModel = new DMesh3(baseModel);
             MainMesh = ConvertToModel3D(renderModel);
+        }
+
+        private void LoadModel(object obj)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "3d Objects|*.obj;*.stl";
+            if (ofd.ShowDialog() != true)
+                return;
+            // получаем выбранный файл
+            string filename = ofd.FileName;
+            LoadModel(filename);
+            ResetModel(null);
+        }
+        private void SaveModel(object obj)
+        {
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.Filter = "3d Objects|*.obj;";
+            if (sfd.ShowDialog() != true)
+                return;
+            // получаем выбранный файл
+            string filename = sfd.FileName;
+            WriteOptions writeOptions = new WriteOptions();
+            writeOptions.bPerVertexColors = true;
+            StandardMeshWriter.WriteFile(
+                filename,
+                new List<WriteMesh>() { new WriteMesh(renderModel) },
+                writeOptions);
         }
 
         private void Render()

@@ -23,69 +23,73 @@
             <helix:GridLinesVisual3D Width="18" Length="18" MinorDistance="1" MajorDistance="1" Thickness="0.01"/>
         </helix:HelixViewport3D>
 
-        <StackPanel Width="auto" Grid.Column="1" DataContext="{Binding}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160"/>
-                    <ColumnDefinition Width="100"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+        <ScrollViewer Grid.Column="1" DataContext="{Binding}">
+            <StackPanel Width="auto"  DataContext="{Binding}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Количество треугольников базовой модели"/>
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TriangleFullCount}"/>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Количество треугольников базовой модели"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TriangleFullCount}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Текущее количество треугольников модели"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TriangleCurrentCount, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Текущее количество треугольников модели"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TriangleCurrentCount, UpdateSourceTrigger=PropertyChanged}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Длина края"/>
-                <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding EdgeLength}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Длина края"/>
+                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding RemeshTool.EdgeLength}"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Скорость размытия"/>
-                <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding SmoothSpeed}"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Скорость размытия"/>
+                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding RemeshTool.SmoothSpeed}"/>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Количество итераций"/>
-                <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding Iterations}"/>
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Количество итераций"/>
+                    <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding RemeshTool.Iterations}"/>
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Перевороты граней"/>
-                <CheckBox  Grid.Row="5" Grid.Column="1" IsChecked="{Binding EnableFlips}"/>
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Перевороты граней"/>
+                    <CheckBox  Grid.Row="5" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableFlips}"/>
 
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="Схлопывание граней"/>
-                <CheckBox  Grid.Row="6" Grid.Column="1" IsChecked="{Binding EnableCollapses}"/>
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Схлопывание граней"/>
+                    <CheckBox  Grid.Row="6" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableCollapses}"/>
 
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="Объединение граней"/>
-                <CheckBox  Grid.Row="7" Grid.Column="1" IsChecked="{Binding EnableSplits}"/>
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Объединение граней"/>
+                    <CheckBox  Grid.Row="7" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSplits}"/>
 
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Сглаживание"/>
-                <CheckBox  Grid.Row="8" Grid.Column="1" IsChecked="{Binding EnableSmoothing}"/>
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Сглаживание"/>
+                    <CheckBox  Grid.Row="8" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSmoothing}"/>
 
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="Оставлять острые углы"/>
-                <CheckBox  Grid.Row="9" Grid.Column="1" IsChecked="{Binding KeepAngle}"/>
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Оставлять острые углы"/>
+                    <CheckBox  Grid.Row="9" Grid.Column="1" IsChecked="{Binding RemeshTool.KeepAngle}"/>
 
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Угол"/>
-                <TextBox   Grid.Row="10" Grid.Column="1" Text="{Binding Angle}"/>
-            </Grid>
-            <Button Height="30" Command="{Binding ApplyCommand}" Content="Применить"/>
-            <Button Height="30" Command="{Binding ReturnToBaseModelCommand}" Content="Вернуть изначальную модель"/>
-            <Button Height="30" Command="{Binding CancelCommand}" Content="Отмена операции"/>
-            <Grid Margin="20">
-                <ProgressBar Minimum="0" Maximum="100" 
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Угол"/>
+                    <TextBox   Grid.Row="10" Grid.Column="1" Text="{Binding RemeshTool.Angle}"/>
+                </Grid>
+                <Button Height="30" Command="{Binding ApplyCommand}" Content="Применить"/>
+                <Button Height="30" Command="{Binding ReturnToBaseModelCommand}" Content="Вернуть изначальную модель"/>
+                <Button Height="30" Command="{Binding CancelCommand}" Content="Отмена операции"/>
+                <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
+                <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>
+                <Grid Margin="20">
+                    <ProgressBar Minimum="0" Maximum="100" 
                              Value="{Binding ProgressProcent, UpdateSourceTrigger=PropertyChanged}"
                              Name="pbStatus"
                              IsIndeterminate="{Binding IsIndeterminate}"/>
-                <TextBlock Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Grid>
-        </StackPanel>
+                    <TextBlock Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>        
     </Grid>
 </UserControl>

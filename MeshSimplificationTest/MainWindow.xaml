@@ -8,7 +8,7 @@
 
     <Window.Resources>
         <Style TargetType="TextBlock">
-            <Setter Property="Margin" Value="0 2 2 10"/>
+            <Setter Property="Margin" Value="2 2 2 10"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
     </Window.Resources>
