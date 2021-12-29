@@ -42,6 +42,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Количество треугольников базовой модели"/>
@@ -50,32 +51,35 @@
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Текущее количество треугольников модели"/>
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TriangleCurrentCount, UpdateSourceTrigger=PropertyChanged}"/>
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Длина края"/>
-                    <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding RemeshTool.EdgeLength}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Количество групп модели"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GroupCount, UpdateSourceTrigger=PropertyChanged}"/>
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Скорость размытия"/>
-                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding RemeshTool.SmoothSpeed}"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Длина края"/>
+                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding RemeshTool.EdgeLength}"/>
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Количество итераций"/>
-                    <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding RemeshTool.Iterations}"/>
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Скорость размытия"/>
+                    <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding RemeshTool.SmoothSpeed}"/>
 
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Перевороты граней"/>
-                    <CheckBox  Grid.Row="5" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableFlips}"/>
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Количество итераций"/>
+                    <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding RemeshTool.Iterations}"/>
 
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Схлопывание граней"/>
-                    <CheckBox  Grid.Row="6" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableCollapses}"/>
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Перевороты граней"/>
+                    <CheckBox  Grid.Row="6" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableFlips}"/>
 
-                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Объединение граней"/>
-                    <CheckBox  Grid.Row="7" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSplits}"/>
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Схлопывание граней"/>
+                    <CheckBox  Grid.Row="7" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableCollapses}"/>
 
-                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Сглаживание"/>
-                    <CheckBox  Grid.Row="8" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSmoothing}"/>
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Объединение граней"/>
+                    <CheckBox  Grid.Row="8" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSplits}"/>
 
-                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Оставлять острые углы"/>
-                    <CheckBox  Grid.Row="9" Grid.Column="1" IsChecked="{Binding RemeshTool.KeepAngle}"/>
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Сглаживание"/>
+                    <CheckBox  Grid.Row="9" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSmoothing}"/>
 
-                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Угол"/>
-                    <TextBox   Grid.Row="10" Grid.Column="1" Text="{Binding RemeshTool.Angle}"/>
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Оставлять острые углы"/>
+                    <CheckBox  Grid.Row="10" Grid.Column="1" IsChecked="{Binding RemeshTool.KeepAngle}"/>
+
+                    <TextBlock Grid.Row="11" Grid.Column="0" Text="Угол"/>
+                    <TextBox   Grid.Row="11" Grid.Column="1" Text="{Binding RemeshTool.Angle}"/>
                 </Grid>
                 <Button Height="30" Command="{Binding ApplyCommand}" Content="Применить"/>
                 <Button Height="30" Command="{Binding ReturnToBaseModelCommand}" Content="Вернуть изначальную модель"/>
@@ -89,6 +93,12 @@
                              IsIndeterminate="{Binding IsIndeterminate}"/>
                     <TextBlock Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Сетка валидна"/>
+                <CheckBox  Grid.Row="9"  Grid.Column="1" 
+                           IsChecked="{Binding MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
+                           IsEnabled="False"
+                           />
             </StackPanel>
         </ScrollViewer>        
     </Grid>

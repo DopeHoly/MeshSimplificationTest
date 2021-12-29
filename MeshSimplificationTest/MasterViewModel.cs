@@ -28,8 +28,8 @@ namespace MeshSimplificationTest
         private DMesh3 renderModel { get; set; }
         public RemeshTool RemeshTool { get; set; }
 
-        public int TriangleCount { get; set; }
         public int TriangleFullCount { get; set; }
+        public int GroupCount { get; set; }
 
         private int _triangleCurrentCount;
         public int TriangleCurrentCount
@@ -39,6 +39,14 @@ namespace MeshSimplificationTest
             {
                 _triangleCurrentCount = value;
                 OnPropertyChanged();
+            }
+        }
+
+        public bool MeshValid
+        {
+            get
+            {
+                return renderModel?.CheckValidity(eFailMode: FailMode.ReturnOnly) ?? false;
             }
         }
 
@@ -68,6 +76,8 @@ namespace MeshSimplificationTest
                 _mainMesh = value;
                 TriangleFullCount = baseModel.TriangleCount;
                 TriangleCurrentCount = renderModel.TriangleCount;
+                GroupCount = FaceGroupUtil.FindTriangleSetsByGroup(renderModel).Length;                
+                OnPropertyChanged(nameof(GroupCount));
                 ResetPB();
                 OnPropertyChanged();
             }
@@ -148,8 +158,8 @@ namespace MeshSimplificationTest
         private void LoadModel(string path)
         {
             baseModel = StandardMeshReader.ReadMesh(path);
-            RemeshTool.SetGroupByNormal(baseModel);
-            RemeshTool.ExportByGroup(baseModel);
+            //RemeshTool.SetGroupByNormal(baseModel);
+            //RemeshTool.ExportByGroup(baseModel);
             TriangleFullCount = baseModel.TriangleCount;
         }
 
@@ -207,7 +217,7 @@ namespace MeshSimplificationTest
             Token = new CancellationTokenSource();
             try
             {
-                renderModel = await RemeshTool.CalculateAsync(baseModel, Token.Token, progress);
+                renderModel = await RemeshTool.RemeshAsync(baseModel, Token.Token, progress);
             }
             catch {}
             finally
@@ -254,6 +264,7 @@ namespace MeshSimplificationTest
         private void Render()
         {
             renderModel = renderModel == null ? new DMesh3(baseModel) : renderModel;
+            OnPropertyChanged(nameof(MeshValid));
             MainMesh = ConvertToModel3D(renderModel);
         }
 

@@ -9,17 +9,68 @@ using System.Threading.Tasks;
 
 namespace MeshSimplificationTest
 {
+    /// <summary>
+    /// Класс для перестроения сетки с учётом параметров
+    /// основная информация получена с сайта
+    /// http://www.gradientspace.com/tutorials/2018/7/5/remeshing-and-constraints
+    /// </summary>
     public class RemeshTool
     {
+        /// <summary>
+        /// Целевая длина ребра треугольника будущего меша
+        /// </summary>
         public double EdgeLength { get; set; }
+
+        /// <summary>
+        /// Коэффициент размытия.
+        /// </summary>
         public double SmoothSpeed { get; set; }
-        public double Angle { get; set; }
-        public int Iterations { get; set; }
-        public bool EnableFlips { get; set; }
-        public bool EnableCollapses { get; set; }
-        public bool EnableSplits { get; set; }
-        public bool EnableSmoothing { get; set; }
+
+        /// <summary>
+        /// Включает ограничение на взаимодействие с гранями, 
+        /// которые имеют между собой угол больше, чем пороговый
+        /// </summary>
         public bool KeepAngle { get; set; }
+
+        /// <summary>
+        /// Пороговая величина внешнего угла между гранями
+        /// </summary>
+        public double Angle { get; set; }
+
+        /// <summary>
+        /// Количество прогонов сглаживания
+        /// </summary>
+        public int Iterations { get; set; }
+
+        /// <summary>
+        /// Включить переворот граней
+        /// </summary>
+        public bool EnableFlips { get; set; }
+
+        /// <summary>
+        /// Включить разрушение граней
+        /// </summary>
+        public bool EnableCollapses { get; set; }
+
+        /// <summary>
+        /// Включить разделение граней
+        /// </summary>
+        public bool EnableSplits { get; set; }
+
+        /// <summary>
+        /// Включить сглаживание
+        /// </summary>
+        public bool EnableSmoothing { get; set; }
+
+        /// <summary>
+        /// Включить ограничения для граничного контура групп треугольников (face group)
+        /// </summary>
+        public bool EnableFaceGroup { get; set; }
+
+        /// <summary>
+        /// Разрешить разрушать точки в ограниченных контурах
+        /// </summary>
+        public bool AllowCollapseFixedVertsWithSameSetID { get; set; }
 
         public RemeshTool()
         {
@@ -37,35 +88,74 @@ namespace MeshSimplificationTest
             SmoothSpeed = 0.5;
             EdgeLength = 1;
             Iterations = 25;
+            EnableFaceGroup = true;
+            AllowCollapseFixedVertsWithSameSetID = false;
         }
 
-        public async Task<DMesh3> CalculateAsync(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
+        /// <summary>
+        /// Вернёт новую сетку в соответствии с настройками RemeshTool
+        /// </summary>
+        /// <param name="inputModel"></param>
+        /// <param name="cancelToken"></param>
+        /// <param name="progress"></param>
+        /// <returns></returns>
+        public async Task<DMesh3> RemeshAsync(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
         {
             return await Task.Run(() => Calculate(inputModel, cancelToken, progress));
         }
 
+        /// <summary>
+        /// Работает с предварительно настроенным классом Remesh
+        /// </summary>
+        /// <param name="r"></param>
+        /// <param name="Iterations"></param>
+        /// <param name="cancelToken"></param>
+        /// <param name="progress"></param>
+        public static async void RemeshAsync(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<int> progress = null)
+        {
+            await Task.Run(() => RemeshCalculateIterations(r, Iterations, cancelToken, progress));
+        }
+        
+        /// <summary>
+        /// Вернёт новую сетку в соответствии с настройками RemeshTool
+        /// </summary>
+        /// <param name="inputModel"></param>
+        /// <param name="cancelToken"></param>
+        /// <param name="progress"></param>
+        /// <returns></returns>
         public DMesh3 Calculate(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
         {
             inputModel.CheckValidity();
             var mesh = new DMesh3(inputModel);
             Remesher r = new Remesher(mesh);
 
-            //var repair = new MeshAutoRepair(mesh);
-            //repair.Apply();
-
             r.PreventNormalFlips = true;
             r.Precompute();
-            r.AllowCollapseFixedVertsWithSameSetID = false;
-            r.EnableParallelProjection = true;
-            r.EnableSmoothInPlace = true;
+            r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
+            r.EnableParallelProjection = false;
+            r.EnableSmoothInPlace = false;
             r.SmoothType = Remesher.SmoothTypes.Cotan;
-            //r.EdgeFlipTolerance = 0.1;
+
+            if (EnableFaceGroup)
+            {
+                int set_id = 1;
+                int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
+                foreach (int[] tri_list in group_tri_sets)
+                {
+                    MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
+                    foreach (EdgeLoop loop in loops)
+                    {
+                        MeshConstraintUtil.ConstrainVtxLoopTo(r, loop.Vertices,
+                            new DCurveProjectionTarget(loop.ToCurve()), set_id++);
+                    }
+                }
+            }
+            
             if (KeepAngle)
             {
                 AxisAlignedBox3d bounds = mesh.CachedBounds;
                 // construct mesh projection target
                 DMesh3 meshCopy = new DMesh3(mesh);
-                //meshCopy.CheckValidity();
                 DMeshAABBTree3 tree = new DMeshAABBTree3(meshCopy);
                 tree.Build();
                 MeshProjectionTarget target = new MeshProjectionTarget()
@@ -90,21 +180,37 @@ namespace MeshSimplificationTest
                 }
                 r.Precompute();
                 r.SetExternalConstraints(cons);
-                //r.SetProjectionTarget(target);
+                r.SetProjectionTarget(target);
             }
 
             r.EnableFlips = EnableFlips;
             r.EnableCollapses = EnableCollapses;
             r.EnableSplits = EnableSplits;
 
-            //r.MinEdgeLength = 0.1f * EdgeLength;
-            //r.MaxEdgeLength = 0.2f * EdgeLength;
+            //r.MinEdgeLength = 0.9f * EdgeLength;
+            //r.MaxEdgeLength = 1.1f * EdgeLength;
             r.EnableSmoothing = EnableSmoothing;
             r.SmoothSpeedT = SmoothSpeed;
             r.SetTargetEdgeLength(EdgeLength);
             r.SmoothType = Remesher.SmoothTypes.MeanValue;
 
+
             cancelToken.ThrowIfCancellationRequested();
+            RemeshCalculateIterations(r, Iterations, cancelToken, progress);
+            MeshEditor.RemoveFinTriangles(mesh);
+
+            return mesh;
+        }
+
+        /// <summary>
+        /// Расчёт сетки
+        /// </summary>
+        /// <param name="r"></param>
+        /// <param name="Iterations"></param>
+        /// <param name="cancelToken"></param>
+        /// <param name="progress"></param>
+        private static void RemeshCalculateIterations(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<int> progress = null)
+        {
             for (int k = 0; k < Iterations; ++k)
             {
                 cancelToken.ThrowIfCancellationRequested();
@@ -112,28 +218,6 @@ namespace MeshSimplificationTest
                 progress?.Report(val);
                 r.BasicRemeshPass();
             }
-            MeshEditor.RemoveFinTriangles(mesh);
-
-            //r.PreventNormalFlips = true;
-            //r.SetTargetEdgeLength(EdgeLength);
-            //r.EnableSmoothing = false;
-            //r.SetProjectionTarget(MeshProjectionTarget.Auto(renderModel));
-            //r.SetExternalConstraints(new MeshConstraints());
-            //MeshConstraintUtil.FixAllBoundaryEdges(r.Constraints, renderModel);
-
-            //int set_id = 1;
-            //int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(renderModel);
-            //foreach (int[] tri_list in group_tri_sets)
-            //{
-            //    MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(renderModel, tri_list);
-            //    foreach (EdgeLoop loop in loops)
-            //    {
-            //        MeshConstraintUtil.ConstrainVtxLoopTo(r, loop.Vertices,
-            //            new DCurveProjectionTarget(loop.ToCurve()), set_id++);
-            //    }
-            //}
-
-            return mesh;
         }
 
         public static void SetGroupByNormal(DMesh3 mesh)
