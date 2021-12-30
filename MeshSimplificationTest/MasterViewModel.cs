@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,9 +21,8 @@ namespace MeshSimplificationTest
         //private const string MODEL_PATH = @"C:\GitProjects\Frost3\samples\stl\dragon.stl";
         //private const string MODEL_PATH = @"C:\Users\menin\Documents\cilinder.obj";
         //private const string MODEL_PATH = @"C:\Users\User\Downloads\145U_14Part_withoutRound_withoutMerge_withoutCorrect.stl";
-        private const string MODEL_PATH = @"C:\Users\User\Downloads\test2.stl";
-        private const string bufer_PATH = @"C:\GitProjects\bufer.obj";
-        private const string debugBufer_PATH = @"C:\GitProjects\debugbufer.obj";
+        private string MODEL_PATH = Path.Combine(Directory.GetCurrentDirectory(),"cube.stl");
+        private string bufer_PATH = Path.Combine(Directory.GetCurrentDirectory(), @"bufer.obj");
 
         private DMesh3 baseModel { get; set; }
         private DMesh3 renderModel { get; set; }
@@ -158,9 +158,7 @@ namespace MeshSimplificationTest
         private void LoadModel(string path)
         {
             baseModel = StandardMeshReader.ReadMesh(path);
-            //RemeshTool.SetGroupByNormal(baseModel);
-            //RemeshTool.ExportByGroup(baseModel);
-            TriangleFullCount = baseModel.TriangleCount;
+            TriangleFullCount = baseModel?.TriangleCount ?? 0;
         }
 
         private Model3D ConvertToModel3D(DMesh3 model)

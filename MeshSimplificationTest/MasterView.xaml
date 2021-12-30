@@ -20,7 +20,6 @@
             <helix:SunLight/>
             <ModelVisual3D Content="{Binding MainMesh}">
             </ModelVisual3D>
-            <helix:GridLinesVisual3D Width="18" Length="18" MinorDistance="1" MajorDistance="1" Thickness="0.01"/>
         </helix:HelixViewport3D>
 
         <ScrollViewer Grid.Column="1" DataContext="{Binding}">
