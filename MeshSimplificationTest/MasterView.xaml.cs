@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HelixToolkit.Wpf;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,6 +25,7 @@ namespace MeshSimplificationTest
         {
             InitializeComponent();
             viewPort3d.ShowTriangleCountInfo = true;
+
         }
     }
 }

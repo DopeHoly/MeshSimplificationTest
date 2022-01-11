@@ -131,7 +131,7 @@ namespace MeshSimplificationTest
 
             r.PreventNormalFlips = true;
             r.Precompute();
-            //r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
+            r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
             r.EnableParallelProjection = false;
             r.EnableSmoothInPlace = false;
             r.SmoothType = Remesher.SmoothTypes.Cotan;

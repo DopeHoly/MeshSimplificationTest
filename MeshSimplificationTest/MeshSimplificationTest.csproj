@@ -56,8 +56,8 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="geometry3">
-      <HintPath>..\..\..\..\..\..\GitProjects\geometry3Sharp\bin\x64\Debug\geometry3.dll</HintPath>
+    <Reference Include="geometry3Sharp, Version=1.0.324.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\geometry3Sharp.1.0.324\lib\net45\geometry3Sharp.dll</HintPath>
     </Reference>
     <Reference Include="HelixToolkit, Version=2.20.0.0, Culture=neutral, PublicKeyToken=52aa3500039caf0d, processorArchitecture=MSIL">
       <HintPath>..\packages\HelixToolkit.2.20.0\lib\netstandard1.1\HelixToolkit.dll</HintPath>
