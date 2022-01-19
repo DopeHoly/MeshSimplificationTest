@@ -17,7 +17,8 @@
         <helix:HelixViewport3D x:Name="viewPort3d" 
                                ZoomExtentsWhenLoaded="true">
             <!-- Remember to add light to the scene -->
-            <helix:SunLight/>
+            <helix:BoundingBoxVisual3D/>
+            <helix:DefaultLights/>
             <ModelVisual3D Content="{Binding MainMesh}">
             </ModelVisual3D>
         </helix:HelixViewport3D>

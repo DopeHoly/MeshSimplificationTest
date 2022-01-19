@@ -72,6 +72,14 @@ namespace MeshSimplificationTest
         /// </summary>
         public bool AllowCollapseFixedVertsWithSameSetID { get; set; }
 
+        public Remesher.TargetProjectionMode TargetProjectionMode { get; set; }
+
+
+        public Remesher.SmoothTypes SmoothType { get; set; }
+
+        public bool Reprojection { get; set; }
+
+
         public RemeshTool()
         {
             SetDefaultSettings();
@@ -90,6 +98,9 @@ namespace MeshSimplificationTest
             Iterations = 25;
             EnableFaceGroup = true;
             AllowCollapseFixedVertsWithSameSetID = false;
+            TargetProjectionMode = Remesher.TargetProjectionMode.Inline;
+            SmoothType = Remesher.SmoothTypes.Cotan;
+            Reprojection = true;
         }
 
         /// <summary>
@@ -125,19 +136,28 @@ namespace MeshSimplificationTest
         /// <returns></returns>
         public DMesh3 Calculate(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
         {
-            inputModel.CheckValidity();
+            //inputModel.CheckValidity();
             var mesh = new DMesh3(inputModel);
             Remesher r = new Remesher(mesh);
-
+            //RemesherPro r = new RemesherPro(mesh);
             r.PreventNormalFlips = true;
             r.Precompute();
-            r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
-            r.EnableParallelProjection = false;
+            //r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
+            r.AllowCollapseFixedVertsWithSameSetID = true;
+            r.EnableParallelProjection = true;
             r.EnableSmoothInPlace = false;
-            r.SmoothType = Remesher.SmoothTypes.Cotan;
+            r.SmoothType = SmoothType;
+            r.ProjectionMode = TargetProjectionMode;
+            MeshConstraints cons = new MeshConstraints();
+            EdgeRefineFlags useFlags = EdgeRefineFlags.NoFlip;
+            AxisAlignedBox3d bounds = mesh.CachedBounds;
+
+            if (Reprojection)
+                r.SetProjectionTarget(MeshProjectionTarget.Auto(mesh));
 
             if (EnableFaceGroup)
             {
+                cons = r.Constraints ?? new MeshConstraints();
                 int set_id = 1;
                 int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
                 foreach (int[] tri_list in group_tri_sets)
@@ -147,13 +167,21 @@ namespace MeshSimplificationTest
                     {
                         MeshConstraintUtil.ConstrainVtxLoopTo(r, loop.Vertices,
                             new DCurveProjectionTarget(loop.ToCurve()), set_id++);
+                        //foreach (var eid in loop.Edges)
+                        //{
+                        //    cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(useFlags));
+                        //    Index2i ev = mesh.GetEdgeV(eid);
+                        //    int nSetID0 = (mesh.GetVertex(ev[0]).y > bounds.Center.y) ? 1 : 2;
+                        //    int nSetID1 = (mesh.GetVertex(ev[1]).y > bounds.Center.y) ? 1 : 2;
+                        //    cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
+                        //    cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
+                        //}
                     }
                 }
             }
             
             if (KeepAngle)
             {
-                AxisAlignedBox3d bounds = mesh.CachedBounds;
                 // construct mesh projection target
                 DMesh3 meshCopy = new DMesh3(mesh);
                 DMeshAABBTree3 tree = new DMeshAABBTree3(meshCopy);
@@ -163,8 +191,7 @@ namespace MeshSimplificationTest
                     Mesh = meshCopy,
                     Spatial = tree
                 };
-                MeshConstraints cons = new MeshConstraints();
-                EdgeRefineFlags useFlags = EdgeRefineFlags.NoFlip;
+                cons = r.Constraints ?? new MeshConstraints();
                 foreach (int eid in mesh.EdgeIndices())
                 {
                     double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
@@ -183,6 +210,7 @@ namespace MeshSimplificationTest
                 r.SetProjectionTarget(target);
             }
 
+            //r.SetExternalConstraints(cons);
             r.EnableFlips = EnableFlips;
             r.EnableCollapses = EnableCollapses;
             r.EnableSplits = EnableSplits;
@@ -192,12 +220,12 @@ namespace MeshSimplificationTest
             r.EnableSmoothing = EnableSmoothing;
             r.SmoothSpeedT = SmoothSpeed;
             r.SetTargetEdgeLength(EdgeLength);
-            r.SmoothType = Remesher.SmoothTypes.MeanValue;
+            //r.SmoothType = Remesher.SmoothTypes.MeanValue;
 
 
             cancelToken.ThrowIfCancellationRequested();
             RemeshCalculateIterations(r, Iterations, cancelToken, progress);
-            MeshEditor.RemoveFinTriangles(mesh);
+            //MeshEditor.RemoveFinTriangles(mesh);
 
             return mesh;
         }
