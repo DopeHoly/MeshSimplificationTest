@@ -142,47 +142,22 @@ namespace MeshSimplificationTest
             //RemesherPro r = new RemesherPro(mesh);
             r.PreventNormalFlips = true;
             r.Precompute();
-            //r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
-            r.AllowCollapseFixedVertsWithSameSetID = true;
+            r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
             r.EnableParallelProjection = true;
-            r.EnableSmoothInPlace = false;
-            r.SmoothType = SmoothType;
+            r.EnableParallelSmooth = true;
+            r.EnableSmoothInPlace = true;
+            r.SmoothType = /*SmoothType;*/Remesher.SmoothTypes.Uniform;
             r.ProjectionMode = TargetProjectionMode;
+
+
             MeshConstraints cons = new MeshConstraints();
-            EdgeRefineFlags useFlags = EdgeRefineFlags.NoFlip;
+            EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
             AxisAlignedBox3d bounds = mesh.CachedBounds;
 
+            //if (Reprojection)
+            //    r.SetProjectionTarget(MeshProjectionTarget.Auto(mesh));
             if (Reprojection)
-                r.SetProjectionTarget(MeshProjectionTarget.Auto(mesh));
-
-            if (EnableFaceGroup)
             {
-                cons = r.Constraints ?? new MeshConstraints();
-                int set_id = 1;
-                int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
-                foreach (int[] tri_list in group_tri_sets)
-                {
-                    MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
-                    foreach (EdgeLoop loop in loops)
-                    {
-                        MeshConstraintUtil.ConstrainVtxLoopTo(r, loop.Vertices,
-                            new DCurveProjectionTarget(loop.ToCurve()), set_id++);
-                        //foreach (var eid in loop.Edges)
-                        //{
-                        //    cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(useFlags));
-                        //    Index2i ev = mesh.GetEdgeV(eid);
-                        //    int nSetID0 = (mesh.GetVertex(ev[0]).y > bounds.Center.y) ? 1 : 2;
-                        //    int nSetID1 = (mesh.GetVertex(ev[1]).y > bounds.Center.y) ? 1 : 2;
-                        //    cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
-                        //    cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
-                        //}
-                    }
-                }
-            }
-            
-            if (KeepAngle)
-            {
-                // construct mesh projection target
                 DMesh3 meshCopy = new DMesh3(mesh);
                 DMeshAABBTree3 tree = new DMeshAABBTree3(meshCopy);
                 tree.Build();
@@ -191,32 +166,63 @@ namespace MeshSimplificationTest
                     Mesh = meshCopy,
                     Spatial = tree
                 };
-                cons = r.Constraints ?? new MeshConstraints();
+                r.SetProjectionTarget(target);
+            }                
+
+            if (EnableFaceGroup)
+            {
+                int set_id = 1;
+                int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
+                foreach (int[] tri_list in group_tri_sets)
+                {
+                    MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
+                    foreach (EdgeLoop loop in loops)
+                    {
+                        foreach (var eid in loop.Edges)
+                        {
+                            cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(edgeRefineFlags));
+                            Index2i ev = mesh.GetEdgeV(eid);
+                            cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true));
+                            cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true));
+                        }
+                    }
+                }
+            }
+
+            if (KeepAngle)
+            {
                 foreach (int eid in mesh.EdgeIndices())
                 {
                     double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
                     if (fAngle > Angle)
                     {
-                        cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(useFlags));
+                        cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(edgeRefineFlags));
                         Index2i ev = mesh.GetEdgeV(eid);
+
                         int nSetID0 = (mesh.GetVertex(ev[0]).y > bounds.Center.y) ? 1 : 2;
                         int nSetID1 = (mesh.GetVertex(ev[1]).y > bounds.Center.y) ? 1 : 2;
                         cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
                         cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
+
+                        //int nSetID0 = (int)Math.Truncate(fAngle);
+                        //int nSetID1 = nSetID0;
+                        //cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
+                        //cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
                     }
                 }
-                r.Precompute();
-                r.SetExternalConstraints(cons);
-                r.SetProjectionTarget(target);
             }
+
+            r.Precompute();
+            r.SetExternalConstraints(cons);
+            //r.SetProjectionTarget(target);
 
             //r.SetExternalConstraints(cons);
             r.EnableFlips = EnableFlips;
             r.EnableCollapses = EnableCollapses;
             r.EnableSplits = EnableSplits;
 
-            //r.MinEdgeLength = 0.9f * EdgeLength;
-            //r.MaxEdgeLength = 1.1f * EdgeLength;
+            //r.MinEdgeLength = EdgeLength * 0.5f;
+            //r.MaxEdgeLength = EdgeLength * 1.5f;
             r.EnableSmoothing = EnableSmoothing;
             r.SmoothSpeedT = SmoothSpeed;
             r.SetTargetEdgeLength(EdgeLength);
