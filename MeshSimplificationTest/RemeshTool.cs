@@ -92,14 +92,14 @@ namespace MeshSimplificationTest
             EnableSplits = true;
             EnableSmoothing = true;
             KeepAngle = true;
-            Angle = 30;
+            Angle = 3;
             SmoothSpeed = 0.5;
             EdgeLength = 1;
             Iterations = 25;
             EnableFaceGroup = true;
-            AllowCollapseFixedVertsWithSameSetID = false;
+            AllowCollapseFixedVertsWithSameSetID = true;
             TargetProjectionMode = Remesher.TargetProjectionMode.Inline;
-            SmoothType = Remesher.SmoothTypes.Cotan;
+            SmoothType = Remesher.SmoothTypes.Uniform;
             Reprojection = true;
         }
 
@@ -136,17 +136,16 @@ namespace MeshSimplificationTest
         /// <returns></returns>
         public DMesh3 Calculate(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
         {
-            //inputModel.CheckValidity();
             var mesh = new DMesh3(inputModel);
-            Remesher r = new Remesher(mesh);
-            //RemesherPro r = new RemesherPro(mesh);
+            //Remesher r = new Remesher(mesh);
+            RemesherPro r = new RemesherPro(mesh);
             r.PreventNormalFlips = true;
             r.Precompute();
             r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
             r.EnableParallelProjection = true;
             r.EnableParallelSmooth = true;
             r.EnableSmoothInPlace = true;
-            r.SmoothType = /*SmoothType;*/Remesher.SmoothTypes.Uniform;
+            r.SmoothType = SmoothType;
             r.ProjectionMode = TargetProjectionMode;
 
 
@@ -154,69 +153,27 @@ namespace MeshSimplificationTest
             EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
             AxisAlignedBox3d bounds = mesh.CachedBounds;
 
-            //if (Reprojection)
-            //    r.SetProjectionTarget(MeshProjectionTarget.Auto(mesh));
             if (Reprojection)
             {
-                DMesh3 meshCopy = new DMesh3(mesh);
-                DMeshAABBTree3 tree = new DMeshAABBTree3(meshCopy);
-                tree.Build();
-                MeshProjectionTarget target = new MeshProjectionTarget()
-                {
-                    Mesh = meshCopy,
-                    Spatial = tree
-                };
-                r.SetProjectionTarget(target);
-            }                
+                r.SetProjectionTarget(MeshProjectionTarget.Auto(mesh));
+                cancelToken.ThrowIfCancellationRequested();
+            }
 
             if (EnableFaceGroup)
             {
-                int set_id = 1;
-                int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
-                foreach (int[] tri_list in group_tri_sets)
-                {
-                    MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
-                    foreach (EdgeLoop loop in loops)
-                    {
-                        foreach (var eid in loop.Edges)
-                        {
-                            cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(edgeRefineFlags));
-                            Index2i ev = mesh.GetEdgeV(eid);
-                            cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true));
-                            cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true));
-                        }
-                    }
-                }
+                MeshConstraintsGroups(mesh, edgeRefineFlags, cons);
+                cancelToken.ThrowIfCancellationRequested();
             }
 
             if (KeepAngle)
             {
-                foreach (int eid in mesh.EdgeIndices())
-                {
-                    double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
-                    if (fAngle > Angle)
-                    {
-                        cons.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(edgeRefineFlags));
-                        Index2i ev = mesh.GetEdgeV(eid);
-
-                        int nSetID0 = (mesh.GetVertex(ev[0]).y > bounds.Center.y) ? 1 : 2;
-                        int nSetID1 = (mesh.GetVertex(ev[1]).y > bounds.Center.y) ? 1 : 2;
-                        cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
-                        cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
-
-                        //int nSetID0 = (int)Math.Truncate(fAngle);
-                        //int nSetID1 = nSetID0;
-                        //cons.SetOrUpdateVertexConstraint(ev[0], new VertexConstraint(true, nSetID0));
-                        //cons.SetOrUpdateVertexConstraint(ev[1], new VertexConstraint(true, nSetID1));
-                    }
-                }
+                MeshConstraintsAngle(mesh, Angle, edgeRefineFlags, cons);
+                cancelToken.ThrowIfCancellationRequested();
             }
 
             r.Precompute();
             r.SetExternalConstraints(cons);
-            //r.SetProjectionTarget(target);
 
-            //r.SetExternalConstraints(cons);
             r.EnableFlips = EnableFlips;
             r.EnableCollapses = EnableCollapses;
             r.EnableSplits = EnableSplits;
@@ -226,13 +183,11 @@ namespace MeshSimplificationTest
             r.EnableSmoothing = EnableSmoothing;
             r.SmoothSpeedT = SmoothSpeed;
             r.SetTargetEdgeLength(EdgeLength);
-            //r.SmoothType = Remesher.SmoothTypes.MeanValue;
 
 
             cancelToken.ThrowIfCancellationRequested();
             RemeshCalculateIterations(r, Iterations, cancelToken, progress);
-            //MeshEditor.RemoveFinTriangles(mesh);
-
+            MeshEditor.RemoveFinTriangles(mesh);
             return mesh;
         }
 
@@ -254,59 +209,125 @@ namespace MeshSimplificationTest
             }
         }
 
-        public static void SetGroupByNormal(DMesh3 mesh)
+        /// <summary>
+        /// Обновляет ограничения для ремеша по группам треугольников меша
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="edgeRefineFlags">тип ограничения граней</param>
+        /// <param name="constraints">ограничения ремеша</param>
+        private void MeshConstraintsGroups(DMesh3 mesh, EdgeRefineFlags edgeRefineFlags, MeshConstraints constraints)
         {
-            mesh.EnableTriangleGroups(1);
-            mesh.EnableVertexColors(new Vector3f()
-            {
-                x = 0,
-                y = 0,
-                z = 0,
-            });
-            var dictionary = new Dictionary<Vector3d, int>();
-            int curentGroupID = -1;
-            int maxGroupId = 0;
-            foreach (int triangleid in mesh.TriangleIndices())
-            {
-                var triangle = mesh.GetTriangle(triangleid);
-                var a = mesh.GetVertex(triangle.a);
-                var b = mesh.GetVertex(triangle.b);
-                var c = mesh.GetVertex(triangle.c);
-
-                var side1 = b - a;
-                var side2 = c - a;
-                var normal = Vector3d.Cross(side1, side2);
-                if (!dictionary.ContainsKey(normal))//new group
-                {
-                    ++maxGroupId;
-                    curentGroupID = maxGroupId;
-                    dictionary[normal] = curentGroupID;
-                }
-                else
-                {
-                    curentGroupID = dictionary[normal];
-                }
-                mesh.SetTriangleGroup(triangleid, curentGroupID);
-                var color = new Vector3f()
-                {
-                    x = curentGroupID * 20,
-                    y = curentGroupID * 5,
-                    z = curentGroupID * 6,
-                };
-                mesh.SetVertexColor(triangle.a, color);
-                mesh.SetVertexColor(triangle.b, color);
-                mesh.SetVertexColor(triangle.c, color);
-            }
-            return;
+            var edgesID = GetEdgesIdConstrainsByGroups(mesh);
+            MeshConstraints(mesh, edgesID, edgeRefineFlags, constraints);
         }
 
-        public static void ExportByGroup(DMesh3 mesh)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <returns></returns>
+        private List<int> GetEdgesIdConstrainsByGroups(DMesh3 mesh)
         {
+            var edgesId = new List<int>();
             int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
             foreach (int[] tri_list in group_tri_sets)
             {
-                
+                MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
+                foreach (EdgeLoop loop in loops)
+                {
+                    foreach (var eid in loop.Edges)
+                    {
+                        edgesId.Add(eid);
+                    }
+                }
             }
+            edgesId = edgesId.Distinct().ToList();
+            return edgesId;
+        }
+
+        /// <summary>
+        /// Обновляет ограничения для ремеша по углу граней
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="angle">угол</param>
+        /// <param name="edgeRefineFlags">тип ограничения граней</param>
+        /// <param name="constraints">ограничения ремеша</param>
+        private void MeshConstraintsAngle(DMesh3 mesh, double angle, EdgeRefineFlags edgeRefineFlags, MeshConstraints constraints)
+        {
+            var edgesID = GetEdgesIdConstrainsByAngle(mesh, angle);
+            MeshConstraints(mesh, edgesID, edgeRefineFlags, constraints);
+        }
+
+        /// <summary>
+        /// Вычисление граней, между которыми треугольники расположены под углом больше angle
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="angle">угол</param>
+        /// <returns>список id граней, подпадающих под условие</returns>
+        private List<int> GetEdgesIdConstrainsByAngle(DMesh3 mesh, double angle)
+        {
+            var edgesId = new List<int>();
+
+            foreach (int eid in mesh.EdgeIndices())
+            {
+                double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
+                if (fAngle > angle)
+                {
+                    edgesId.Add(eid);
+                }
+            }
+            return edgesId;
+        }
+
+        /// <summary>
+        /// Обновление ограничений для edgesID
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="edgesID">список id граней с ограничением</param>
+        /// <param name="edgeRefineFlags">тип ограничения</param>
+        /// <param name="constraints">ограничение</param>
+        private void MeshConstraints(DMesh3 mesh, List<int> edgesID, EdgeRefineFlags edgeRefineFlags, MeshConstraints constraints)
+        {
+            foreach (var eid in edgesID)
+            {
+                constraints.SetOrUpdateEdgeConstraint(eid, new EdgeConstraint(edgeRefineFlags));
+            }
+
+            var vtxsID = GetVtxIDStats(mesh, edgesID);
+            var counter = 1;
+            foreach (var item in vtxsID)
+            {
+                var flag = item.Value == 2 ? 0 : counter;
+                constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, flag));
+                ++counter;
+            }
+        }
+
+        /// <summary>
+        /// Вычисление сколько раз в списке граней встречается каждая из точек
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="edgesId">список id граней</param>
+        /// <returns>словарь(id вертекса,кол-во упоминаний)></id></returns>
+        private Dictionary<int, int> GetVtxIDStats(DMesh3 mesh, List<int> edgesId)
+        {
+            var dict = new Dictionary<int, int>();
+
+            foreach (var eid in edgesId)
+            {
+                var edge = mesh.GetEdgeV(eid);
+                for(int i = 0; i < 2; ++i)
+                {
+                    var value = edge[i];
+                    if (!dict.ContainsKey(value))
+                    {
+                        dict.Add(value, 0);
+                    }
+                    dict[value] += 1;
+                }
+            }
+
+            return dict;
         }
     }
 }

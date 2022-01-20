@@ -321,6 +321,8 @@ namespace MeshSimplificationTest
             string filename = sfd.FileName;
             WriteOptions writeOptions = new WriteOptions();
             writeOptions.bPerVertexColors = true;
+            writeOptions.bWriteGroups = true;
+
             StandardMeshWriter.WriteFile(
                 filename,
                 new List<WriteMesh>() { new WriteMesh(renderModel) },
