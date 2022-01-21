@@ -74,7 +74,6 @@ namespace MeshSimplificationTest
 
         public Remesher.TargetProjectionMode TargetProjectionMode { get; set; }
 
-
         public Remesher.SmoothTypes SmoothType { get; set; }
 
         public bool Reprojection { get; set; }
@@ -110,9 +109,9 @@ namespace MeshSimplificationTest
         /// <param name="cancelToken"></param>
         /// <param name="progress"></param>
         /// <returns></returns>
-        public async Task<DMesh3> RemeshAsync(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
+        public async Task<DMesh3> RemeshAsync(DMesh3 inputModel, CancellationToken cancelToken, IProgress<double> progress = null)
         {
-            return await Task.Run(() => Calculate(inputModel, cancelToken, progress));
+            return await Task.Run(() => Remesh(inputModel, cancelToken, progress));
         }
 
         /// <summary>
@@ -122,11 +121,11 @@ namespace MeshSimplificationTest
         /// <param name="Iterations"></param>
         /// <param name="cancelToken"></param>
         /// <param name="progress"></param>
-        public static async void RemeshAsync(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<int> progress = null)
+        public static async void RemeshAsync(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<double> progress = null)
         {
             await Task.Run(() => RemeshCalculateIterations(r, Iterations, cancelToken, progress));
         }
-        
+        public static MeshConstraints cons { get; set; }
         /// <summary>
         /// Вернёт новую сетку в соответствии с настройками RemeshTool
         /// </summary>
@@ -134,8 +133,12 @@ namespace MeshSimplificationTest
         /// <param name="cancelToken"></param>
         /// <param name="progress"></param>
         /// <returns></returns>
-        public DMesh3 Calculate(DMesh3 inputModel, CancellationToken cancelToken, IProgress<int> progress = null)
+        public DMesh3 Remesh(DMesh3 inputModel, CancellationToken cancelToken, IProgress<double> progress = null)
         {
+            if (!inputModel.CheckValidity(eFailMode: FailMode.ReturnOnly))
+            {
+                FixNormals(inputModel);
+            }
             var mesh = new DMesh3(inputModel);
             //Remesher r = new Remesher(mesh);
             RemesherPro r = new RemesherPro(mesh);
@@ -149,9 +152,8 @@ namespace MeshSimplificationTest
             r.ProjectionMode = TargetProjectionMode;
 
 
-            MeshConstraints cons = new MeshConstraints();
+            var cons = new MeshConstraints();
             EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
-            AxisAlignedBox3d bounds = mesh.CachedBounds;
 
             if (Reprojection)
             {
@@ -178,10 +180,10 @@ namespace MeshSimplificationTest
             r.EnableCollapses = EnableCollapses;
             r.EnableSplits = EnableSplits;
 
-            //r.MinEdgeLength = EdgeLength * 0.5f;
-            //r.MaxEdgeLength = EdgeLength * 1.5f;
             r.EnableSmoothing = EnableSmoothing;
             r.SmoothSpeedT = SmoothSpeed;
+            //r.MinEdgeLength = EdgeLength * 0.5f;
+            //r.MaxEdgeLength = EdgeLength * 1.5f;
             r.SetTargetEdgeLength(EdgeLength);
 
 
@@ -198,12 +200,12 @@ namespace MeshSimplificationTest
         /// <param name="Iterations"></param>
         /// <param name="cancelToken"></param>
         /// <param name="progress"></param>
-        private static void RemeshCalculateIterations(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<int> progress = null)
+        private static void RemeshCalculateIterations(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<double> progress = null)
         {
             for (int k = 0; k < Iterations; ++k)
             {
                 cancelToken.ThrowIfCancellationRequested();
-                int val = (int)Math.Truncate(((double)k / (double)Iterations) * 100);
+                double val = ((double)k / (double)Iterations) * 100;
                 progress?.Report(val);
                 r.BasicRemeshPass();
             }
@@ -294,12 +296,52 @@ namespace MeshSimplificationTest
             }
 
             var vtxsID = GetVtxIDStats(mesh, edgesID);
-            var counter = 1;
+            var counter = 100000;
+            var vtxValid = new List<int>();
             foreach (var item in vtxsID)
             {
-                var flag = item.Value == 2 ? 0 : counter;
+                var flag = counter;
+                if (item.Value == 2)
+                {
+                    flag = 0;
+                    vtxValid.Add(item.Key);
+                }
                 constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, flag));
                 ++counter;
+            }
+            int borderCounter = 0;
+            while (vtxValid != null && vtxValid.Count > 0)
+            {
+                var firstVtxGroup = vtxValid.First();
+                vtxValid.Remove(firstVtxGroup);
+
+                var queue = new Queue<int>();
+                queue.Enqueue(firstVtxGroup);
+                constraints.SetOrUpdateVertexConstraint(firstVtxGroup, new VertexConstraint(true, borderCounter));
+                do
+                {
+                    var curentId = queue.Dequeue();
+                    var esges = edgesID.FindAll((x) =>
+                    {
+                        var edge = mesh.GetEdgeV(x);
+                        return edge[0] == curentId || edge[1] == curentId;
+                    });
+                    foreach (var eid in esges)
+                    {
+                        //получаем вторую точку ребра
+                        var edge = mesh.GetEdgeV(eid);
+                        int vtx2 = edge[0] == curentId ? edge[1] : edge[0];
+
+                        if (vtxValid.Contains(vtx2))
+                        {
+                            vtxValid.Remove(vtx2);
+                            queue.Enqueue(vtx2);
+                            constraints.SetOrUpdateVertexConstraint(vtx2, new VertexConstraint(true, borderCounter));
+                        }
+                    }
+                } while (queue.Count > 0);
+
+                ++borderCounter;
             }
         }
 
@@ -328,6 +370,36 @@ namespace MeshSimplificationTest
             }
 
             return dict;
+        }
+
+        public static void FixNormals(DMesh3 mesh)
+        {
+            var meshRepairOrientation = new MeshRepairOrientation(mesh);
+            meshRepairOrientation.OrientComponents();
+            meshRepairOrientation.SolveGlobalOrientation();
+            var meshRepair = new MeshAutoRepair(mesh);
+            meshRepair.Apply();
+        }
+
+
+        public MeshConstraints GetMeshConstraints(DMesh3 mesh)
+        {
+            if(!mesh.CheckValidity(eFailMode: FailMode.ReturnOnly))
+            {
+                FixNormals(mesh);
+            }
+            var cons = new MeshConstraints();
+            EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
+            if (EnableFaceGroup)
+            {
+                MeshConstraintsGroups(mesh, edgeRefineFlags, cons);
+            }
+
+            if (KeepAngle)
+            {
+                MeshConstraintsAngle(mesh, Angle, edgeRefineFlags, cons);
+            }
+            return cons;
         }
     }
 }

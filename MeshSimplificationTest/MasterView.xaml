@@ -19,8 +19,8 @@
             <!-- Remember to add light to the scene -->
             <helix:BoundingBoxVisual3D/>
             <helix:DefaultLights/>
-            <ModelVisual3D Content="{Binding MainMesh}">
-            </ModelVisual3D>
+            <ModelVisual3D Content="{Binding MainMesh}"/>
+            <ModelVisual3D Content="{Binding DebugLayer}"/>
         </helix:HelixViewport3D>
 
         <ScrollViewer Grid.Column="1" DataContext="{Binding}">
@@ -98,6 +98,7 @@
                 <Button Height="30" Command="{Binding CancelCommand}" Content="Отмена операции"/>
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
                 <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>
+                <Button Height="30" Command="{Binding FixNormalsCommand}" Content="Исправить нормали"/>
                 <Grid Margin="20">
                     <ProgressBar Minimum="0" Maximum="100" 
                              Value="{Binding ProgressProcent, UpdateSourceTrigger=PropertyChanged}"

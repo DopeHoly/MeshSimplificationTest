@@ -77,6 +77,9 @@ namespace MeshSimplificationTest
         protected Lazy<DelegateCommand> _saveModelCommand;
         public ICommand SaveModelCommand => _saveModelCommand.Value;
 
+        protected Lazy<DelegateCommand> _fixNormalsCommand;
+        public ICommand FixNormalsCommand => _fixNormalsCommand.Value;
+
         private Model3D _mainMesh;
         public Model3D MainMesh
         {
@@ -93,6 +96,19 @@ namespace MeshSimplificationTest
                 OnPropertyChanged();
             }
         }
+
+        private Model3D _debugLayer;
+        public Model3D DebugLayer
+        {
+            get => _debugLayer;
+            set
+            {
+                _debugLayer = value;
+                OnPropertyChanged();
+            }
+        }
+
+
 
         private double progressProcent;
         public double ProgressProcent
@@ -150,6 +166,9 @@ namespace MeshSimplificationTest
             _saveModelCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(SaveModel));
 
+            _fixNormalsCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(FixNormalsCommandExecute));
+
             RemeshTool = new RemeshTool();
 
             LoadModel(MODEL_PATH);            
@@ -205,7 +224,7 @@ namespace MeshSimplificationTest
                 new List<WriteMesh>() { new WriteMesh(outputMesh) },
                 writeOptions);
         }
-        private Model3DGroup LoadTriangleMesh(string bufer_PATH)
+        private Model3DGroup LoadTriangleMesh(string bufer_PATH, int idGroup = -1)
         {
             ModelImporter import = new ModelImporter();
             var models = import.Load(bufer_PATH);
@@ -228,16 +247,56 @@ namespace MeshSimplificationTest
                 {
                     Geometry = mesh,
                     Material = new DiffuseMaterial(new SolidColorBrush(
-                        Color.FromRgb(
-                            (byte)rnd.Next(256),
-                            (byte)rnd.Next(256),
-                            (byte)rnd.Next(256))))
+                        GetColor(idGroup)))
                 };
                 resultmodels.Children.Add(resultMesh);
                 resultmodels.Children.Add(wireframe);
             }
             return resultmodels;
         }
+
+        private static Dictionary<int, Color> groupColors = new Dictionary<int, Color>();
+
+
+        private Color GetColor(int id)
+        {
+            if (groupColors.ContainsKey(id)) return groupColors[id];
+            //byte r = (byte)(0.1 + id * 0.03 * 0.2); //расчет 
+            //byte g = (byte)(0.2 + id * 0.03 * 0.3); //значений
+            //byte b = (byte)(0.3 + id * 0.03 * 0.1); //для раскраски множества
+            //byte r = (byte)((id * 10 + rnd.Next(15, 256)) % 255);
+            //byte g = (byte)((id * 10 + rnd.Next(15, 256)) % 255);
+            //byte b = (byte)((id * 10 + rnd.Next(15, 256)) % 255);
+            //var t = id % 3;
+            //switch (t)
+            //{
+            //    case 0:
+            //        r = (byte)((r * 10) % 255);
+            //        break;
+            //    case 1:
+            //        g = (byte)((g * 10) % 255);
+            //        break;
+            //    case 2:
+            //        b = (byte)((b * 10) % 255);
+            //        break;
+            //}
+
+            //groupColors.Add(id, Color.FromRgb(
+            //                r,
+            //                g,
+            //                b));
+            //if (id == 3) return Colors.Transparent;
+            groupColors.Add(id, GetRandomColor());
+            return groupColors[id];
+        }
+        private Color GetRandomColor(int id = -1)
+        {
+            return Color.FromRgb(
+                            (byte)rnd.Next(256),
+                            (byte)rnd.Next(256),
+                            (byte)rnd.Next(256));
+        }
+
         private Model3D ConvertToModel3D(DMesh3 model)
         {
             Model3DGroup resultmodels = null;
@@ -250,10 +309,12 @@ namespace MeshSimplificationTest
                 if(group_tri_sets.Length > 0)
                 {
                     resultmodels = new Model3DGroup();
+                    var cnt = 0;
                     foreach (int[] tri_list in group_tri_sets)
                     {
                         SaveTriangleMeshByIdInFile(model, tri_list, bufer_group_PATH, writeOptions);
-                        resultmodels.Children.Add(LoadTriangleMesh(bufer_group_PATH));
+                        resultmodels.Children.Add(LoadTriangleMesh(bufer_group_PATH, cnt));
+                        ++cnt;
                     }
                 }
                 else
@@ -279,7 +340,7 @@ namespace MeshSimplificationTest
 
         private async void ApplyCommandExecute()
         {
-            IProgress<int> progress = new Progress<int>((p) => ProgressProcent = p);
+            IProgress<double> progress = new Progress<double>((p) => ProgressProcent = p);
             Token = new CancellationTokenSource();
             try
             {
@@ -292,11 +353,18 @@ namespace MeshSimplificationTest
                 Render();
             }
         }
+        private void FixNormalsCommandExecute(object o)
+        {
+            RemeshTool.FixNormals(baseModel);
+            RemeshTool.FixNormals(renderModel);
+            Render();
+        }
 
         private void ResetModel(object param)
         {
             IsIndeterminate = true;
             renderModel = new DMesh3(baseModel);
+            GenerateDebugLayer();
             MainMesh = ConvertToModel3D(renderModel);
         }
 
@@ -332,8 +400,59 @@ namespace MeshSimplificationTest
         private void Render()
         {
             renderModel = renderModel == null ? new DMesh3(baseModel) : renderModel;
+            GenerateDebugLayer();
             OnPropertyChanged(nameof(MeshValid));
             MainMesh = ConvertToModel3D(renderModel);
+        }
+
+        private void GenerateDebugLayer()
+        {
+            var cons = RemeshTool.GetMeshConstraints(renderModel);
+            if (cons == null)
+            {
+                DebugLayer = null;
+                return;
+            }
+            var builder = new MeshBuilder(true, true);
+            var builder2 = new MeshBuilder(true, true);
+            var rad = 0.01;
+            var theta = 4;
+            var phi = 4;
+            foreach (KeyValuePair<int, VertexConstraint> isd in cons.VertexConstraintsItr())
+            {
+                var id = isd.Key;
+                var constrain = cons.GetVertexConstraint(id);
+
+                var vtx = renderModel.GetVertex(id);
+                if (constrain.FixedSetID < 100000)
+                {
+                    //point3Ds.Add(new Point3D(vtx.x, vtx.y, vtx.z));
+                    builder.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
+                }
+                else
+                {
+                    builder2.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
+                }
+
+            }
+            //for (int id = 0; id < renderModel.VertexCount; ++id)
+            //{
+                
+            //}
+            var debugLayer = new Model3DGroup();
+            var model = new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Lime))
+            };
+            var model2 = new GeometryModel3D()
+            {
+                Geometry = builder2.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Red))
+            };
+            debugLayer.Children.Add(model);
+            debugLayer.Children.Add(model2);
+            DebugLayer = debugLayer;
         }
 
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
