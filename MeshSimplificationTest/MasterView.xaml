@@ -5,7 +5,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:MeshSimplificationTest"
              xmlns:helix="http://helix-toolkit.org/wpf"
-             d:DataContext="{d:DesignInstance Type=local:MasterViewModel}"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
@@ -15,104 +14,28 @@
         </Grid.ColumnDefinitions>
 
         <helix:HelixViewport3D x:Name="viewPort3d" 
-                               ZoomExtentsWhenLoaded="true">
+                               ShowTriangleCountInfo="True"
+                               ShowFrameRate="True">
             <!-- Remember to add light to the scene -->
             <helix:BoundingBoxVisual3D/>
             <helix:DefaultLights/>
+            <helix:TranslateManipulator />
             <ModelVisual3D Content="{Binding MainMesh}"/>
-            <ModelVisual3D Content="{Binding DebugLayer}"/>
         </helix:HelixViewport3D>
 
         <ScrollViewer Grid.Column="1" DataContext="{Binding}">
             <StackPanel Width="auto"  DataContext="{Binding}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="100"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Количество треугольников базовой модели"/>
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TriangleFullCount}"/>
-
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Текущее количество треугольников модели"/>
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TriangleCurrentCount, UpdateSourceTrigger=PropertyChanged}"/>
-
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Количество групп модели"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GroupCount, UpdateSourceTrigger=PropertyChanged}"/>
-
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Длина края"/>
-                    <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding RemeshTool.EdgeLength}"/>
-
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Скорость размытия"/>
-                    <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding RemeshTool.SmoothSpeed}"/>
-
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Количество итераций"/>
-                    <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding RemeshTool.Iterations}"/>
-
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Перевороты граней"/>
-                    <CheckBox  Grid.Row="6" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableFlips}"/>
-
-                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Схлопывание граней"/>
-                    <CheckBox  Grid.Row="7" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableCollapses}"/>
-
-                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Объединение граней"/>
-                    <CheckBox  Grid.Row="8" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSplits}"/>
-
-                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Сглаживание"/>
-                    <CheckBox  Grid.Row="9" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableSmoothing}"/>
-
-                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Оставлять острые углы"/>
-                    <CheckBox  Grid.Row="10" Grid.Column="1" IsChecked="{Binding RemeshTool.KeepAngle}"/>
-
-                    <TextBlock Grid.Row="11" Grid.Column="0" Text="Угол"/>
-                    <TextBox   Grid.Row="11" Grid.Column="1" Text="{Binding RemeshTool.Angle}"/>
-                    
-                    <TextBlock Grid.Row="12" Grid.Column="0" Text="Учитыывать группы"/>
-                    <CheckBox  Grid.Row="12" Grid.Column="1" IsChecked="{Binding RemeshTool.EnableFaceGroup}"/>
-                    
-                    <TextBlock Grid.Row="13" Grid.Column="0" Text="Репроекция"/>
-                    <CheckBox  Grid.Row="13" Grid.Column="1" IsChecked="{Binding RemeshTool.Reprojection}"/>
-                    
-                    <TextBlock Grid.Row="14" Grid.Column="0" Text="Разрешить коллапсировать грани с одинаковыми айдишниками граничных условий"/>
-                    <CheckBox  Grid.Row="14" Grid.Column="1" IsChecked="{Binding RemeshTool.AllowCollapseFixedVertsWithSameSetID}"/>
-                </Grid>
-                <Button Height="30" Command="{Binding ApplyCommand}" Content="Применить"/>
-                <Button Height="30" Command="{Binding ReturnToBaseModelCommand}" Content="Вернуть изначальную модель"/>
-                <Button Height="30" Command="{Binding CancelCommand}" Content="Отмена операции"/>
+                
+                <DataGrid ItemsSource="{Binding ModelCollection}" SelectedItem="{Binding SelectMesh}" Width="300" Height="300" AutoGenerateColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Имя" Binding="{Binding Path=Name}"/>
+                        <DataGridCheckBoxColumn Header="Отрисовывать" Binding="{Binding Path=Visible}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
-                <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>
-                <Button Height="30" Command="{Binding FixNormalsCommand}" Content="Исправить нормали"/>
-                <Grid Margin="20">
-                    <ProgressBar Minimum="0" Maximum="100" 
-                             Value="{Binding ProgressProcent, UpdateSourceTrigger=PropertyChanged}"
-                             Name="pbStatus"
-                             IsIndeterminate="{Binding IsIndeterminate}"/>
-                    <TextBlock Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Grid>
-
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Сетка валидна"/>
-                <CheckBox  Grid.Row="9"  Grid.Column="1" 
-                           IsChecked="{Binding MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
-                           IsEnabled="False"
-                           />
+                <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>                
+                <Button Height="30" Command="{Binding IntersectionCommand}" Content="пересечение"/>
             </StackPanel>
-        </ScrollViewer>        
+        </ScrollViewer>
     </Grid>
 </UserControl>

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HelixToolkit.Wpf;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,11 +19,12 @@ namespace MeshSimplificationTest
     /// <summary>
     /// Логика взаимодействия для MasterView.xaml
     /// </summary>
-    public partial class MasterView : UserControl
+    public partial class RemeshView : UserControl
     {
-        public MasterView()
+        public RemeshView()
         {
             InitializeComponent();
+
         }
     }
 }

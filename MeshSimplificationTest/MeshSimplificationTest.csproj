@@ -85,6 +85,11 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="BooleanTool.cs" />
+    <Compile Include="MasterView.xaml.cs">
+      <DependentUpon>MasterView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MasterViewModel.cs" />
     <Compile Include="RemeshTool.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -103,12 +108,16 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="RemeshView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MasterView.xaml.cs">
-      <DependentUpon>MasterView.xaml</DependentUpon>
+    <Compile Include="RemeshView.xaml.cs">
+      <DependentUpon>RemeshView.xaml</DependentUpon>
     </Compile>
-    <Compile Include="MasterViewModel.cs" />
+    <Compile Include="RemeshViewModel.cs" />
     <Compile Include="MeshExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>

@@ -22,7 +22,7 @@ namespace MeshSimplificationTest
         public double EdgeLength { get; set; }
 
         /// <summary>
-        /// Коэффициент размытия.
+        /// Коэффициент размытия. В пределах [0; 1]
         /// </summary>
         public double SmoothSpeed { get; set; }
 
@@ -38,7 +38,7 @@ namespace MeshSimplificationTest
         public double Angle { get; set; }
 
         /// <summary>
-        /// Количество прогонов сглаживания
+        /// Количество прогонов ремеша
         /// </summary>
         public int Iterations { get; set; }
 
@@ -48,7 +48,7 @@ namespace MeshSimplificationTest
         public bool EnableFlips { get; set; }
 
         /// <summary>
-        /// Включить разрушение граней
+        /// Включить сворачивание граней
         /// </summary>
         public bool EnableCollapses { get; set; }
 
@@ -74,8 +74,15 @@ namespace MeshSimplificationTest
 
         public Remesher.TargetProjectionMode TargetProjectionMode { get; set; }
 
+        /// <summary>
+        /// Тип сглаживания
+        /// </summary>
         public Remesher.SmoothTypes SmoothType { get; set; }
 
+        /// <summary>
+        /// Включить репроекцию объёма объекта
+        /// Ремешер будет стараться сохранить прежний объём объекта
+        /// </summary>
         public bool Reprojection { get; set; }
 
 
@@ -125,7 +132,7 @@ namespace MeshSimplificationTest
         {
             await Task.Run(() => RemeshCalculateIterations(r, Iterations, cancelToken, progress));
         }
-        public static MeshConstraints cons { get; set; }
+
         /// <summary>
         /// Вернёт новую сетку в соответствии с настройками RemeshTool
         /// </summary>
@@ -133,15 +140,20 @@ namespace MeshSimplificationTest
         /// <param name="cancelToken"></param>
         /// <param name="progress"></param>
         /// <returns></returns>
-        public DMesh3 Remesh(DMesh3 inputModel, CancellationToken cancelToken, IProgress<double> progress = null)
+        public DMesh3 Remesh(DMesh3 inputModel, CancellationToken cancelToken = default, IProgress<double> progress = null)
         {
             if (!inputModel.CheckValidity(eFailMode: FailMode.ReturnOnly))
             {
-                FixNormals(inputModel);
+                FixAndRepairMesh(inputModel);
             }
+
             var mesh = new DMesh3(inputModel);
             //Remesher r = new Remesher(mesh);
+
+            //RemesherPro это расширения класса Remesher,
+            //которая должна быть эфективнее с точки зрения производительности
             RemesherPro r = new RemesherPro(mesh);
+
             r.PreventNormalFlips = true;
             r.Precompute();
             r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
@@ -152,7 +164,7 @@ namespace MeshSimplificationTest
             r.ProjectionMode = TargetProjectionMode;
 
 
-            var cons = new MeshConstraints();
+            MeshConstraints cons = new MeshConstraints();
             EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
 
             if (Reprojection)
@@ -182,14 +194,13 @@ namespace MeshSimplificationTest
 
             r.EnableSmoothing = EnableSmoothing;
             r.SmoothSpeedT = SmoothSpeed;
-            //r.MinEdgeLength = EdgeLength * 0.5f;
-            //r.MaxEdgeLength = EdgeLength * 1.5f;
             r.SetTargetEdgeLength(EdgeLength);
 
 
             cancelToken.ThrowIfCancellationRequested();
             RemeshCalculateIterations(r, Iterations, cancelToken, progress);
             MeshEditor.RemoveFinTriangles(mesh);
+
             return mesh;
         }
 
@@ -197,16 +208,15 @@ namespace MeshSimplificationTest
         /// Расчёт сетки
         /// </summary>
         /// <param name="r"></param>
-        /// <param name="Iterations"></param>
+        /// <param name="interations"></param>
         /// <param name="cancelToken"></param>
         /// <param name="progress"></param>
-        private static void RemeshCalculateIterations(Remesher r, int Iterations, CancellationToken cancelToken, IProgress<double> progress = null)
+        private static void RemeshCalculateIterations(Remesher r, int interations, CancellationToken cancelToken, IProgress<double> progress = null)
         {
-            for (int k = 0; k < Iterations; ++k)
+            for (int k = 0; k < interations; ++k)
             {
                 cancelToken.ThrowIfCancellationRequested();
-                double val = ((double)k / (double)Iterations) * 100;
-                progress?.Report(val);
+                progress?.Report((double)k / (double)interations);
                 r.BasicRemeshPass();
             }
         }
@@ -215,8 +225,8 @@ namespace MeshSimplificationTest
         /// Обновляет ограничения для ремеша по группам треугольников меша
         /// </summary>
         /// <param name="mesh"></param>
-        /// <param name="edgeRefineFlags">тип ограничения граней</param>
-        /// <param name="constraints">ограничения ремеша</param>
+        /// <param name="edgeRefineFlags"></param>
+        /// <param name="constraints"></param>
         private void MeshConstraintsGroups(DMesh3 mesh, EdgeRefineFlags edgeRefineFlags, MeshConstraints constraints)
         {
             var edgesID = GetEdgesIdConstrainsByGroups(mesh);
@@ -251,9 +261,9 @@ namespace MeshSimplificationTest
         /// Обновляет ограничения для ремеша по углу граней
         /// </summary>
         /// <param name="mesh"></param>
-        /// <param name="angle">угол</param>
-        /// <param name="edgeRefineFlags">тип ограничения граней</param>
-        /// <param name="constraints">ограничения ремеша</param>
+        /// <param name="angle"></param>
+        /// <param name="edgeRefineFlags"></param>
+        /// <param name="constraints"></param>
         private void MeshConstraintsAngle(DMesh3 mesh, double angle, EdgeRefineFlags edgeRefineFlags, MeshConstraints constraints)
         {
             var edgesID = GetEdgesIdConstrainsByAngle(mesh, angle);
@@ -264,7 +274,7 @@ namespace MeshSimplificationTest
         /// Вычисление граней, между которыми треугольники расположены под углом больше angle
         /// </summary>
         /// <param name="mesh"></param>
-        /// <param name="angle">угол</param>
+        /// <param name="angle"></param>
         /// <returns>список id граней, подпадающих под условие</returns>
         private List<int> GetEdgesIdConstrainsByAngle(DMesh3 mesh, double angle)
         {
@@ -285,9 +295,9 @@ namespace MeshSimplificationTest
         /// Обновление ограничений для edgesID
         /// </summary>
         /// <param name="mesh"></param>
-        /// <param name="edgesID">список id граней с ограничением</param>
-        /// <param name="edgeRefineFlags">тип ограничения</param>
-        /// <param name="constraints">ограничение</param>
+        /// <param name="edgesID"></param>
+        /// <param name="edgeRefineFlags"></param>
+        /// <param name="constraints"></param>
         private void MeshConstraints(DMesh3 mesh, List<int> edgesID, EdgeRefineFlags edgeRefineFlags, MeshConstraints constraints)
         {
             foreach (var eid in edgesID)
@@ -296,20 +306,34 @@ namespace MeshSimplificationTest
             }
 
             var vtxsID = GetVtxIDStats(mesh, edgesID);
-            var counter = 100000;
+            var counter = 0;
             var vtxValid = new List<int>();
+
+            ///Мы можем удалять точки на гранях только если она принадлежит линии или контуру
+            ///то есть имеет только 2 родительских ребра ограничения. Если выбрать другие, например
+            ///с 3 ребрами, то углы куба могут быть удалены, что ведёт изменение формы
+            const int validParentEdgeCount = 2;
+
             foreach (var item in vtxsID)
             {
-                var flag = counter;
-                if (item.Value == 2)
+                if (item.Value == validParentEdgeCount)
                 {
-                    flag = 0;
                     vtxValid.Add(item.Key);
                 }
-                constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, flag));
+                else
+                {
+                    ///выставление ограничение VertexConstraint работает так, что вершине можно присвоить индекс.
+                    ///Настройка AllowCollapseFixedVertsWithSameSetID по возможности будет схлопывать грани с одинаковыми
+                    ///номерами, значит выставить нужно так, что все углы должны быть помечаны уникальными номерами
+                    ///таковым является counter
+                    constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, counter));
+                }
                 ++counter;
             }
-            int borderCounter = 0;
+
+            ///Что бы каждая отдельное ребро грани могло схлопывать точки и не перемешиваться с другими рёбрами
+            ///нужно каждую пометить своим номером.
+            int borderCounter = counter + 1;
             while (vtxValid != null && vtxValid.Count > 0)
             {
                 var firstVtxGroup = vtxValid.First();
@@ -349,7 +373,7 @@ namespace MeshSimplificationTest
         /// Вычисление сколько раз в списке граней встречается каждая из точек
         /// </summary>
         /// <param name="mesh"></param>
-        /// <param name="edgesId">список id граней</param>
+        /// <param name="edgesId"></param>
         /// <returns>словарь(id вертекса,кол-во упоминаний)></id></returns>
         private Dictionary<int, int> GetVtxIDStats(DMesh3 mesh, List<int> edgesId)
         {
@@ -358,7 +382,7 @@ namespace MeshSimplificationTest
             foreach (var eid in edgesId)
             {
                 var edge = mesh.GetEdgeV(eid);
-                for(int i = 0; i < 2; ++i)
+                for (int i = 0; i < 2; ++i)
                 {
                     var value = edge[i];
                     if (!dict.ContainsKey(value))
@@ -372,19 +396,39 @@ namespace MeshSimplificationTest
             return dict;
         }
 
+        /// <summary>
+        /// Автоматическое исправление нормалей меша
+        /// </summary>
+        /// <param name="mesh"></param>
         public static void FixNormals(DMesh3 mesh)
         {
             var meshRepairOrientation = new MeshRepairOrientation(mesh);
             meshRepairOrientation.OrientComponents();
             meshRepairOrientation.SolveGlobalOrientation();
+        }
+
+        /// <summary>
+        /// втыкание заплаток, если потеряли часть меша
+        /// </summary>
+        /// <param name="mesh"></param>
+        public static void RepairMash(DMesh3 mesh)
+        {
             var meshRepair = new MeshAutoRepair(mesh);
             meshRepair.Apply();
         }
 
-
+        /// <summary>
+        /// Автоматическое исправление нормалей меша и втыкание заплаток, если потеряли часть меша
+        /// </summary>
+        /// <param name="mesh"></param>
+        public static void FixAndRepairMesh(DMesh3 mesh)
+        {
+            FixNormals(mesh);
+            RepairMash(mesh);
+        }
         public MeshConstraints GetMeshConstraints(DMesh3 mesh)
         {
-            if(!mesh.CheckValidity(eFailMode: FailMode.ReturnOnly))
+            if (!mesh.CheckValidity(eFailMode: FailMode.ReturnOnly))
             {
                 FixNormals(mesh);
             }
