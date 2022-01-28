@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -14,51 +15,31 @@ using System.Windows.Media.Media3D;
 
 namespace MeshSimplificationTest
 {
-    public class MeshViewModel
+    public class MasterViewModel : INotifyPropertyChanged, IMeshHost
     {
-        public DMesh3 Model { get; set; }
-        public string Name { get; set; }
-        public bool Visible { get; set; }
-
-        public Model3D GetModel(Color color)
-        {
-            var mesh = GetMesh3D();
-            var geometry = mesh.ToMeshGeometry3D();
-            return new GeometryModel3D()
-            {
-                Geometry = geometry,
-                Material = new DiffuseMaterial(new SolidColorBrush(color))
-            };
-        }
-        
-        public Mesh3D GetMesh3D()
-        {
-            var points = new List<Point3D>(Model.VertexCount);
-            var triangleIndex = new List<int>(Model.TriangleCount * 3);
-            
-            foreach (var vector in Model.Vertices())
-            {
-                points.Add(new Point3D(vector.x, vector.y, vector.z));
-            }
-
-            foreach (int triangleid in Model.TriangleIndices())
-            {
-                var triangle = Model.GetTriangle(triangleid);
-                triangleIndex.Add(triangle.a);
-                triangleIndex.Add(triangle.b);
-                triangleIndex.Add(triangle.c);
-            }
-            return new Mesh3D(points, triangleIndex);
-        }
-    }
-    public class MasterViewModel : INotifyPropertyChanged
-    {
-        //public ObservableCollection<DMesh3> ModelCollection { get; set; }
-        public ObservableCollection<MeshViewModel> ModelCollection { get; set; }
+        public IMeshWidget RemeshWidget { get; set; }
+        public TrulyObservableCollection<MeshViewModel> ModelCollection { get; set; }
         public ObservableCollection<Model3D> viewCollection { get; set; }
+        
+        private MeshViewModel _selectMesh;
+        public MeshViewModel SelectMesh
+        {
+            get => _selectMesh;
+            set
+            {
+                _selectMesh = value;
+                if (RemeshWidget.Visible)
+                {
+                    RemeshWidget.SetModel(SelectMesh?.Model);
+                }
+                else
+                {
+                    Render();
+                }
+            }
+        }
 
-        public DMesh3 SelectMesh { get; set; }
-
+        private Model3DGroup _tmpmainMesh;
         private Model3DGroup _mainMesh;
         public Model3DGroup MainMesh
         {
@@ -73,30 +54,56 @@ namespace MeshSimplificationTest
         protected Lazy<DelegateCommand> _loadModelCommand;
         public ICommand LoadModelCommand => _loadModelCommand.Value;
 
+        protected Lazy<DelegateCommand> _saveModelCommand;
+        public ICommand SaveModelCommand => _saveModelCommand.Value;
+
         protected Lazy<DelegateCommand> _IntersectionCommand;
         public ICommand IntersectionCommand => _IntersectionCommand.Value;
 
+        protected Lazy<DelegateCommand> _CallRemeshCommand;
+        public ICommand CallRemeshCommand => _CallRemeshCommand.Value;
+
         public MasterViewModel()
         {
-            ModelCollection = new ObservableCollection<MeshViewModel>();
+            ModelCollection = new TrulyObservableCollection<MeshViewModel>();
             viewCollection = new ObservableCollection<Model3D>();
             _loadModelCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(LoadModel));
+            _saveModelCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(SaveModel));
             _IntersectionCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(IntersectionEx));
+            _CallRemeshCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(CallRemeshCommandEx, CallRemeshCommandCanEx));
+
+            ModelCollection.CollectionChanged += ModelCollection_CollectionChanged;
+
+            RemeshWidget = new RemeshWidget();
+            RemeshWidget.SetParent(this);
+
         }
+
+        private void ModelCollection_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if(!RemeshWidget.Visible)
+                Render();
+        }
+
         private void AddModel(string path)
         {
             var model = StandardMeshReader.ReadMesh(path);
-            ModelCollection.Add(new MeshViewModel()
+            var model3d = new MeshViewModel()
             {
                 Model = model,
                 Name = Path.GetFileName(path),
                 Visible = true
-            });
+            };
+            model3d.ChangeColor(GetColor(ModelCollection.Count + 1));
+            ModelCollection.Add(model3d);
         }
         private void AddModel(DMesh3 mesh, string name)
         {
+            if (mesh == null) return;
             ModelCollection.Add(new MeshViewModel()
             {
                 Model = mesh,
@@ -113,7 +120,13 @@ namespace MeshSimplificationTest
             var cnt = 0;
             foreach (var item in ModelCollection)
             {
-                newMesh.Children.Add(item.GetModel(GetColor(cnt)));
+                if (!item.Visible) continue;
+                var model = item.GetModel(GetColor(cnt)); 
+                newMesh.Children.Add(item.Model_3D);
+                if (item.Equals(SelectMesh))
+                {
+                    newMesh.Children.Add(item.Warframe);
+                }
                 ++cnt;
             }
             MainMesh = newMesh;
@@ -147,7 +160,7 @@ namespace MeshSimplificationTest
             {
                 AddModel(path);
             }
-            Render();
+            //Render();
         }
         private void SaveModel(object obj)
         {
@@ -163,7 +176,7 @@ namespace MeshSimplificationTest
 
             StandardMeshWriter.WriteFile(
                 filename,
-                new List<WriteMesh>() { new WriteMesh(SelectMesh) },
+                new List<WriteMesh>() { new WriteMesh(SelectMesh.Model) },
                 writeOptions);
         }
 
@@ -173,11 +186,47 @@ namespace MeshSimplificationTest
             {
                 var a = ModelCollection[0];
                 var b = ModelCollection[1];
-                AddModel(BooleanTool.Intersection(a.Model, b.Model), $"{a.Name} - {b.Name}");
-                SelectMesh = ModelCollection[ModelCollection.Count - 1]?.Model;
-                SaveModel(null);
+                var booleanTool = new BooleanToolNet3dBool();
+                AddModel(booleanTool.Intersection(a.Model, b.Model), $"{a.Name} - {b.Name}");
+                SelectMesh = ModelCollection[ModelCollection.Count - 1];
+                //SaveModel(null);
             }
-            catch { }
+            catch(Exception ex) 
+            {
+                ;
+            }
+        }
+
+        private void CallRemeshCommandEx(object obj)
+        {
+            if (RemeshWidget.Visible)
+            {
+                RemeshWidget.Close();
+                ResetView();
+            }
+            else
+            {
+                _tmpmainMesh = MainMesh.Clone();
+                RemeshWidget.SetModel(SelectMesh.Model);
+                RemeshWidget.Visible = true;
+            }
+        }
+        private bool CallRemeshCommandCanEx(object obj)
+        {
+            return SelectMesh != null;
+        }
+        public void Render(DMesh3 model)
+        {
+            var newMesh = new Model3DGroup();
+            var item = new MeshViewModel()
+            {
+                Model = model,
+                Visible = true,
+                Name = SelectMesh.Name
+            };
+            newMesh.Children.Add(item.Model_3D);
+            newMesh.Children.Add(item.Warframe);
+            MainMesh = newMesh;
         }
 
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
@@ -190,6 +239,16 @@ namespace MeshSimplificationTest
         {
             if (PropertyChanged != null)
                 PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public void SetModel(DMesh3 render)
+        {
+            SelectMesh.Model = render;
+        }
+
+        public void ResetView()
+        {            
+            MainMesh = _tmpmainMesh.Clone();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

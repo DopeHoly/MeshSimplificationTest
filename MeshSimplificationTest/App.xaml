@@ -7,6 +7,9 @@
         <DataTemplate DataType="{x:Type local:RemeshViewModel}">
             <local:RemeshView/>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type local:RemeshWidget}">
+            <local:RemeshViewWidget/>
+        </DataTemplate>
         <DataTemplate DataType="{x:Type local:MasterViewModel}">
             <local:MasterView/>
         </DataTemplate>

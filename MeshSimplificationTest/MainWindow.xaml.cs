@@ -17,8 +17,8 @@ namespace MeshSimplificationTest
         public MainWindow()
         {
             InitializeComponent();
-            //DataContext = new RemeshViewModel();
-            DataContext = new MasterViewModel();
+            DataContext = new RemeshViewModel();
+            //DataContext = new MasterViewModel();
         }
     }
 }

@@ -281,8 +281,20 @@ namespace MeshSimplificationTest
             var edgesId = new List<int>();
 
             foreach (int eid in mesh.EdgeIndices())
-            {
+            {               
                 double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
+                //if (fAngle > 180)
+                //{
+                //    continue;
+                //}
+                //if (fAngle < 0)
+                //{
+                //    ;
+                //}
+                //if (fAngle > 90)
+                //{
+                //    fAngle = 180 - fAngle;
+                //}
                 if (fAngle > angle)
                 {
                     edgesId.Add(eid);
@@ -306,7 +318,7 @@ namespace MeshSimplificationTest
             }
 
             var vtxsID = GetVtxIDStats(mesh, edgesID);
-            var counter = 0;
+            var counter = 100000;
             var vtxValid = new List<int>();
 
             ///Мы можем удалять точки на гранях только если она принадлежит линии или контуру
@@ -333,7 +345,8 @@ namespace MeshSimplificationTest
 
             ///Что бы каждая отдельное ребро грани могло схлопывать точки и не перемешиваться с другими рёбрами
             ///нужно каждую пометить своим номером.
-            int borderCounter = counter + 1;
+            //int borderCounter = counter + 1;
+            int borderCounter = 0;
             while (vtxValid != null && vtxValid.Count > 0)
             {
                 var firstVtxGroup = vtxValid.First();
@@ -444,6 +457,50 @@ namespace MeshSimplificationTest
                 MeshConstraintsAngle(mesh, Angle, edgeRefineFlags, cons);
             }
             return cons;
+        }
+
+        public static DMesh3 RemoveZeroTrianle(DMesh3 mesh)
+        {
+            foreach (int triangleid in mesh.TriangleIndices())
+            {
+                var triangle = mesh.GetTriangle(triangleid);
+
+
+            }
+            foreach (var vector in mesh.VertexIndices())
+            {
+                //var cntTriangle = mesh.GetVtxTriangleCount(vector);
+                //if(cntTriangle == 3)
+                //{
+                //    var triangles = new List<int>(3);
+                //    if(mesh.GetVtxTriangles(vector, triangles, false) == MeshResult.Ok)
+                //    {
+                //        foreach (var item in triangles)
+                //        {
+
+                //        }
+                //    }
+                //}
+                foreach (var item in mesh.VtxTrianglesItr())
+                {
+
+                }
+                int[] indx = { 0, 1, 2 };
+                foreach (int triangleid in mesh.TriangleIndices())
+                {
+                    var minAngle = double.MaxValue;
+                    foreach (var id in indx)
+                    {
+                        minAngle = Math.Min(mesh.GetTriInternalAngleR(triangleid, id), minAngle);
+                    }
+                    minAngle *= 180 / Math.PI;
+                    if (minAngle < 0.01)
+                    {
+
+                    }
+                }
+            }
+            return null;
         }
     }
 }

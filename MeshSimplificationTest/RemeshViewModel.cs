@@ -330,8 +330,8 @@ namespace MeshSimplificationTest
         }
         private void FixNormalsCommandExecute(object o)
         {
-            RemeshTool.FixNormals(baseModel);
-            RemeshTool.FixNormals(renderModel);
+            RemeshTool.FixAndRepairMesh(baseModel);
+            RemeshTool.FixAndRepairMesh(renderModel);
             Render();
         }
 
@@ -376,7 +376,7 @@ namespace MeshSimplificationTest
         {
             if (baseModel == null) return;
             renderModel = renderModel == null ? new DMesh3(baseModel) : renderModel;
-            //GenerateDebugLayer();
+            GenerateDebugLayer();
             OnPropertyChanged(nameof(MeshValid));
             MainMesh = ConvertToModel3D(renderModel);
         }
@@ -391,6 +391,7 @@ namespace MeshSimplificationTest
             }
             var builder = new MeshBuilder(true, true);
             var builder2 = new MeshBuilder(true, true);
+            var builderDict = new Dictionary<int, MeshBuilder>();
             var rad = 0.01;
             var theta = 4;
             var phi = 4;
@@ -398,17 +399,26 @@ namespace MeshSimplificationTest
             {
                 var id = isd.Key;
                 var constrain = cons.GetVertexConstraint(id);
-
+                var builderID = constrain.FixedSetID;
+                if(builderID >= 100000)
+                {
+                    builderID = 100000;
+                }
                 var vtx = renderModel.GetVertex(id);
-                if (constrain.FixedSetID < 100000)
+                if (!builderDict.ContainsKey(builderID))
                 {
-                    //point3Ds.Add(new Point3D(vtx.x, vtx.y, vtx.z));
-                    builder.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
+                    builderDict.Add(builderID, new MeshBuilder(true, true));
                 }
-                else
-                {
-                    builder2.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
-                }
+                builderDict[builderID].AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
+                //if (constrain.FixedSetID <= 100000)
+                //{
+                //    //point3Ds.Add(new Point3D(vtx.x, vtx.y, vtx.z));
+                //    builder.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
+                //}
+                //else
+                //{
+                //    builder2.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
+                //}
 
             }
             //for (int id = 0; id < renderModel.VertexCount; ++id)
@@ -416,18 +426,21 @@ namespace MeshSimplificationTest
                 
             //}
             var debugLayer = new Model3DGroup();
-            var model = new GeometryModel3D()
+
+            foreach(var item in builderDict)
             {
-                Geometry = builder.ToMesh(),
-                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Lime))
-            };
-            var model2 = new GeometryModel3D()
-            {
-                Geometry = builder2.ToMesh(),
-                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Red))
-            };
-            debugLayer.Children.Add(model);
-            debugLayer.Children.Add(model2);
+                var color = GetColor(item.Key);
+                if (item.Key == 100000)
+                {
+                    color = Colors.Red;
+                }
+                var model = new GeometryModel3D()
+                {
+                    Geometry = item.Value.ToMesh(),
+                    Material = new DiffuseMaterial(new SolidColorBrush(color))
+                };
+                debugLayer.Children.Add(model);
+            }
             DebugLayer = debugLayer;
         }
 
@@ -441,6 +454,215 @@ namespace MeshSimplificationTest
         {
             if (PropertyChanged != null)
                 PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+    }
+
+    public interface IMeshHost
+    {
+        void SetModel(DMesh3 render);
+        void Render(DMesh3 model);
+        void ResetView();
+    }
+
+    public interface IMeshWidget
+    {
+        bool Visible { get; set; }
+        void SetModel(DMesh3 model);
+        DMesh3 GetModel();
+        void SetParent(IMeshHost host);
+        void Close();
+    }
+
+    public class RemeshWidget : INotifyPropertyChanged, IMeshWidget
+    {
+        public bool _visible;
+        public bool Visible
+        {
+            get => _visible;
+            set
+            {
+                _visible = value;
+                OnPropertyChanged();
+            }
+        }
+        private DMesh3 baseModel { get; set; }
+        private DMesh3 renderModel { get; set; }
+        public RemeshTool RemeshTool { get; set; }
+
+        public IMeshHost host;
+
+
+        protected Lazy<DelegateCommand> _applyCommand;
+        public ICommand ApplyCommand => _applyCommand.Value;
+
+        protected Lazy<DelegateCommand> _cancelCommand;
+        public ICommand CancelCommand => _cancelCommand.Value;
+
+        protected Lazy<DelegateCommand> _fixNormalsCommand;
+        public ICommand FixNormalsCommand => _fixNormalsCommand.Value;
+
+        protected Lazy<DelegateCommand> _okCommand;
+        public ICommand OkCommand => _okCommand.Value;
+
+        private int _triangleFullCount;
+        public int TriangleFullCount
+        {
+            get => _triangleFullCount;
+            set
+            {
+                _triangleFullCount = value;
+                OnPropertyChanged();
+            }
+        }
+        public int GroupCount { get; set; }
+
+        private int _triangleCurrentCount;
+        public int TriangleCurrentCount
+        {
+            get => _triangleCurrentCount;
+            set
+            {
+                _triangleCurrentCount = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private double progressProcent;
+        public double ProgressProcent
+        {
+            get => progressProcent;
+            set
+            {
+                progressProcent = value;
+                OnPropertyChanged();
+            }
+        }
+        private bool isIndeterminate;
+        public bool IsIndeterminate
+        {
+            get => isIndeterminate;
+            set
+            {
+                isIndeterminate = value;
+                OnPropertyChanged();
+            }
+        }
+        private CancellationTokenSource token;
+        public CancellationTokenSource Token
+        {
+            get => token;
+            set
+            {
+                token = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CancelCommand));
+            }
+        }
+
+        public bool MeshValid
+        {
+            get
+            {
+                return renderModel?.CheckValidity(eFailMode: FailMode.ReturnOnly) ?? false;
+            }
+        }
+
+        public RemeshWidget()
+        {
+            Visible = false;
+
+            _applyCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand((o) => ApplyCommandExecute()));
+
+            _cancelCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(CancelCommandEx, CancelCommandCanEx));
+
+            _fixNormalsCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(FixNormalsCommandExecute));
+
+            _okCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(OkCommandEx));
+
+            RemeshTool = new RemeshTool();
+        }
+        private void OkCommandEx(object obj)
+        {
+            host.SetModel(renderModel ?? baseModel);
+            Close();
+        }
+
+
+        private bool CancelCommandCanEx(object arg)
+        {
+            return Token != null && Token.Token.CanBeCanceled;
+        }
+
+        private void CancelCommandEx(object obj)
+        {
+            if (Token.Token.CanBeCanceled) Token.Cancel();
+        }
+
+        private async void ApplyCommandExecute()
+        {
+            IProgress<double> progress = new Progress<double>((p) => ProgressProcent = p);
+            Token = new CancellationTokenSource();
+            try
+            {
+                renderModel = await RemeshTool.RemeshAsync(baseModel, Token.Token, progress);
+            }
+            catch { }
+            finally
+            {
+                Token = null;
+                Render();
+            }
+        }
+        private void FixNormalsCommandExecute(object o)
+        {
+            RemeshTool.FixNormals(baseModel);
+            RemeshTool.FixNormals(renderModel);
+            Render();
+        }
+        private void Render()
+        {
+            host.Render(renderModel ?? baseModel);
+        }
+
+        protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
+        {
+            if (PropertyChanged != null)
+                PropertyChanged(this, args);
+        }
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            if (PropertyChanged != null)
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public void SetModel(DMesh3 model)
+        {
+            baseModel = model;
+            renderModel = baseModel;
+            Render();
+        }
+
+        public DMesh3 GetModel()
+        {
+            return renderModel;
+        }
+
+        public void SetParent(IMeshHost host)
+        {
+            this.host = host;
+        }
+
+        public void Close()
+        {
+            host.ResetView();
+            Visible = false;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

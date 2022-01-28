@@ -9,11 +9,15 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="auto"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="auto"/>
         </Grid.ColumnDefinitions>
+        
+        <ContentControl Content="{Binding RemeshWidget}"/>
 
         <helix:HelixViewport3D x:Name="viewPort3d" 
+                               Grid.Column="1"
                                ShowTriangleCountInfo="True"
                                ShowFrameRate="True">
             <!-- Remember to add light to the scene -->
@@ -23,17 +27,25 @@
             <ModelVisual3D Content="{Binding MainMesh}"/>
         </helix:HelixViewport3D>
 
-        <ScrollViewer Grid.Column="1" DataContext="{Binding}">
+        <ScrollViewer Grid.Column="2" DataContext="{Binding}">
             <StackPanel Width="auto"  DataContext="{Binding}">
                 
-                <DataGrid ItemsSource="{Binding ModelCollection}" SelectedItem="{Binding SelectMesh}" Width="300" Height="300" AutoGenerateColumns="False">
+                <DataGrid 
+                    ItemsSource="{Binding ModelCollection}"
+                    SelectedItem="{Binding SelectMesh, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    Width="300" Height="300"
+                    AutoGenerateColumns="False"
+                    CanUserAddRows="False"
+                    CanUserReorderColumns="False"
+                    CanUserSortColumns="False">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Имя" Binding="{Binding Path=Name}"/>
-                        <DataGridCheckBoxColumn Header="Отрисовывать" Binding="{Binding Path=Visible}"/>
+                        <DataGridCheckBoxColumn Header="Отрисовывать" Binding="{Binding Path=Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </DataGrid.Columns>
                 </DataGrid>
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
-                <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>                
+                <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>
+                <Button Height="30" Command="{Binding CallRemeshCommand}" Content="Remesher"/>                
                 <Button Height="30" Command="{Binding IntersectionCommand}" Content="пересечение"/>
             </StackPanel>
         </ScrollViewer>
