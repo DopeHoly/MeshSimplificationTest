@@ -101,6 +101,7 @@
                 <Button Height="30" Command="{Binding CancelCommand}" Content="Отмена операции"/>
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
                 <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>
+                <Button Height="30" Command="{Binding RemoveZeroTriangle}" Content="Удалить нулевые"/>
                 <Grid Margin="20">
                     <ProgressBar Minimum="0" Maximum="100" 
                              Value="{Binding ProgressProcent, UpdateSourceTrigger=PropertyChanged}"
@@ -112,6 +113,11 @@
                 <TextBlock Grid.Row="10" Grid.Column="0" Text="Сетка валидна"/>
                 <CheckBox  Grid.Row="9"  Grid.Column="1" 
                            IsChecked="{Binding MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
+                           IsEnabled="False"
+                           />
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Сетка имеет пересечения треугольников"/>
+                <CheckBox  Grid.Row="9"  Grid.Column="1" 
+                           IsChecked="{Binding MeshHasItersection, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
                            IsEnabled="False"
                            />
             </StackPanel>

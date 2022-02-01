@@ -59,9 +59,16 @@ namespace MeshSimplificationTest
                 return renderModel?.CheckValidity(eFailMode: FailMode.ReturnOnly) ?? false;
             }
         }
+        public bool MeshHasItersection
+        {
+            get
+            {
+                return RemeshTool.HasTriangleIntersection(renderModel);
+            }
+        }
 
 
-        
+
         protected Lazy<DelegateCommand> _applyCommand;
         public ICommand ApplyCommand => _applyCommand.Value; 
 
@@ -80,6 +87,9 @@ namespace MeshSimplificationTest
         protected Lazy<DelegateCommand> _saveModelCommand;
         public ICommand SaveModelCommand => _saveModelCommand.Value;
 
+        protected Lazy<DelegateCommand> _removeZeroTriangle;
+        public ICommand RemoveZeroTriangle => _removeZeroTriangle.Value;
+
         private Model3D _mainMesh;
         public Model3D MainMesh
         {
@@ -92,6 +102,7 @@ namespace MeshSimplificationTest
                 GroupCount = FaceGroupUtil.FindTriangleSetsByGroup(renderModel).Length;         
                 OnPropertyChanged(nameof(GroupCount));
                 OnPropertyChanged(nameof(MeshValid));
+                OnPropertyChanged(nameof(MeshHasItersection));
                 ResetPB();
                 OnPropertyChanged();
             }
@@ -169,6 +180,9 @@ namespace MeshSimplificationTest
             _fixNormalsCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(FixNormalsCommandExecute));
 
+            _removeZeroTriangle = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(RemoveZeroTriangleCommandExecute));
+
             RemeshTool = new RemeshTool();
 
             LoadModel(MODEL_PATH);            
@@ -232,7 +246,7 @@ namespace MeshSimplificationTest
             foreach (GeometryModel3D geometryModel in models.Children)
             {
                 var mesh = geometryModel.Geometry as MeshGeometry3D;
-                var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.005);
+                var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.0005);
                 DiffuseMaterial wireframe_material =
                     new DiffuseMaterial(Brushes.Black);
                 var wireframe = new GeometryModel3D()
@@ -334,6 +348,12 @@ namespace MeshSimplificationTest
             RemeshTool.FixAndRepairMesh(renderModel);
             Render();
         }
+        private void RemoveZeroTriangleCommandExecute(object o)
+        {
+            RemeshTool.DeleteDegenerateTriangle(baseModel);
+            RemeshTool.DeleteDegenerateTriangle(renderModel);
+            Render();
+        }
 
         private void ResetModel(object param)
         {
@@ -378,6 +398,7 @@ namespace MeshSimplificationTest
             renderModel = renderModel == null ? new DMesh3(baseModel) : renderModel;
             GenerateDebugLayer();
             OnPropertyChanged(nameof(MeshValid));
+            OnPropertyChanged(nameof(MeshHasItersection));
             MainMesh = ConvertToModel3D(renderModel);
         }
 
@@ -390,14 +411,40 @@ namespace MeshSimplificationTest
                 return;
             }
             var builder = new MeshBuilder(true, true);
-            var builder2 = new MeshBuilder(true, true);
             var builderDict = new Dictionary<int, MeshBuilder>();
+            var builderVtxIdDict = new Dictionary<int, List<int>>();
             var rad = 0.01;
             var theta = 4;
             var phi = 4;
+            var contsFlag = 99900;
+            var edgesID = RemeshTool.GetEdgesIdConstrainsByAngle(renderModel, RemeshTool.Angle);
+            var points = new List<Point3D>();
+            var edges = new List<int>();
+            var cnt = 0;
+            foreach (var eid in edgesID)
+            {
+                var idx = renderModel.GetEdgeV(eid);
+                var a = renderModel.GetVertex(idx.a);
+                var b = renderModel.GetVertex(idx.b);
+                var ad = new Point3D(a.x, a.y, a.z);
+                var bd = new Point3D(b.x, b.y, b.z);
+                if (!points.Contains(ad))
+                {
+                    points.Add(ad);
+                }
+                if (!points.Contains(bd))
+                {
+                    points.Add(bd);
+                }
+                edges.Add(points.FindIndex(x => x.Equals(ad)));
+                edges.Add(points.FindIndex(x => x.Equals(bd)));
+                ++cnt;
+            }
+            builder.AddEdges(points, edges, 0.005, theta);
             foreach (KeyValuePair<int, VertexConstraint> isd in cons.VertexConstraintsItr())
             {
                 var id = isd.Key;
+                //if (id == 2404) continue;
                 var constrain = cons.GetVertexConstraint(id);
                 var builderID = constrain.FixedSetID;
                 if(builderID >= 100000)
@@ -408,31 +455,45 @@ namespace MeshSimplificationTest
                 if (!builderDict.ContainsKey(builderID))
                 {
                     builderDict.Add(builderID, new MeshBuilder(true, true));
+                    builderVtxIdDict.Add(builderID, new List<int>());
                 }
+                builderVtxIdDict[builderID].Add(id);
                 builderDict[builderID].AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
-                //if (constrain.FixedSetID <= 100000)
-                //{
-                //    //point3Ds.Add(new Point3D(vtx.x, vtx.y, vtx.z));
-                //    builder.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
-                //}
-                //else
-                //{
-                //    builder2.AddEllipsoid(new Point3D(vtx.x, vtx.y, vtx.z), rad, rad, rad, theta, phi);
-                //}
-
             }
-            //for (int id = 0; id < renderModel.VertexCount; ++id)
-            //{
-                
-            //}
             var debugLayer = new Model3DGroup();
+            var problemId = new List<int>();
+            foreach (var item in builderVtxIdDict.Values)
+            {
+                if(item.Count == 1)
+                {
+                    problemId.Add(item[0]);
+                }
+            }
 
-            foreach(var item in builderDict)
+            var modelWarframe = new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Blue))
+            };
+            debugLayer.Children.Add(modelWarframe);
+            foreach (var item in builderDict)
             {
                 var color = GetColor(item.Key);
+                if(builderVtxIdDict[item.Key].Count == 1)
+                {
+                    color = Colors.White;
+                }
                 if (item.Key == 100000)
                 {
                     color = Colors.Red;
+                }
+                if (item.Key == contsFlag)
+                {
+                    color = Colors.Lime;
+                }
+                if (item.Key == 99901)
+                {
+                    color = Colors.Yellow;
                 }
                 var model = new GeometryModel3D()
                 {
