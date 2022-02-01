@@ -18,7 +18,7 @@
                                ZoomExtentsWhenLoaded="true">
             <!-- Remember to add light to the scene -->
             <helix:BoundingBoxVisual3D/>
-            <helix:DefaultLights/>
+            <helix:SunLight/>
             <ModelVisual3D Content="{Binding MainMesh}"/>
             <ModelVisual3D Content="{Binding DebugLayer}"/>
         </helix:HelixViewport3D>

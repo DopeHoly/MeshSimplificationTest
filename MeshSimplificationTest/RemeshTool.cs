@@ -301,12 +301,21 @@ namespace MeshSimplificationTest
             foreach (var item in vtxsID)
             {
                 var flag = counter;
-                if (item.Value == 2)
+                if(IsSharpVertex(mesh, edgesID, item.Key))
                 {
-                    flag = 0;
+                    constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, flag));
+                }
+                else
+                {
+
                     vtxValid.Add(item.Key);
                 }
-                constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, flag));
+                //if (item.Value == 2)
+                //{
+                //    flag = 0;
+                //    vtxValid.Add(item.Key);
+                //}
+                //constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, flag));
                 ++counter;
             }
             int borderCounter = 0;
@@ -379,6 +388,8 @@ namespace MeshSimplificationTest
             meshRepairOrientation.SolveGlobalOrientation();
             var meshRepair = new MeshAutoRepair(mesh);
             meshRepair.Apply();
+            //mesh.EnableVertexNormals(Vector3f.One);
+            mesh.DiscardVertexNormals();
         }
 
 
@@ -401,5 +412,43 @@ namespace MeshSimplificationTest
             }
             return cons;
         }
+
+        public bool IsSharpVertex(DMesh3 mesh, List<int> edgesID, int vid)
+        {
+            var edges = mesh.VtxEdgesItr(vid);
+            var point = mesh.GetVertex(vid);
+            Vector3d sumVector = Vector3d.Zero;
+            var prevLength = 0.0;
+            foreach (var edge in edges)
+            {
+                if (!edgesID.Contains(edge)) continue;
+
+                var vids = mesh.GetEdgeV(edge);
+                var secondVtxId = vids.a == vid ? vids.b : vids.a;
+                var secondVtx = mesh.GetVertex(secondVtxId);
+
+                sumVector += secondVtx - point;
+                var currentLength = sumVector.Length;
+                if (currentLength < prevLength)
+                    return false;
+                prevLength = currentLength;
+            }
+            return true;
+        }
+
+        //public bool IsDegenerateTriangle(DMesh3 mesh, Index3i triangleVtxIds)
+        //{
+        //    var b = mesh.GetVertex(triangleVtxIds.a);
+        //    var a = mesh.GetVertex(triangleVtxIds.b);
+        //    var c = mesh.GetVertex(triangleVtxIds.c);
+        //    vct.
+        //    return false;
+        //}
+
+
+        //public void RemoveDegenerateTriangle(DMesh3 mesh)
+        //{
+        //    mesh.GetTriInternalAngleR
+        //} 
     }
 }
