@@ -115,11 +115,6 @@
                            IsChecked="{Binding MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
                            IsEnabled="False"
                            />
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Сетка имеет пересечения треугольников"/>
-                <CheckBox  Grid.Row="9"  Grid.Column="1" 
-                           IsChecked="{Binding MeshHasItersection, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
-                           IsEnabled="False"
-                           />
             </StackPanel>
         </ScrollViewer>        
     </Grid>

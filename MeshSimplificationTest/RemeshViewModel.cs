@@ -59,13 +59,6 @@ namespace MeshSimplificationTest
                 return renderModel?.CheckValidity(eFailMode: FailMode.ReturnOnly) ?? false;
             }
         }
-        public bool MeshHasItersection
-        {
-            get
-            {
-                return RemeshTool.HasTriangleIntersection(renderModel);
-            }
-        }
 
 
 
@@ -102,7 +95,6 @@ namespace MeshSimplificationTest
                 GroupCount = FaceGroupUtil.FindTriangleSetsByGroup(renderModel).Length;         
                 OnPropertyChanged(nameof(GroupCount));
                 OnPropertyChanged(nameof(MeshValid));
-                OnPropertyChanged(nameof(MeshHasItersection));
                 ResetPB();
                 OnPropertyChanged();
             }
@@ -127,7 +119,7 @@ namespace MeshSimplificationTest
             get => progressProcent;
             set
             {
-                progressProcent = value;
+                progressProcent = value * 100;
                 OnPropertyChanged();
             }
         }
@@ -350,8 +342,8 @@ namespace MeshSimplificationTest
         }
         private void RemoveZeroTriangleCommandExecute(object o)
         {
-            RemeshTool.DeleteDegenerateTriangle(baseModel);
-            RemeshTool.DeleteDegenerateTriangle(renderModel);
+            RemeshTool.DeleteDegenerateTriangle(baseModel, RemeshTool.Angle);
+            RemeshTool.DeleteDegenerateTriangle(renderModel, RemeshTool.Angle);
             Render();
         }
 
@@ -398,7 +390,6 @@ namespace MeshSimplificationTest
             renderModel = renderModel == null ? new DMesh3(baseModel) : renderModel;
             GenerateDebugLayer();
             OnPropertyChanged(nameof(MeshValid));
-            OnPropertyChanged(nameof(MeshHasItersection));
             MainMesh = ConvertToModel3D(renderModel);
         }
 
