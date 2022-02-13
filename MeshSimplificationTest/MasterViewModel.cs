@@ -186,7 +186,7 @@ namespace MeshSimplificationTest
             {
                 var a = ModelCollection[0];
                 var b = ModelCollection[1];
-                var booleanTool = new BooleanToolNet3dBool();
+                var booleanTool = new BooleanTool();
                 AddModel(booleanTool.Intersection(a.Model, b.Model), $"{a.Name} - {b.Name}");
                 SelectMesh = ModelCollection[ModelCollection.Count - 1];
                 //SaveModel(null);

@@ -6,6 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
+using System.Windows.Shapes;
+using System.Windows;
 
 namespace MeshSimplificationTest
 {
@@ -86,6 +89,12 @@ namespace MeshSimplificationTest
         public bool Reprojection { get; set; }
 
 
+        /// <summary>
+        /// Пороговая величина угла между гранями
+        /// </summary>
+        public double AngleEdge { get; set; }
+
+
         public RemeshTool()
         {
             SetDefaultSettings();
@@ -107,6 +116,7 @@ namespace MeshSimplificationTest
             TargetProjectionMode = Remesher.TargetProjectionMode.Inline;
             SmoothType = Remesher.SmoothTypes.Uniform;
             Reprojection = true;
+            AngleEdge = 180 - Angle;
         }
 
         /// <summary>
@@ -148,7 +158,7 @@ namespace MeshSimplificationTest
                 FixAndRepairMesh(mesh);
             }
             DeleteDegenerateTriangle(mesh);
-
+            var edgeLength = GeometryUtils.GetTargetEdgeLength(mesh);
             //Remesher r = new Remesher(mesh);
 
             //RemesherPro это расширения класса Remesher,
@@ -168,6 +178,8 @@ namespace MeshSimplificationTest
 
             MeshConstraints cons = new MeshConstraints();
             EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
+
+            VtxConstrainsAngle(mesh, cons, Angle);
 
             if (Reprojection)
             {
@@ -244,9 +256,18 @@ namespace MeshSimplificationTest
         {
             var edgesId = new List<int>();
             int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
+            MeshRegionBoundaryLoops loops = null;
             foreach (int[] tri_list in group_tri_sets)
             {
-                MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
+                if (tri_list.Length > 800) continue;
+                try
+                {
+                    loops = new MeshRegionBoundaryLoops(mesh, tri_list);
+                }
+                catch (Exception ex)
+                {
+                    continue;
+                }
                 foreach (EdgeLoop loop in loops)
                 {
                     foreach (var eid in loop.Edges)
@@ -323,7 +344,8 @@ namespace MeshSimplificationTest
 
             foreach (var item in vtxsID)
             {
-                if (item.Value == validParentEdgeCount)
+                if (item.Value.Count == validParentEdgeCount && 
+                    !GeometryUtils.IsSharpEdges(mesh, item.Key, vtxsID, AngleEdge))
                 {
                     vtxValid.Add(item.Key);
                 }
@@ -383,9 +405,9 @@ namespace MeshSimplificationTest
         /// <param name="mesh"></param>
         /// <param name="edgesId"></param>
         /// <returns>словарь(id вертекса,кол-во упоминаний)></id></returns>
-        private Dictionary<int, int> GetVtxIDStats(DMesh3 mesh, List<int> edgesId)
+        private Dictionary<int, List<int>> GetVtxIDStats(DMesh3 mesh, List<int> edgesId)
         {
-            var dict = new Dictionary<int, int>();
+            var dict = new Dictionary<int, List<int>>();
 
             foreach (var eid in edgesId)
             {
@@ -395,9 +417,9 @@ namespace MeshSimplificationTest
                     var value = edge[i];
                     if (!dict.ContainsKey(value))
                     {
-                        dict.Add(value, 0);
+                        dict.Add(value, new List<int>());
                     }
-                    dict[value] += 1;
+                    dict[value].Add(eid);
                 }
             }
 
@@ -442,6 +464,7 @@ namespace MeshSimplificationTest
             }
             var cons = new MeshConstraints();
             EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
+            VtxConstrainsAngle(mesh, cons, Angle);
             if (EnableFaceGroup)
             {
                 MeshConstraintsGroups(mesh, edgeRefineFlags, cons);
@@ -455,194 +478,47 @@ namespace MeshSimplificationTest
             return cons;
         }
 
-        public static bool IsDegenerativeTriangle(DMesh3 mesh, int tid, double treshhold = 1e-5)
-        {
-            var area = mesh.GetTriArea(tid);
-            if (area < treshhold)
-            {
-                return true;
-            }
-            return false;
-        }
-
-        private static int GetDegenerateVtxId(DMesh3 mesh, int tid)
-        {
-            var triangle = mesh.GetTriangle(tid);
-            var a = mesh.GetVertex(triangle.a);
-            var b = mesh.GetVertex(triangle.b);
-            var c = mesh.GetVertex(triangle.c);
-            var angleA = Vector3d.AngleD(b - a, c - a);
-            var angleB = Vector3d.AngleD(a - b, c - b);
-            var angleC = Vector3d.AngleD(a - c, b - c);
-            var maxAngle = new[] { angleA, angleB, angleC }.Max();
-            if (angleA == maxAngle)
-            {
-                return triangle.a;
-            }
-            if (angleB == maxAngle)
-            {
-                return triangle.b;
-            }
-            if (angleC == maxAngle)
-            {
-                return triangle.c;
-            }
-            return -1;
-        }
-
         private void ConstraintsDegenerateTri(DMesh3 mesh, MeshConstraints constraints)
         {
             var contspointFlag = 99901;
             foreach (int triangleid in mesh.TriangleIndices())
             {
-                if (IsDegenerativeTriangle(mesh, triangleid))
+                if (GeometryUtils.IsDegenerativeTriangle(mesh, triangleid))
                 {
                     var triangle = mesh.GetTriangle(triangleid);
-                    var pointId = GetDegenerateVtxId(mesh, triangleid);
+                    var pointId = GeometryUtils.GetDegenerateVtxId(mesh, triangleid);
                     constraints.SetOrUpdateVertexConstraint(pointId, new VertexConstraint(true, contspointFlag));
                 }
 
-            }
-        }
-
-        public static void DeleteDegenerateTriangle(DMesh3 mesh, double tresholdAngle)
-        {
-            foreach (int triangleid in mesh.TriangleIndices())
-            {
-                if (IsDegenerativeTriangle(mesh, triangleid))
-                {
-                    var triangle = mesh.GetTriangle(triangleid);
-                    var pointId = GetDegenerateVtxId(mesh, triangleid);
-                    var center = MeshWeights.OneRingCentroid(mesh, pointId);
-                    //проверка, что лежит на одной плоскости
-                    if (OneRingVtxIsPlane(mesh, pointId, tresholdAngle))
-                        mesh.SetVertex(pointId, center);
-                }
-
-            }
-        }
-
-        private static void PrintToCsv(string path, DMesh3 mesh, int vid)
-        {
-            var builder = new StringBuilder();
-
-            var triangles = new List<int>();
-            char separator = ';';
-            builder.Append($"id{separator}xid{separator}yid{separator}zid{separator}ax{separator}ay{separator}az{separator}bx{separator}by{separator}bz{separator}cx{separator}cy{separator}cz\n");
-            if (mesh.GetVtxTriangles(vid, triangles, false) == MeshResult.Ok)
-            {
-                foreach (var tid in triangles)
-                {
-                    var triangle = mesh.GetTriangle(tid);
-                    builder.Append($"{tid}{separator}{triangle.a}{separator}{triangle.b}{separator}{triangle.c}");
-                    var a = mesh.GetVertex(triangle.a);
-                    var b = mesh.GetVertex(triangle.b);
-                    var c = mesh.GetVertex(triangle.c);
-                    builder.Append($"{separator}{a.x}{separator}{a.y}{separator}{a.z}");
-                    builder.Append($"{separator}{b.x}{separator}{b.y}{separator}{b.z}");
-                    builder.Append($"{separator}{c.x}{separator}{c.y}{separator}{c.z}");
-                    builder.Append($"\n");
-                }
-            }
-            System.IO.File.WriteAllText(path, builder.ToString());
-        }
-
-        private static Index3i ReplaceZeroTriangle(DMesh3 mesh, int vid, int badTriId)
-        {
-            var triangles = new List<int>(3);
-            var trianglePoints = new List<int>(9);
-            var templateTriangle = Index3i.Zero;
-            var gid = -1;
-            
-            if (mesh.GetVtxTriangles(vid, triangles, false) == MeshResult.Ok)
-            {
-                foreach (var tid in triangles)
-                {
-                    var triangle = mesh.GetTriangle(tid);
-                    if (triangle.a != vid)
-                        trianglePoints.Add(triangle.a);
-                    if (triangle.b != vid)
-                        trianglePoints.Add(triangle.b);
-                    if (triangle.c != vid)
-                        trianglePoints.Add(triangle.c);
-                    if (tid != badTriId)
-                    {
-                        templateTriangle = triangle;
-                        gid = mesh.GetTriangleGroup(tid);
-                    }
-                }
-                var points = new List<int>(trianglePoints.Distinct());
-                if(points.Count != 3)
-                {
-                    throw new Exception("Expeption create replace triangle.");
-                }
-                foreach (var tid in triangles)
-                {
-                    mesh.RemoveTriangle(tid);
-                }
-                
-                if (vid.Equals(templateTriangle.a))
-                {
-                    points.Remove(templateTriangle.b);
-                    points.Remove(templateTriangle.c);
-                    templateTriangle.a = points.Last();
-                }
-                else
-                if (vid.Equals(templateTriangle.b))
-                {
-                    points.Remove(templateTriangle.a);
-                    points.Remove(templateTriangle.c);
-                    templateTriangle.b = points.Last();
-                }
-                else
-                if (vid.Equals(templateTriangle.c))
-                {
-                    points.Remove(templateTriangle.b);
-                    points.Remove(templateTriangle.a);
-                    templateTriangle.c = points.Last();
-                }
-                mesh.AppendTriangle(templateTriangle, gid);
-                return templateTriangle;
-
-            }
-            return Index3i.Zero;
-        }
-
+            }            
+        }        
 
         private void DeleteDegenerateTriangle(DMesh3 mesh)
         {
-            DeleteDegenerateTriangle(mesh, Angle);
+            GeometryUtils.DeleteDegenerateTriangle(mesh, Angle);
         }
-        private static bool OneRingVtxIsPlane(DMesh3 mesh, int vid, double tresholdAngle)
+      
+        private static void VtxConstrainsAngle(DMesh3 mesh, MeshConstraints constraints, double angle)
         {
-            var triangles = new List<int>();
-            var angle = double.MinValue;
-            if (mesh.GetVtxTriangles(vid, triangles, false) == MeshResult.Ok)
+            var counter = 200000;
+            var sharpVtxIDs = new ConcurrentBag<int>();
+            ParallelLoopResult result = Parallel.ForEach<int>(
+                   mesh.VertexIndices(),
+                   (vid) =>
+                   {
+                       if (GeometryUtils.OneRingVtxIsSharp(mesh, vid, angle))
+                       {
+                           sharpVtxIDs.Add(vid);
+                       }
+                   }
+            );
+            foreach (var vid in sharpVtxIDs)
             {
-                var normals = triangles.Select(x =>
-                {
-                    if(IsDegenerativeTriangle(mesh, x))
-                    {
-                        return Vector3d.Zero;
-                    }
-                    return mesh.GetTriNormal(x);
-                }
-                ).ToList();
-                for(int i = 0; i < normals.Count; ++i)
-                {
-                    for (int j = 0; j < normals.Count; ++j)
-                    {
-                        if (i == j) continue;
-                        var n1 = normals[i];
-                        var n2 = normals[j];
-                        if (!(n1.Length > 0.999 && n1.Length < 1.001) ||
-                            !(n2.Length > 0.999 && n2.Length < 1.001)) continue;
-                        angle = Math.Max(n1.AngleD(n2), angle);
-                    }
-                }
+                constraints.SetOrUpdateVertexConstraint(vid, new VertexConstraint(true, counter));
+                ++counter;
             }
-            return Math.Abs(angle) < tresholdAngle && angle != double.MinValue;
         }
 
+             
     }
 }

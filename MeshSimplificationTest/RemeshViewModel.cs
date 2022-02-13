@@ -27,6 +27,7 @@ namespace MeshSimplificationTest
         private Random rnd = new Random();
         private DMesh3 baseModel { get; set; }
         private DMesh3 renderModel { get; set; }
+        private DMesh3 prevModel { get; set; }
         public RemeshTool RemeshTool { get; set; }
 
         private int _triangleFullCount;
@@ -59,6 +60,13 @@ namespace MeshSimplificationTest
                 return renderModel?.CheckValidity(eFailMode: FailMode.ReturnOnly) ?? false;
             }
         }
+        public double CalcEdgeLength
+        {
+            get
+            {
+                return GeometryUtils.GetTargetEdgeLength(renderModel); ;
+            }
+        }
 
 
 
@@ -83,6 +91,12 @@ namespace MeshSimplificationTest
         protected Lazy<DelegateCommand> _removeZeroTriangle;
         public ICommand RemoveZeroTriangle => _removeZeroTriangle.Value;
 
+        protected Lazy<DelegateCommand> _refreshViewCommand;
+        public ICommand RefreshViewCommand => _refreshViewCommand.Value;
+
+        protected Lazy<DelegateCommand> _setPrevModelCommand;
+        public ICommand SetPrevModelCommand => _setPrevModelCommand.Value;
+
         private Model3D _mainMesh;
         public Model3D MainMesh
         {
@@ -95,6 +109,7 @@ namespace MeshSimplificationTest
                 GroupCount = FaceGroupUtil.FindTriangleSetsByGroup(renderModel).Length;         
                 OnPropertyChanged(nameof(GroupCount));
                 OnPropertyChanged(nameof(MeshValid));
+                OnPropertyChanged(nameof(CalcEdgeLength));
                 ResetPB();
                 OnPropertyChanged();
             }
@@ -174,6 +189,12 @@ namespace MeshSimplificationTest
 
             _removeZeroTriangle = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(RemoveZeroTriangleCommandExecute));
+
+            _refreshViewCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand((o) => Render()));
+
+            _setPrevModelCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(SetPrevModelExecute));
 
             RemeshTool = new RemeshTool();
 
@@ -342,8 +363,15 @@ namespace MeshSimplificationTest
         }
         private void RemoveZeroTriangleCommandExecute(object o)
         {
-            RemeshTool.DeleteDegenerateTriangle(baseModel, RemeshTool.Angle);
-            RemeshTool.DeleteDegenerateTriangle(renderModel, RemeshTool.Angle);
+            //RemeshTool.DeleteDegenerateTriangle(baseModel, RemeshTool.Angle);
+            prevModel = new DMesh3(renderModel);
+            GeometryUtils.DeleteDegenerateTriangle(renderModel, RemeshTool.Angle);
+            Render();
+        }
+
+        private void SetPrevModelExecute(object o)
+        {
+            renderModel = new DMesh3(prevModel);
             Render();
         }
 
@@ -390,6 +418,7 @@ namespace MeshSimplificationTest
             renderModel = renderModel == null ? new DMesh3(baseModel) : renderModel;
             GenerateDebugLayer();
             OnPropertyChanged(nameof(MeshValid));
+            OnPropertyChanged(nameof(CalcEdgeLength));
             MainMesh = ConvertToModel3D(renderModel);
         }
 
@@ -408,12 +437,12 @@ namespace MeshSimplificationTest
             var theta = 4;
             var phi = 4;
             var contsFlag = 99900;
-            var edgesID = RemeshTool.GetEdgesIdConstrainsByAngle(renderModel, RemeshTool.Angle);
             var points = new List<Point3D>();
             var edges = new List<int>();
             var cnt = 0;
-            foreach (var eid in edgesID)
+            foreach (var eid in renderModel.EdgeIndices())
             {
+                if (cons.GetEdgeConstraint(eid).Equals(EdgeConstraint.Unconstrained)) continue;
                 var idx = renderModel.GetEdgeV(eid);
                 var a = renderModel.GetVertex(idx.a);
                 var b = renderModel.GetVertex(idx.b);
@@ -431,16 +460,20 @@ namespace MeshSimplificationTest
                 edges.Add(points.FindIndex(x => x.Equals(bd)));
                 ++cnt;
             }
-            builder.AddEdges(points, edges, 0.005, theta);
+            builder.AddEdges(points, edges, 0.001, theta);
             foreach (KeyValuePair<int, VertexConstraint> isd in cons.VertexConstraintsItr())
             {
                 var id = isd.Key;
                 //if (id == 2404) continue;
                 var constrain = cons.GetVertexConstraint(id);
                 var builderID = constrain.FixedSetID;
-                if(builderID >= 100000)
+                if(builderID >= 100000 && builderID < 200000)
                 {
                     builderID = 100000;
+                }
+                if (builderID >= 200000)
+                {
+                    builderID = 200000;
                 }
                 var vtx = renderModel.GetVertex(id);
                 if (!builderDict.ContainsKey(builderID))
@@ -478,13 +511,37 @@ namespace MeshSimplificationTest
                 {
                     color = Colors.Red;
                 }
+                if (item.Key == 200000)
+                {
+                    color = Colors.Purple;
+                }
                 if (item.Key == contsFlag)
                 {
                     color = Colors.Lime;
                 }
-                if (item.Key == 99901)
+                if (item.Key == 99901)//0
                 {
                     color = Colors.Yellow;
+                }
+                if (item.Key == 99902)//1
+                {
+                    color = Colors.Lime;
+                }
+                if (item.Key == 99903)//2
+                {
+                    color = Colors.LimeGreen;
+                }
+                if (item.Key == 99904)//3
+                {
+                    color = Colors.OrangeRed;
+                }
+                if (item.Key == 99905)//4
+                {
+                    color = Colors.DarkOrange;
+                }
+                if (item.Key == 99906)//5
+                {
+                    color = Colors.Orchid;
                 }
                 var model = new GeometryModel3D()
                 {

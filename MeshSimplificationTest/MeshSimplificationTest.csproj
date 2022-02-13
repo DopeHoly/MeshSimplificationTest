@@ -94,6 +94,7 @@
     </ApplicationDefinition>
     <Compile Include="BooleanTool.cs" />
     <Compile Include="BoolToVisibilityConverter.cs" />
+    <Compile Include="GeometryUtils.cs" />
     <Compile Include="MasterView.xaml.cs">
       <DependentUpon>MasterView.xaml</DependentUpon>
     </Compile>

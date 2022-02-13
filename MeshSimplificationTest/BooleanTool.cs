@@ -1,17 +1,17 @@
 ﻿using g3;
 using gs;
-using Net3dBool;
-using OpenTK;
+//using Net3dBool;
+//using OpenTK;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using CGALDotNet.Geometry;
-using CGALDotNet.Polygons;
-using CGALDotNet;
-using CGALDotNet.Processing;
-using CGALDotNet.Polyhedra;
+//using CGALDotNet.Geometry;
+//using CGALDotNet.Polygons;
+//using CGALDotNet;
+//using CGALDotNet.Processing;
+//using CGALDotNet.Polyhedra;
 
 namespace MeshSimplificationTest
 {
@@ -89,185 +89,185 @@ namespace MeshSimplificationTest
         }
     }
 
-    public class BooleanToolCGAL : IBooleanEngine
-    {
-        public DMesh3 Difference(DMesh3 a, DMesh3 b)
-        {
-            PolygonMeshProcessingBoolean<EEK> polygon = new PolygonMeshProcessingBoolean<EEK>();
-            Polyhedron3<EEK> meshA = Convert(a);
-            Polyhedron3<EEK> meshB = Convert(b);
-            Polyhedron3<EEK> result = new Polyhedron3<EEK>();
+    //public class BooleanToolCGAL : IBooleanEngine
+    //{
+    //    public DMesh3 Difference(DMesh3 a, DMesh3 b)
+    //    {
+    //        PolygonMeshProcessingBoolean<EEK> polygon = new PolygonMeshProcessingBoolean<EEK>();
+    //        Polyhedron3<EEK> meshA = Convert(a);
+    //        Polyhedron3<EEK> meshB = Convert(b);
+    //        Polyhedron3<EEK> result = new Polyhedron3<EEK>();
 
-            polygon.Difference(meshA, meshB, out result);
-            return ConvertBack(result);
-        }
+    //        polygon.Difference(meshA, meshB, out result);
+    //        return ConvertBack(result);
+    //    }
 
-        public DMesh3 Intersection(DMesh3 a, DMesh3 b)
-        {
-            PolygonMeshProcessingBoolean<EEK> polygon = new PolygonMeshProcessingBoolean<EEK>();
-            Polyhedron3<EEK> meshA = Convert(a);
-            Polyhedron3<EEK> meshB = Convert(b);
-            Polyhedron3<EEK> result = new Polyhedron3<EEK>();
+    //    public DMesh3 Intersection(DMesh3 a, DMesh3 b)
+    //    {
+    //        PolygonMeshProcessingBoolean<EEK> polygon = new PolygonMeshProcessingBoolean<EEK>();
+    //        Polyhedron3<EEK> meshA = Convert(a);
+    //        Polyhedron3<EEK> meshB = Convert(b);
+    //        Polyhedron3<EEK> result = new Polyhedron3<EEK>();
 
-            polygon.Intersection(meshA, meshB, out result);
-            return ConvertBack(result);
-        }
+    //        polygon.Intersection(meshA, meshB, out result);
+    //        return ConvertBack(result);
+    //    }
 
-        public DMesh3 Union(DMesh3 a, DMesh3 b)
-        {
-            PolygonMeshProcessingBoolean<EEK> polygon = new PolygonMeshProcessingBoolean<EEK>();
-            Polyhedron3<EEK> meshA = Convert(a);
-            Polyhedron3<EEK> meshB = Convert(b);
-            Polyhedron3<EEK> result = new Polyhedron3<EEK>();
+    //    public DMesh3 Union(DMesh3 a, DMesh3 b)
+    //    {
+    //        PolygonMeshProcessingBoolean<EEK> polygon = new PolygonMeshProcessingBoolean<EEK>();
+    //        Polyhedron3<EEK> meshA = Convert(a);
+    //        Polyhedron3<EEK> meshB = Convert(b);
+    //        Polyhedron3<EEK> result = new Polyhedron3<EEK>();
 
-            polygon.Union(meshA, meshB, out result);
-            return ConvertBack(result);
-        }
+    //        polygon.Union(meshA, meshB, out result);
+    //        return ConvertBack(result);
+    //    }
 
-        private Polyhedron3<EEK> Convert(DMesh3 a)
-        {
-            Polyhedron3<EEK> meshA = new Polyhedron3<EEK>();
-            var pointsA = getPointList(a);
-            var triangleA = getTriangleIdList(a);
-            meshA.CreateTriangleMesh(pointsA.ToArray(), pointsA.Count, triangleA.ToArray(), triangleA.Count);
-            return meshA;
-        }
+    //    private Polyhedron3<EEK> Convert(DMesh3 a)
+    //    {
+    //        Polyhedron3<EEK> meshA = new Polyhedron3<EEK>();
+    //        var pointsA = getPointList(a);
+    //        var triangleA = getTriangleIdList(a);
+    //        meshA.CreateTriangleMesh(pointsA.ToArray(), pointsA.Count, triangleA.ToArray(), triangleA.Count);
+    //        return meshA;
+    //    }
 
-        private DMesh3 ConvertBack(Polyhedron3<EEK> a)
-        {
-            Point3d[] points = { };
-            int pointsCount = -1;
-            a.GetPoints(points, pointsCount);
-            int[] triangleInx = { };
-            int triangleCnt = -1;
-            a.GetTriangleIndices(triangleInx, triangleCnt);
+    //    private DMesh3 ConvertBack(Polyhedron3<EEK> a)
+    //    {
+    //        Point3d[] points = { };
+    //        int pointsCount = -1;
+    //        a.GetPoints(points, pointsCount);
+    //        int[] triangleInx = { };
+    //        int triangleCnt = -1;
+    //        a.GetTriangleIndices(triangleInx, triangleCnt);
 
-            //return DMesh3Builder.Build<g3.Vector3d, Index3i, Vector3f>(
-            //    mesh.Positions.Select(p => new g3.Vector3d(p.X, p.Y, p.Z)),
-            //    indexedTriangles.Select(t => new Index3i(t.A, t.B, t.C)),
-            //    TriGroups: mesh.Faces
-            //    );
-            return null;
-        }
+    //        //return DMesh3Builder.Build<g3.Vector3d, Index3i, Vector3f>(
+    //        //    mesh.Positions.Select(p => new g3.Vector3d(p.X, p.Y, p.Z)),
+    //        //    indexedTriangles.Select(t => new Index3i(t.A, t.B, t.C)),
+    //        //    TriGroups: mesh.Faces
+    //        //    );
+    //        return null;
+    //    }
 
-        private List<Point3d> getPointList(DMesh3 mesh)
-        {
-            var points = new List<Point3d>(mesh.VertexCount);
+    //    private List<Point3d> getPointList(DMesh3 mesh)
+    //    {
+    //        var points = new List<Point3d>(mesh.VertexCount);
 
-            foreach (var vector in mesh.Vertices())
-            {
-                points.Add(new Point3d(vector.x, vector.y, vector.z));
-            }
+    //        foreach (var vector in mesh.Vertices())
+    //        {
+    //            points.Add(new Point3d(vector.x, vector.y, vector.z));
+    //        }
 
-            return points;
-        }
-        private List<int> getTriangleIdList(DMesh3 mesh)
-        {
-            var triangleIndex = new List<int>(mesh.TriangleCount * 3);
+    //        return points;
+    //    }
+    //    private List<int> getTriangleIdList(DMesh3 mesh)
+    //    {
+    //        var triangleIndex = new List<int>(mesh.TriangleCount * 3);
 
-            foreach (int triangleid in mesh.TriangleIndices())
-            {
-                var triangle = mesh.GetTriangle(triangleid);
-                //if (triangle.a >= points.Count ||
-                //     triangle.b >= points.Count ||
-                //     triangle.c >= points.Count)
-                //{
-                //    continue;
-                //}
-                triangleIndex.Add(triangle.a);
-                triangleIndex.Add(triangle.b);
-                triangleIndex.Add(triangle.c);
-            }
+    //        foreach (int triangleid in mesh.TriangleIndices())
+    //        {
+    //            var triangle = mesh.GetTriangle(triangleid);
+    //            //if (triangle.a >= points.Count ||
+    //            //     triangle.b >= points.Count ||
+    //            //     triangle.c >= points.Count)
+    //            //{
+    //            //    continue;
+    //            //}
+    //            triangleIndex.Add(triangle.a);
+    //            triangleIndex.Add(triangle.b);
+    //            triangleIndex.Add(triangle.c);
+    //        }
 
-            return triangleIndex;
-        }
-    }
+    //        return triangleIndex;
+    //    }
+    //}
 
-    public class BooleanToolNet3dBool : IBooleanEngine
-    {
-        public DMesh3 Difference(DMesh3 a, DMesh3 b)
-        {
-            var meshA = Convert(a);
-            var meshB = Convert(b);
-            var modeller = new Net3dBool.BooleanModeller(meshA, meshB);
-            var tmp = modeller.GetDifference();
-            return ConvertBack(tmp);
-        }
+    //public class BooleanToolNet3dBool : IBooleanEngine
+    //{
+    //    public DMesh3 Difference(DMesh3 a, DMesh3 b)
+    //    {
+    //        var meshA = Convert(a);
+    //        var meshB = Convert(b);
+    //        var modeller = new Net3dBool.BooleanModeller(meshA, meshB);
+    //        var tmp = modeller.GetDifference();
+    //        return ConvertBack(tmp);
+    //    }
 
-        public DMesh3 Intersection(DMesh3 a, DMesh3 b)
-        {
-            var meshA = Convert(a);
-            var meshB = Convert(b);
-            var modeller = new Net3dBool.BooleanModeller(meshA, meshB);
-            var tmp = modeller.GetIntersection();
-            return ConvertBack(tmp);
-        }
+    //    public DMesh3 Intersection(DMesh3 a, DMesh3 b)
+    //    {
+    //        var meshA = Convert(a);
+    //        var meshB = Convert(b);
+    //        var modeller = new Net3dBool.BooleanModeller(meshA, meshB);
+    //        var tmp = modeller.GetIntersection();
+    //        return ConvertBack(tmp);
+    //    }
 
-        public DMesh3 Union(DMesh3 a, DMesh3 b)
-        {
-            var meshA = Convert(a);
-            var meshB = Convert(b);
-            var modeller = new Net3dBool.BooleanModeller(meshA, meshB);
-            var tmp = modeller.GetUnion();
-            return ConvertBack(tmp);
-        }
+    //    public DMesh3 Union(DMesh3 a, DMesh3 b)
+    //    {
+    //        var meshA = Convert(a);
+    //        var meshB = Convert(b);
+    //        var modeller = new Net3dBool.BooleanModeller(meshA, meshB);
+    //        var tmp = modeller.GetUnion();
+    //        return ConvertBack(tmp);
+    //    }
 
-        private Solid Convert(DMesh3 a)
-        {
-            var pointsA = getPointList(a);
-            var triangleA = getTriangleIdList(a);
-            return new Solid(pointsA.ToArray(), triangleA.ToArray());
-        }
+    //    private Solid Convert(DMesh3 a)
+    //    {
+    //        var pointsA = getPointList(a);
+    //        var triangleA = getTriangleIdList(a);
+    //        return new Solid(pointsA.ToArray(), triangleA.ToArray());
+    //    }
 
-        private DMesh3 ConvertBack(Solid mesh)
-        {
-            var triangleIDs = mesh.GetIndices();
-            var triangleIDsList = new List<Index3i>();
-            for(int i = 0; i < triangleIDs.Length; i += 3)
-            {
-                triangleIDsList.Add(new Index3i(
-                    triangleIDs[i + 0],
-                    triangleIDs[i + 1],
-                    triangleIDs[i + 2])
-                    );
-            }
+    //    private DMesh3 ConvertBack(Solid mesh)
+    //    {
+    //        var triangleIDs = mesh.GetIndices();
+    //        var triangleIDsList = new List<Index3i>();
+    //        for(int i = 0; i < triangleIDs.Length; i += 3)
+    //        {
+    //            triangleIDsList.Add(new Index3i(
+    //                triangleIDs[i + 0],
+    //                triangleIDs[i + 1],
+    //                triangleIDs[i + 2])
+    //                );
+    //        }
 
-            return DMesh3Builder.Build<g3.Vector3d, Index3i, Vector3f>(
-                mesh.GetVertices().Select(p => new g3.Vector3d(p.X, p.Y, p.Z)),
-                triangleIDsList
-                );
-        }
+    //        return DMesh3Builder.Build<g3.Vector3d, Index3i, Vector3f>(
+    //            mesh.GetVertices().Select(p => new g3.Vector3d(p.X, p.Y, p.Z)),
+    //            triangleIDsList
+    //            );
+    //    }
 
-        private List<OpenTK.Vector3d> getPointList(DMesh3 mesh)
-        {
-            var points = new List<OpenTK.Vector3d>(mesh.VertexCount);
+    //    private List<OpenTK.Vector3d> getPointList(DMesh3 mesh)
+    //    {
+    //        var points = new List<OpenTK.Vector3d>(mesh.VertexCount);
 
-            foreach (var vector in mesh.Vertices())
-            {
-                points.Add(new OpenTK.Vector3d(vector.x, vector.y, vector.z));
-            }
+    //        foreach (var vector in mesh.Vertices())
+    //        {
+    //            points.Add(new OpenTK.Vector3d(vector.x, vector.y, vector.z));
+    //        }
 
-            return points;
-        }
-        private List<int> getTriangleIdList(DMesh3 mesh)
-        {
-            var triangleIndex = new List<int>(mesh.TriangleCount * 3);
+    //        return points;
+    //    }
+    //    private List<int> getTriangleIdList(DMesh3 mesh)
+    //    {
+    //        var triangleIndex = new List<int>(mesh.TriangleCount * 3);
 
-            foreach (int triangleid in mesh.TriangleIndices())
-            {
-                var triangle = mesh.GetTriangle(triangleid);
-                //if (triangle.a >= points.Count ||
-                //     triangle.b >= points.Count ||
-                //     triangle.c >= points.Count)
-                //{
-                //    continue;
-                //}
-                triangleIndex.Add(triangle.a);
-                triangleIndex.Add(triangle.b);
-                triangleIndex.Add(triangle.c);
-            }
+    //        foreach (int triangleid in mesh.TriangleIndices())
+    //        {
+    //            var triangle = mesh.GetTriangle(triangleid);
+    //            //if (triangle.a >= points.Count ||
+    //            //     triangle.b >= points.Count ||
+    //            //     triangle.c >= points.Count)
+    //            //{
+    //            //    continue;
+    //            //}
+    //            triangleIndex.Add(triangle.a);
+    //            triangleIndex.Add(triangle.b);
+    //            triangleIndex.Add(triangle.c);
+    //        }
 
-            return triangleIndex;
-        }
-    }
+    //        return triangleIndex;
+    //    }
+    //}
 }

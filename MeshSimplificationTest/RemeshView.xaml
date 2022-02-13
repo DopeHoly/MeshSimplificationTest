@@ -48,6 +48,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Количество треугольников базовой модели"/>
@@ -94,6 +95,9 @@
                     
                     <TextBlock Grid.Row="14" Grid.Column="0" Text="Разрешить коллапсировать грани с одинаковыми айдишниками граничных условий"/>
                     <CheckBox  Grid.Row="14" Grid.Column="1" IsChecked="{Binding RemeshTool.AllowCollapseFixedVertsWithSameSetID}"/>
+                    
+                    <TextBlock Grid.Row="15" Grid.Column="0" Text="Угол между рёбрами"/>
+                    <TextBox   Grid.Row="15" Grid.Column="1" Text="{Binding RemeshTool.AngleEdge}"/>
                 </Grid>
                 <Button Height="30" Command="{Binding ApplyCommand}" Content="Применить"/>
                 <Button Height="30" Command="{Binding ReturnToBaseModelCommand}" Content="Вернуть изначальную модель"/>
@@ -102,6 +106,8 @@
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
                 <Button Height="30" Command="{Binding SaveModelCommand}" Content="Сохранить модель"/>
                 <Button Height="30" Command="{Binding RemoveZeroTriangle}" Content="Удалить нулевые"/>
+                <Button Height="30" Command="{Binding RefreshViewCommand}" Content="Обновить"/>
+                <Button Height="30" Command="{Binding SetPrevModelCommand}" Content="Вернуть пред. модель"/>
                 <Grid Margin="20">
                     <ProgressBar Minimum="0" Maximum="100" 
                              Value="{Binding ProgressProcent, UpdateSourceTrigger=PropertyChanged}"
@@ -110,11 +116,13 @@
                     <TextBlock Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
 
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Сетка валидна"/>
-                <CheckBox  Grid.Row="9"  Grid.Column="1" 
+                <TextBlock Grid.Column="0" Text="Сетка валидна"/>
+                <CheckBox  Grid.Column="1" 
                            IsChecked="{Binding MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
                            IsEnabled="False"
                            />
+                <TextBlock Text="Вычисленная идеальная длина грани"/>
+                <TextBox   Text="{Binding CalcEdgeLength, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
         </ScrollViewer>        
     </Grid>
