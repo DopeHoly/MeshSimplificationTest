@@ -259,14 +259,14 @@ namespace MeshSimplificationTest
             foreach (GeometryModel3D geometryModel in models.Children)
             {
                 var mesh = geometryModel.Geometry as MeshGeometry3D;
-                var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.0005);
-                DiffuseMaterial wireframe_material =
-                    new DiffuseMaterial(Brushes.Black);
-                var wireframe = new GeometryModel3D()
-                {
-                    Geometry = triangleMesh,
-                    Material = new DiffuseMaterial(Brushes.Black)
-                };
+                //var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.005);
+                //DiffuseMaterial wireframe_material =
+                //    new DiffuseMaterial(Brushes.Black);
+                //var wireframe = new GeometryModel3D()
+                //{
+                //    Geometry = triangleMesh,
+                //    Material = new DiffuseMaterial(Brushes.Black)
+                //};
                 //var mat = new MaterialGroup();
                 //mat.Children.Add(new DiffuseMaterial(Brushes.Aqua));
                 //mat.Children.Add(new SpecularMaterial(Brushes.Blue, 80));
@@ -276,8 +276,8 @@ namespace MeshSimplificationTest
                     Material = new DiffuseMaterial(new SolidColorBrush(
                         GetColor(idGroup)))
                 };
-                resultmodels.Children.Add(resultMesh);
-                resultmodels.Children.Add(wireframe);
+                //resultmodels.Children.Add(resultMesh);
+                //resultmodels.Children.Add(wireframe);
             }
             return resultmodels;
         }
@@ -460,7 +460,7 @@ namespace MeshSimplificationTest
                 edges.Add(points.FindIndex(x => x.Equals(bd)));
                 ++cnt;
             }
-            builder.AddEdges(points, edges, 0.001, theta);
+            builder.AddEdges(points, edges, 0.01, theta);
             foreach (KeyValuePair<int, VertexConstraint> isd in cons.VertexConstraintsItr())
             {
                 var id = isd.Key;

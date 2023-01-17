@@ -19,6 +19,16 @@ namespace MeshSimplificationTest
     /// </summary>
     public class RemeshTool
     {
+        public static bool UseParallelCalculations = true;
+
+
+        /// <summary>
+        /// хранит индекс последнего добавленного ограничения вертекса
+        /// используется для избежания назначения одинаковых индексов
+        /// </summary>
+        private int _constraintVtxCounter = 0;
+
+
         /// <summary>
         /// Целевая длина ребра треугольника будущего меша
         /// </summary>
@@ -107,7 +117,7 @@ namespace MeshSimplificationTest
             EnableSplits = true;
             EnableSmoothing = true;
             KeepAngle = true;
-            Angle = 3;
+            Angle = 1;
             SmoothSpeed = 0.5;
             EdgeLength = 1;
             Iterations = 25;
@@ -117,6 +127,84 @@ namespace MeshSimplificationTest
             SmoothType = Remesher.SmoothTypes.Uniform;
             Reprojection = true;
             AngleEdge = 180 - Angle;
+        }
+        /// <summary>
+        /// Возращает рекомендуемую длину ребра для сетки
+        /// </summary>
+        public static double GetTargetEdgeLength(DMesh3 mesh)
+        {
+            double mine, maxe, avge;
+            MeshQueries.EdgeLengthStats(mesh, out mine, out maxe, out avge);
+
+            var coefList = new ConcurrentBag<double>();
+            var edgeLenList = new ConcurrentBag<double>();
+            ParallelLoopResult result = Parallel.ForEach<int>(
+                   mesh.TriangleIndices(),
+                   (tid) =>
+                   {
+                       if (GeometryUtils.IsDegenerativeTriangle(mesh, tid))
+                           return;
+                       var triangle = mesh.GetTriangle(tid);
+                       var a = mesh.GetVertex(triangle.a);
+                       var b = mesh.GetVertex(triangle.b);
+                       var c = mesh.GetVertex(triangle.c);
+                       var area = MathUtil.Area(a, b, c);
+                       //находим длину ребра правильного треугольника с площадью area
+                       var targetLen = Math.Sqrt(area * 4.0 / Math.Sqrt(3.0));
+                       var triangleCurentAvgLen = ((a - b).Length + (a - c).Length + (c - b).Length) / 3.0;
+                       //высчитываем коэф. соответствия текущего треугольнику правильному
+                       var targetCoef = targetLen / triangleCurentAvgLen;
+                       coefList.Add(targetCoef);
+                       edgeLenList.Add(targetLen);
+                   }
+            );
+            var angle = 3.0;
+            var edgeCounter = 0;
+
+            //отвечает за вычисление количеста рёбер, треугольники между которым формируют угол больше 3 градусов, т.е имеют изгибы
+            //чем больше изгибов - тем меньше должна быть результирующая сетка
+            ParallelLoopResult result2 = Parallel.ForEach<int>(
+                   mesh.EdgeIndices(),
+                   (eid) =>
+                   {
+                       double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
+                       if (fAngle > angle)
+                       {
+                           Interlocked.Increment(ref edgeCounter);
+                       }
+                   }
+            );
+            //соотножение граней с острым углом к общему числу граней
+            //для сложным сеток с множеством изгибов edgeSharpCoef будет стремиться к 1
+            //для простых (с плоскими гранями) к нулю
+            var edgeSharpCoef = edgeCounter / (double)mesh.EdgeCount;
+
+            //коэффициент edgeSharpCoef должен быть в диапозоне от 1 до 2,
+            //но значимоcть нужно увеличить чувствительность к edgeSharpCoef, потому добавим множитель 3,0
+            edgeSharpCoef = Math.Max(1.0, 2.0 - edgeSharpCoef * 3.0);
+
+            //коэффициент усложнения модели
+            //то есть насколько нужно уменьшить длину среднего ребра, чтобы 
+            //модель не потеряла в деталях.
+            //должна быть в пределах от 0 до 1
+            //в сетках с преимущественно правильными треугольниками coefList.Average() будет стремится к единице, с вытянутыми к нулю
+            var resultCoef = Math.Max(1.0, coefList.Average() * edgeSharpCoef);//ограничение снизу
+
+            //средняя длина грани треугольника, если бы все треугольники были правильными
+            var resultLen = edgeLenList.Average();
+
+            //получение нового размера длины треугольника
+            var newValue = resultCoef * resultLen;
+
+            //scaleCoef отвечает за ограничение сверху
+            //средняя длина ребра avg умноженная на этот коэффициент
+            //увеличиывает ограничение сверху, что позволяет упрощать несложные модели.
+            var scaleCoef = 1.3;
+
+            //ограничение сверху
+            newValue = Math.Min(newValue, avge * scaleCoef);
+
+            return newValue;
         }
 
         /// <summary>
@@ -157,8 +245,7 @@ namespace MeshSimplificationTest
             {
                 FixAndRepairMesh(mesh);
             }
-            DeleteDegenerateTriangle(mesh);
-            var edgeLength = GeometryUtils.GetTargetEdgeLength(mesh);
+            DeleteDegenerateTriangles(mesh);
             //Remesher r = new Remesher(mesh);
 
             //RemesherPro это расширения класса Remesher,
@@ -168,8 +255,8 @@ namespace MeshSimplificationTest
             r.PreventNormalFlips = true;
             r.Precompute();
             r.AllowCollapseFixedVertsWithSameSetID = AllowCollapseFixedVertsWithSameSetID;
-            r.EnableParallelProjection = true;
-            r.EnableParallelSmooth = true;
+            r.EnableParallelProjection = UseParallelCalculations;
+            r.EnableParallelSmooth = UseParallelCalculations;
             r.EnableSmoothInPlace = true;
             r.EdgeFlipTolerance = 0.01;
             r.SmoothType = SmoothType;
@@ -178,25 +265,30 @@ namespace MeshSimplificationTest
 
             MeshConstraints cons = new MeshConstraints();
             EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
-
-            VtxConstrainsAngle(mesh, cons, Angle);
-
+            _constraintVtxCounter = 0;
+            VtxConstrainsAngle(r.Mesh, cons, Angle);
             if (Reprojection)
             {
-                r.SetProjectionTarget(MeshProjectionTarget.Auto(mesh));
+                r.SetProjectionTarget(MeshProjectionTarget.Auto(r.Mesh));
                 cancelToken.ThrowIfCancellationRequested();
             }
 
+            var resultEdgeConstr = new List<int>();
             if (EnableFaceGroup)
             {
-                MeshConstraintsGroups(mesh, edgeRefineFlags, cons);
-                cancelToken.ThrowIfCancellationRequested();
+                var faceGroupEdges = GetEdgesIdConstrainsByGroups(mesh);
+                resultEdgeConstr.AddRange(faceGroupEdges);
             }
 
             if (KeepAngle)
             {
-                MeshConstraintsAngle(mesh, Angle, edgeRefineFlags, cons);
-                cancelToken.ThrowIfCancellationRequested();
+                var angleEdges = GetEdgesIdConstrainsByAngle(mesh, Angle);
+                resultEdgeConstr.AddRange(angleEdges);
+            }
+            if (resultEdgeConstr.Count > 0)
+            {
+                resultEdgeConstr = resultEdgeConstr.Distinct().ToList();
+                MeshConstraints(mesh, resultEdgeConstr, edgeRefineFlags, cons);
             }
 
             r.Precompute();
@@ -213,8 +305,9 @@ namespace MeshSimplificationTest
 
             cancelToken.ThrowIfCancellationRequested();
             RemeshCalculateIterations(r, Iterations, cancelToken, progress);
-            //MeshEditor.RemoveFinTriangles(mesh);
-            DeleteDegenerateTriangle(mesh);
+            cancelToken.ThrowIfCancellationRequested();
+            DeleteDegenerateTriangles(mesh);
+
             return mesh;
         }
 
@@ -256,18 +349,9 @@ namespace MeshSimplificationTest
         {
             var edgesId = new List<int>();
             int[][] group_tri_sets = FaceGroupUtil.FindTriangleSetsByGroup(mesh);
-            MeshRegionBoundaryLoops loops = null;
             foreach (int[] tri_list in group_tri_sets)
             {
-                if (tri_list.Length > 800) continue;
-                try
-                {
-                    loops = new MeshRegionBoundaryLoops(mesh, tri_list);
-                }
-                catch (Exception ex)
-                {
-                    continue;
-                }
+                MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, tri_list);
                 foreach (EdgeLoop loop in loops)
                 {
                     foreach (var eid in loop.Edges)
@@ -299,18 +383,13 @@ namespace MeshSimplificationTest
         /// <param name="mesh"></param>
         /// <param name="angle"></param>
         /// <returns>список id граней, подпадающих под условие</returns>
-        public List<int> GetEdgesIdConstrainsByAngle(DMesh3 mesh, double angle)
+        private List<int> GetEdgesIdConstrainsByAngle(DMesh3 mesh, double angle)
         {
             var edgesId = new List<int>();
 
             foreach (int eid in mesh.EdgeIndices())
             {
-                var edgeIDs = mesh.GetEdgeV(eid);
                 double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
-                if(fAngle > 140)
-                {
-                    ;
-                }
                 if (fAngle > angle)
                 {
                     edgesId.Add(eid);
@@ -334,7 +413,6 @@ namespace MeshSimplificationTest
             }
 
             var vtxsID = GetVtxIDStats(mesh, edgesID);
-            var counter = 100000;
             var vtxValid = new List<int>();
 
             ///Мы можем удалять точки на гранях только если она принадлежит линии или контуру
@@ -344,7 +422,7 @@ namespace MeshSimplificationTest
 
             foreach (var item in vtxsID)
             {
-                if (item.Value.Count == validParentEdgeCount && 
+                if (item.Value.Count == validParentEdgeCount &&
                     !GeometryUtils.IsSharpEdges(mesh, item.Key, vtxsID, AngleEdge))
                 {
                     vtxValid.Add(item.Key);
@@ -355,15 +433,13 @@ namespace MeshSimplificationTest
                     ///Настройка AllowCollapseFixedVertsWithSameSetID по возможности будет схлопывать грани с одинаковыми
                     ///номерами, значит выставить нужно так, что все углы должны быть помечаны уникальными номерами
                     ///таковым является counter
-                    constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, counter));
+                    constraints.SetOrUpdateVertexConstraint(item.Key, new VertexConstraint(true, this._constraintVtxCounter));
                 }
-                ++counter;
+                ++this._constraintVtxCounter;
             }
 
             ///Что бы каждая отдельное ребро грани могло схлопывать точки и не перемешиваться с другими рёбрами
             ///нужно каждую пометить своим номером.
-            //int borderCounter = counter + 1;
-            int borderCounter = 0;
             while (vtxValid != null && vtxValid.Count > 0)
             {
                 var firstVtxGroup = vtxValid.First();
@@ -371,7 +447,7 @@ namespace MeshSimplificationTest
 
                 var queue = new Queue<int>();
                 queue.Enqueue(firstVtxGroup);
-                constraints.SetOrUpdateVertexConstraint(firstVtxGroup, new VertexConstraint(true, borderCounter));
+                constraints.SetOrUpdateVertexConstraint(firstVtxGroup, new VertexConstraint(true, _constraintVtxCounter));
                 do
                 {
                     var curentId = queue.Dequeue();
@@ -390,12 +466,59 @@ namespace MeshSimplificationTest
                         {
                             vtxValid.Remove(vtx2);
                             queue.Enqueue(vtx2);
-                            constraints.SetOrUpdateVertexConstraint(vtx2, new VertexConstraint(true, borderCounter));
+                            constraints.SetOrUpdateVertexConstraint(vtx2, new VertexConstraint(true, _constraintVtxCounter));
                         }
                     }
                 } while (queue.Count > 0);
 
-                ++borderCounter;
+                ++_constraintVtxCounter;
+            }
+        }
+
+        public MeshConstraints GetMeshConstraints(DMesh3 mesh)
+        {
+            if (!mesh.CheckValidity(eFailMode: FailMode.ReturnOnly))
+            {
+                FixNormals(mesh);
+            }
+            var cons = new MeshConstraints();
+            EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
+            VtxConstrainsAngle(mesh, cons, Angle);
+            List<int> faceGroupEdges = null;
+            List<int> angleEdges = null;
+            var resultEdgeConstr = new List<int>();
+            if (EnableFaceGroup)
+            {
+                faceGroupEdges = GetEdgesIdConstrainsByGroups(mesh);
+                resultEdgeConstr.AddRange(faceGroupEdges);
+            }
+
+            if (KeepAngle)
+            {
+                angleEdges = GetEdgesIdConstrainsByAngle(mesh, Angle);
+                resultEdgeConstr.AddRange(angleEdges);
+            }
+            if (resultEdgeConstr.Count > 0)
+            {
+                resultEdgeConstr = resultEdgeConstr.Distinct().ToList();
+                MeshConstraints(mesh, resultEdgeConstr, edgeRefineFlags, cons);
+            }
+
+            ConstraintsDegenerateTri(mesh, cons);
+            return cons;
+        }
+        private void ConstraintsDegenerateTri(DMesh3 mesh, MeshConstraints constraints)
+        {
+            var contspointFlag = 99901;
+            foreach (int triangleid in mesh.TriangleIndices())
+            {
+                if (GeometryUtils.IsDegenerativeTriangle(mesh, triangleid))
+                {
+                    var triangle = mesh.GetTriangle(triangleid);
+                    var pointId = GeometryUtils.GetDegenerateVtxId(mesh, triangleid);
+                    constraints.SetOrUpdateVertexConstraint(pointId, new VertexConstraint(true, contspointFlag));
+                }
+
             }
         }
 
@@ -444,7 +567,8 @@ namespace MeshSimplificationTest
         public static void RepairMash(DMesh3 mesh)
         {
             var meshRepair = new MeshAutoRepair(mesh);
-            meshRepair.Apply();
+            if (mesh.VertexCount > 2 && mesh.TriangleCount > 0)
+                meshRepair.Apply();
         }
 
         /// <summary>
@@ -456,51 +580,25 @@ namespace MeshSimplificationTest
             FixNormals(mesh);
             RepairMash(mesh);
         }
-        public MeshConstraints GetMeshConstraints(DMesh3 mesh)
-        {
-            if (!mesh.CheckValidity(eFailMode: FailMode.ReturnOnly))
-            {
-                FixNormals(mesh);
-            }
-            var cons = new MeshConstraints();
-            EdgeRefineFlags edgeRefineFlags = EdgeRefineFlags.NoFlip;
-            VtxConstrainsAngle(mesh, cons, Angle);
-            if (EnableFaceGroup)
-            {
-                MeshConstraintsGroups(mesh, edgeRefineFlags, cons);
-            }
 
-            if (KeepAngle)
-            {
-                MeshConstraintsAngle(mesh, Angle, edgeRefineFlags, cons);
-            }
-            ConstraintsDegenerateTri(mesh, cons);
-            return cons;
-        }
-
-        private void ConstraintsDegenerateTri(DMesh3 mesh, MeshConstraints constraints)
-        {
-            var contspointFlag = 99901;
-            foreach (int triangleid in mesh.TriangleIndices())
-            {
-                if (GeometryUtils.IsDegenerativeTriangle(mesh, triangleid))
-                {
-                    var triangle = mesh.GetTriangle(triangleid);
-                    var pointId = GeometryUtils.GetDegenerateVtxId(mesh, triangleid);
-                    constraints.SetOrUpdateVertexConstraint(pointId, new VertexConstraint(true, contspointFlag));
-                }
-
-            }            
-        }        
-
-        private void DeleteDegenerateTriangle(DMesh3 mesh)
+        /// <summary>
+        /// Удаляет нулевые треугольники используя угол Angle
+        /// </summary>
+        /// <param name="mesh"></param>
+        private void DeleteDegenerateTriangles(DMesh3 mesh)
         {
             GeometryUtils.DeleteDegenerateTriangle(mesh, Angle);
         }
-      
-        private static void VtxConstrainsAngle(DMesh3 mesh, MeshConstraints constraints, double angle)
+
+
+        /// <summary>
+        /// Устанавливает ограничение на острые углы сетки
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="constraints"></param>
+        /// <param name="angle"></param>
+        private void VtxConstrainsAngle(DMesh3 mesh, MeshConstraints constraints, double angle)
         {
-            var counter = 200000;
             var sharpVtxIDs = new ConcurrentBag<int>();
             ParallelLoopResult result = Parallel.ForEach<int>(
                    mesh.VertexIndices(),
@@ -514,11 +612,9 @@ namespace MeshSimplificationTest
             );
             foreach (var vid in sharpVtxIDs)
             {
-                constraints.SetOrUpdateVertexConstraint(vid, new VertexConstraint(true, counter));
-                ++counter;
+                constraints.SetOrUpdateVertexConstraint(vid, new VertexConstraint(true, _constraintVtxCounter));
+                ++_constraintVtxCounter;
             }
         }
-
-             
     }
 }

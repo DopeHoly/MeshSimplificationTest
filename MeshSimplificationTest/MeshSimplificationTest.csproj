@@ -163,5 +163,11 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\pb_CSG\pb_CSG.csproj">
+      <Project>{d911fce7-4ad1-4379-a142-dd7cfc60ae9f}</Project>
+      <Name>pb_CSG</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

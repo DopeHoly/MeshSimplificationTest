@@ -1,8 +1,10 @@
 ﻿using g3;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MeshSimplificationTest
@@ -140,15 +142,9 @@ namespace MeshSimplificationTest
             return Vector3DAngle(a - vtx, b - vtx);
         }
 
-        public static bool IsDegenerativeTriangle(DMesh3 mesh, int tid, double treshhold = 179)
+        public static bool IsDegenerativeTriangle(DMesh3 mesh, int tid, double treshhold = 1e-5)
         {
-            //treshhold = 1e-6;
-            //var area = mesh.GetTriArea(tid);
-            //if (area < treshhold)
-            //{
-            //    return true;
-            //}
-            //return false;
+            treshhold = 180.0 - 1e-1;
             var triangle = mesh.GetTriangle(tid);
             var a = mesh.GetVertex(triangle.a);
             var b = mesh.GetVertex(triangle.b);
@@ -506,53 +502,83 @@ namespace MeshSimplificationTest
             return thresholdAngle >= minAngle;
         }
 
+        /// <summary>
+        /// Возращает рекомендуемую длину ребра для сетки
+        /// </summary>
         public static double GetTargetEdgeLength(DMesh3 mesh)
         {
             double mine, maxe, avge;
             MeshQueries.EdgeLengthStats(mesh, out mine, out maxe, out avge);
-            var coefList = new List<double>();
-            var edgeLenList = new List<double>();
-            foreach (var tid in mesh.TriangleIndices())
-            {
-                if (IsDegenerativeTriangle(mesh, tid))
-                    continue;
-                var triangle = mesh.GetTriangle(tid);
-                var a = mesh.GetVertex(triangle.a);
-                var b = mesh.GetVertex(triangle.b);
-                var c = mesh.GetVertex(triangle.c);
-                var angleA = GetAngle(a, b, c);
-                var angleB = GetAngle(b, a, c);
-                var angleC = GetAngle(c, a, b);
-                var angles = new[] { angleA, angleB, angleC };
-                var max = angles.Max();
-                var min = angles.Min();
-                var delta_a = Math.Abs(angleA - 60.0);
-                var delta_b = Math.Abs(angleB - 60.0);
-                var delta_c = Math.Abs(angleC - 60.0);
-                //var coef = (180.0 - (ab + cb + ac)) / 180.0;
-                var coef = 180.0 / (180.0 - ((delta_a + delta_b + delta_c)/3.0));
-                var length = 0.0;
-                if(angleA == min)
-                {
-                    length = b.Distance(c);
-                }
-                else
-                if (angleB == min)
-                {
-                    length = a.Distance(c);
-                }
-                else
-                if (angleC == min)
-                {
-                    length = b.Distance(a);
-                }
-                //var coef = min / max;
-                coefList.Add(coef);
-                edgeLenList.Add(length);
-            }
-            var resultCoef = coefList.Average();
+
+            var coefList = new ConcurrentBag<double>();
+            var edgeLenList = new ConcurrentBag<double>();
+            ParallelLoopResult result = Parallel.ForEach<int>(
+                   mesh.TriangleIndices(),
+                   (tid) =>
+                   {
+                       if (IsDegenerativeTriangle(mesh, tid))
+                           return;
+                       var triangle = mesh.GetTriangle(tid);
+                       var a = mesh.GetVertex(triangle.a);
+                       var b = mesh.GetVertex(triangle.b);
+                       var c = mesh.GetVertex(triangle.c);
+                       var area = MathUtil.Area(a, b, c);
+                       //находим длину ребра правильного треугольника с площадью area
+                       var targetLen = Math.Sqrt(area * 4.0 / Math.Sqrt(3.0));
+                       var triangleCurentAvgLen = ((a - b).Length + (a - c).Length + (c - b).Length) / 3.0;
+                       //высчитываем коэф. соответствия текущего треугольнику правильному
+                       var targetCoef = targetLen / triangleCurentAvgLen;
+                       coefList.Add(targetCoef);
+                       edgeLenList.Add(targetLen);
+                   }
+            );
+            var angle = 3.0;
+            var edgeCounter = 0;
+
+            //отвечает за вычисление количеста рёбер, треугольники между которым формируют угол больше 3 градусов, т.е имеют изгибы
+            //чем больше изгибов - тем меньше должна быть результирующая сетка
+            ParallelLoopResult result2 = Parallel.ForEach<int>(
+                   mesh.EdgeIndices(),
+                   (eid) =>
+                   {
+                       double fAngle = MeshUtil.OpeningAngleD(mesh, eid);
+                       if (fAngle > angle)
+                       {
+                           Interlocked.Increment(ref edgeCounter);
+                       }
+                   }
+            );
+            //соотножение граней с острым углом к общему числу граней
+            //для сложным сеток с множеством изгибов edgeSharpCoef будет стремиться к 1
+            //для простых (с плоскими гранями) к нулю
+            var edgeSharpCoef = edgeCounter / (double)mesh.EdgeCount;
+
+            //коэффициент edgeSharpCoef должен быть в диапозоне от 1 до 2,
+            //но значимоcть нужно увеличить чувствительность к edgeSharpCoef, потому добавим множитель 3,0
+            edgeSharpCoef = Math.Max(1.0, 2.0 - edgeSharpCoef * 3.0);
+
+            //коэффициент усложнения модели
+            //то есть насколько нужно уменьшить длину среднего ребра, чтобы 
+            //модель не потеряла в деталях.
+            //должна быть в пределах от 0 до 1
+            //в сетках с преимущественно правильными треугольниками coefList.Average() будет стремится к единице, с вытянутыми к нулю
+            var resultCoef = Math.Max(1.0, coefList.Average() * edgeSharpCoef);//ограничение снизу
+
+            //средняя длина грани треугольника, если бы все треугольники были правильными
             var resultLen = edgeLenList.Average();
-            return (avge * 1.0 / 4.0 + resultLen * 3.0 / 4.0) / 2.0;
+
+            //получение нового размера длины треугольника
+            var newValue = resultCoef * resultLen;
+
+            //scaleCoef отвечает за ограничение сверху
+            //средняя длина ребра avg умноженная на этот коэффициент
+            //увеличиывает ограничение сверху, что позволяет упрощать несложные модели.
+            var scaleCoef = 1.3;
+
+            //ограничение сверху
+            newValue = Math.Min(newValue, avge * scaleCoef);
+
+            return newValue;
         }
     }
 

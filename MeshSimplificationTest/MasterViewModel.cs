@@ -186,8 +186,8 @@ namespace MeshSimplificationTest
             {
                 var a = ModelCollection[0];
                 var b = ModelCollection[1];
-                var booleanTool = new BooleanTool();
-                AddModel(booleanTool.Intersection(a.Model, b.Model), $"{a.Name} - {b.Name}");
+                var booleanTool = new BooleanToolV2();
+                AddModel(booleanTool.Difference(a.Model, b.Model), $"{a.Name} - {b.Name}");
                 SelectMesh = ModelCollection[ModelCollection.Count - 1];
                 //SaveModel(null);
             }
