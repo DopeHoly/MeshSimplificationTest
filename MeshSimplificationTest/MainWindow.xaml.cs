@@ -1,5 +1,6 @@
 ﻿using g3;
 using HelixToolkit.Wpf;
+using MeshSimplificationTest.SBRepVM;
 using System;
 using System.Collections.Generic;
 using System.Windows;
@@ -17,8 +18,9 @@ namespace MeshSimplificationTest
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = new RemeshViewModel();
+            //DataContext = new RemeshViewModel();
             //DataContext = new MasterViewModel();
+            DataContext = new SBRepViewModel();
         }
     }
 }
