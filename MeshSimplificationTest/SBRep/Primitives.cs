@@ -24,39 +24,45 @@ namespace MeshSimplificationTest.SBRep
     public class SBRep_Vtx : SBRep_Primitive
     {
         public Vector3d Coordinate;
-        public IEnumerable<int> Parents;
+        public ICollection<int> Parents;
     }
 
     public class SBRep_Edge : SBRep_Primitive
     {
         public Index2i Vertices;
-        public IEnumerable<int> Parents;
+        public int Parent = -1;
     }
     public class SBRep_LoopEdge : SBRep_Primitive
     {
-        public IEnumerable<int> Edges;
-        public IEnumerable<int> Parents;
+        public ICollection<int> Edges;
+        public ICollection<int> Parents;
     }
 
     public class SBRep_Loop : SBRep_Primitive
     {
-        public IEnumerable<int> Edges;
-        public IEnumerable<int> Parents;
+        public ICollection<int> LoopEdges;
+        public ICollection<int> Parents;        
     }
     public class SBRep_Face : SBRep_Primitive
     {
+        public int GroupID = -1;
         public Vector3d Normal;
         public int OutsideLoop;
-        public List<int> InsideLoops;
+        public ICollection<int> InsideLoops;
     }
 
 
     public class LoopEdge : IIndexed
     {
         public int ID { get; set; } = -1;
-        public IEnumerable<int> edgeIDs;
+        public ICollection<int> edgeIDs;
         public Index2i neigbor;
-        public LoopEdge(IEnumerable<int> edgeIDs, Index2i neigbor) 
+
+        public LoopEdge()
+        {
+            edgeIDs = new List<int>();
+        }
+        public LoopEdge(ICollection<int> edgeIDs, Index2i neigbor) 
         {
             this.neigbor = neigbor;
             this.edgeIDs = edgeIDs;
@@ -117,6 +123,10 @@ namespace MeshSimplificationTest.SBRep
         public bool Contains(T item)
         {
             return map.ContainsKey(item.ID);
+        }
+        public bool ContainsKey(int key)
+        {
+            return map.ContainsKey(key);
         }
 
         public void CopyTo(T[] array, int arrayIndex)

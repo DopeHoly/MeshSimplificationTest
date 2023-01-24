@@ -8,6 +8,14 @@
              d:DataContext="{d:DesignInstance Type=local:SBRepViewModel}"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <DataTemplate DataType="{x:Type local:Model3DLayerVM}">
+            <DockPanel MinHeight="10">
+                <TextBlock Text="{Binding Name}"/>
+                <CheckBox  IsChecked="{Binding Visibility}"/>
+            </DockPanel>
+        </DataTemplate>
+    </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" MinWidth="150"/>
@@ -18,7 +26,6 @@
         <helix:HelixViewport3D x:Name="viewPort3d" 
                                ShowTriangleCountInfo="True"
                                ShowFrameRate="True">
-            <!-- Remember to add light to the scene -->
             <helix:BoundingBoxVisual3D/>
             <helix:DefaultLights/>
             <helix:TranslateManipulator />
@@ -29,22 +36,7 @@
 
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <DockPanel>
-                    <TextBlock Text="Исходный объект"/>
-                    <CheckBox  IsChecked="{Binding Data.ShowSourceObject}"/>
-                </DockPanel>
-                <DockPanel>
-                    <TextBlock Text="Грани плоскостей"/>
-                    <CheckBox  IsChecked="{Binding Data.ShowBoundaryEdges}"/>
-                </DockPanel>
-                <DockPanel>
-                    <TextBlock Text="Петли"/>
-                    <CheckBox  IsChecked="{Binding Data.ShowTriPlanarGroup}"/>
-                </DockPanel>
-                <DockPanel>
-                    <TextBlock Text="Грани петель"/>
-                    <CheckBox  IsChecked="{Binding Data.ShowLoopEdges}"/>
-                </DockPanel>
+                <ListView ItemsSource="{Binding Data.ModelsVM, UpdateSourceTrigger=PropertyChanged}"/>
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
             </StackPanel>
         </ScrollViewer>

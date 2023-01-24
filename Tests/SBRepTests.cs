@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using MeshSimplificationTest.SBRep;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace Tests
 {
@@ -20,11 +21,20 @@ namespace Tests
         public void GenerateSBRepObject()
         {
             var mesh = StandardMeshReader.ReadMesh(Sample_GroundWithInfluencePath);
-            var result = SBRepBuilder.BuildPlanarGroups(mesh);
+            var sbRep = SBRepBuilder.Convert(mesh);
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(7, result.Count);
-            var loops = result.Select(x => x.GetLoops()).ToList();
+            Assert.IsNotNull(sbRep);
+            Assert.AreEqual(7, sbRep._faces.Count());
+            Assert.AreEqual(7, sbRep._loops.Count());
+            Assert.AreEqual(13, sbRep._loopPart.Count());
+
+            var facesWithInternalLoop = sbRep.GetFaces().Where(x => x.InsideLoops.Count() > 0);
+            Assert.AreEqual(1, facesWithInternalLoop.Count());
+            var face = facesWithInternalLoop.First();
+            Assert.AreEqual(1, face.InsideLoops.Count());
+            var lid = face.InsideLoops.First();
+            var loop = sbRep._loops[lid];
+            Assert.AreEqual(1, loop.LoopEdges.Count());
         }
 
         [TestMethod]
@@ -40,6 +50,58 @@ namespace Tests
             Assert.AreEqual(-1, plane.B);
             Assert.AreEqual(3, plane.C);
             Assert.AreEqual(-7, plane.D);
+        }
+
+        [TestMethod]
+        public void CubeConvertTest()
+        {
+            var mesh = StandardMeshReader.ReadMesh(Sample_CubePath);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            Assert.IsNotNull(sbRep);
+            Assert.AreEqual(8, sbRep._vertices.Count);
+            Assert.AreEqual(12, sbRep._edges.Count);
+            Assert.AreEqual(12, sbRep._loopPart.Count);
+            Assert.AreEqual(6, sbRep._loops.Count);
+            Assert.AreEqual(6, sbRep._faces.Count);
+        }
+
+        [TestMethod]
+        public void GetClosetContour()
+        {
+            var mesh = StandardMeshReader.ReadMesh(Sample_CubePath);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            var contour = sbRep.GetClosedContour(0);
+        }
+
+        [TestMethod]
+        public void GetAreaTest()
+        {
+            var points = new List<Vector2d>();
+            points.Add(new Vector2d(3,4));
+            points.Add(new Vector2d(5,11));
+            points.Add(new Vector2d(12,8));
+            points.Add(new Vector2d(9,5));
+            points.Add(new Vector2d(5,6));
+            var area = SBRepObject.GetArea(points);
+            Assert.AreEqual(30.0, area);
+        }
+
+        [TestMethod]
+        public void GetAreaLoopTest()
+        {
+            var mesh = StandardMeshReader.ReadMesh(Sample_CubePath);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            var loopsAreas = new List<double>();
+            foreach(var loop in sbRep._loops)
+            {
+                loopsAreas.Add(sbRep.GetLoopArea(loop.ID));
+            }
+            Assert.IsNotNull(loopsAreas);
+            Assert.IsTrue(
+                loopsAreas.All(
+                    x => Math.Abs(x - loopsAreas.First()) < 1e-9 
+                    )
+                );
         }
     }
 

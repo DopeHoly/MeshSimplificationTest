@@ -17,13 +17,47 @@ using HelixToolkit.Wpf;
 using System.Windows.Media;
 using System.Windows.Markup;
 using MeshSimplificationTest.SBRep;
-using CGALDotNet.Polyhedra;
 using static MeshSimplificationTest.SBRep.SBRepBuilder;
-using Parabox.CSG;
+using System.Collections.ObjectModel;
 using Net3dBool;
 
 namespace MeshSimplificationTest.SBRepVM
 {
+    public class Model3DLayerVM : BaseViewModel
+    {
+        private SBRepModel Owner;
+        private bool _visibility;
+        private Model3D _model;
+        private string _name;
+
+        public string Name
+        {
+            get => _name;
+            set => _name = value;
+        }
+        public bool Visibility
+        {
+            get => _visibility;
+            set
+            {
+                if (value == _visibility) return;
+                _visibility = value;
+                OnPropertyChanged();
+                Owner.LayerVisibilityChanged();
+            }
+        }
+        public Model3D Model
+        {
+            get => _model;
+            set => _model = value;
+        }
+
+        public Model3DLayerVM(SBRepModel owner)
+        {
+            this.Owner = owner;
+        }
+    }
+
     public class BaseViewModel: INotifyPropertyChanged
     {
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
@@ -45,14 +79,12 @@ namespace MeshSimplificationTest.SBRepVM
         private string bufer_PATH = Path.Combine(Directory.GetCurrentDirectory(), @"bufer.obj");
         private string bufer_group_PATH = Path.Combine(Directory.GetCurrentDirectory(), @"buferGrTMP.obj");
         private DMesh3 _sourceModel;
-        private bool _showSourceObject;
-        private bool _showBoundaryEdges;
-        private bool _showTriPlanarGroup;
-        private bool _showLoopEdges;
-        private Model3D convertedSourceModel;
-        private Model3D boundaryEdgesModel;
-        private Model3D triPlanarGroupModel;
-        private Model3D loopEdgeModel;
+        public ObservableCollection<Model3DLayerVM> ModelsVM { get; set; }
+
+        public SBRepModel()
+        {
+            ModelsVM = new ObservableCollection<Model3DLayerVM>();
+        }
 
         public DMesh3 SourceModel => _sourceModel;
 
@@ -61,61 +93,94 @@ namespace MeshSimplificationTest.SBRepVM
             get => GetOutputViewModel();
         }
 
-        public bool ShowSourceObject
-        {
-            get => _showSourceObject;
-            set
-            {
-                if(value == ShowSourceObject) return;
-                _showSourceObject = value;
-                OnPropertyChanged(nameof(MainMesh));
-            }
-        }
-        public bool ShowBoundaryEdges
-        {
-            get => _showBoundaryEdges;
-            set
-            {
-                if (value == _showBoundaryEdges) return;
-                _showBoundaryEdges = value;
-                OnPropertyChanged(nameof(MainMesh));
-            }
-        }
-        public bool ShowTriPlanarGroup
-        {
-            get => _showTriPlanarGroup;
-            set
-            {
-                if (value == _showTriPlanarGroup) return;
-                _showTriPlanarGroup = value;
-                OnPropertyChanged(nameof(MainMesh));
-            }
-        }
-        public bool ShowLoopEdges
-        {
-            get => _showLoopEdges;
-            set
-            {
-                if (value == _showLoopEdges) return;
-                _showLoopEdges = value;
-                OnPropertyChanged(nameof(MainMesh));
-            }
-        }
+        //public bool ShowSourceObject
+        //{
+        //    get => _showSourceObject;
+        //    set
+        //    {
+        //        if(value == ShowSourceObject) return;
+        //        _showSourceObject = value;
+        //        OnPropertyChanged(nameof(MainMesh));
+        //    }
+        //}
+        //public bool ShowBoundaryEdges
+        //{
+        //    get => _showBoundaryEdges;
+        //    set
+        //    {
+        //        if (value == _showBoundaryEdges) return;
+        //        _showBoundaryEdges = value;
+        //        OnPropertyChanged(nameof(MainMesh));
+        //    }
+        //}
+        //public bool ShowTriPlanarGroup
+        //{
+        //    get => _showTriPlanarGroup;
+        //    set
+        //    {
+        //        if (value == _showTriPlanarGroup) return;
+        //        _showTriPlanarGroup = value;
+        //        OnPropertyChanged(nameof(MainMesh));
+        //    }
+        //}
+        //public bool ShowLoopEdges
+        //{
+        //    get => _showLoopEdges;
+        //    set
+        //    {
+        //        if (value == _showLoopEdges) return;
+        //        _showLoopEdges = value;
+        //        OnPropertyChanged(nameof(MainMesh));
+        //    }
+        //}
 
         public void SetModel(DMesh3 model)
         {
             _sourceModel = model;
-            convertedSourceModel = ConvertToModel3D(SourceModel);
+            ModelsVM.Clear();
+
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Исходный объект",
+                Model = ConvertToModel3D(SourceModel),
+            });
+
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
-            boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
-            triPlanarGroupModel = GenerateModelFromTriPlanarGroup(triPlanarGroup);
-            loopEdgeModel = GenerateModelFromLoopEdge(
+            var sbrep = SBRepBuilder.Convert(model);
+            var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани объекта",
+                Model = boundaryEdgesModel,
+            });
+
+            var triPlanarGroupModel = GenerateModelFromTriPlanarGroup(triPlanarGroup);
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Петли",
+                Model = triPlanarGroupModel,
+            });
+
+            var loopEdgeModel = GenerateModelFromLoopEdge(
                 model,
                 SBRepBuilder.BuildLooppart(
                     model,
                     triPlanarGroup));
-            OnPropertyChanged(nameof(MainMesh));
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани петель",
+                Model = loopEdgeModel,
+            });
+
+            var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Петли из sbrep",
+                Model = sbrep_loops,
+            });
+            OnPropertyChanged(nameof(MainMesh)); 
+            OnPropertyChanged(nameof(ModelsVM));
         }
 
         public void LoadModel(string path)
@@ -127,14 +192,12 @@ namespace MeshSimplificationTest.SBRepVM
         {
             if(SourceModel == null) return null;
             var resultmodels = new Model3DGroup();
-            if(ShowSourceObject && convertedSourceModel != null)
-                resultmodels.Children.Add(convertedSourceModel);
-            if(ShowBoundaryEdges && boundaryEdgesModel != null)
-                resultmodels.Children.Add(boundaryEdgesModel);
-            if (ShowTriPlanarGroup && triPlanarGroupModel != null)
-                resultmodels.Children.Add(triPlanarGroupModel);
-            if (ShowLoopEdges && triPlanarGroupModel != null)
-                resultmodels.Children.Add(loopEdgeModel);
+
+            foreach (var model in ModelsVM)
+            {
+                if(model.Visibility)
+                    resultmodels.Children.Add(model.Model);
+            }
 
             return resultmodels;
         }
@@ -315,6 +378,23 @@ namespace MeshSimplificationTest.SBRepVM
             return resultmodels;
         }
 
+        public Model3D GenerateModelFromObjectLoop(SBRepObject sbrep)
+        {
+            var resultmodels = new Model3DGroup();
+            foreach (var loop in sbrep._loops)
+            {
+                var lid = loop.ID;
+                //if (lid != 2)
+                //    continue;
+                resultmodels.Children.Add(
+                    ModelFromEdge(
+                        sbrep,
+                        sbrep.GetEdgesIdFromLoopId(lid),
+                        GetColor(lid)));
+            }
+            return resultmodels;
+        }
+
         #region VisualBuilder
         public Model3D ModelFromEdge(DMesh3 mesh, 
             IEnumerable<int> edgesIDs,
@@ -353,7 +433,49 @@ namespace MeshSimplificationTest.SBRepVM
                 Material = new DiffuseMaterial(new SolidColorBrush(color))
             };
         }
+        public Model3D ModelFromEdge(SBRepObject mesh,
+            IEnumerable<int> edgesIDs,
+            Color color, double diameterScale = 1)
+        {
+            var theta = 4;
+            var rad = diameterScale * 1.3 * 0.01;
+            var phi = 4;
+            var builder = new MeshBuilder(true, true);
+            var points = new List<Point3D>();
+            var edges = new List<int>();
+            foreach (var eid in edgesIDs)
+            {
+                var idx = mesh._edges[eid].Vertices;
+                var a = mesh.GetVertex(idx.a);
+                var b = mesh.GetVertex(idx.b);
+                var ad = new Point3D(a.x, a.y, a.z);
+                var bd = new Point3D(b.x, b.y, b.z);
+                if (!points.Contains(ad))
+                {
+                    points.Add(ad);
+                }
+                if (!points.Contains(bd))
+                {
+                    points.Add(bd);
+                }
+                edges.Add(points.FindIndex(x => x.Equals(ad)));
+                edges.Add(points.FindIndex(x => x.Equals(bd)));
+            }
+            builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
+            foreach (var point in points)
+                builder.AddEllipsoid(point, rad, rad, rad, theta, phi);
+            return new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(color))
+            };
+        }
         #endregion
+
+        public void LayerVisibilityChanged()
+        {
+            OnPropertyChanged(nameof(MainMesh));
+        }
     }
 
     public class SBRepViewModel : BaseViewModel

@@ -1,19 +1,22 @@
-﻿using g3;
+﻿using CGALDotNet;
+using g3;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Controls;
 
 namespace MeshSimplificationTest.SBRep
 {
     public static class SBRepBuilder
     {
-        private const double EPS_PointOnPlane = 1e-3;
-        private const double EPS_NormalCompare = 1e-4;
+        public const double EPS_PointOnPlane = 1e-3;
+        public const double EPS_NormalCompare = 1e-4;
         //private const double EPS_PointOnPlane = 1e-9;
         //private const double EPS_NormalCompare = 1e-8;
 
@@ -71,7 +74,7 @@ namespace MeshSimplificationTest.SBRep
             public int ID { get; set; } = -1;
             public DMesh3 mesh;
             public Vector3d Normal;
-            public int GroupId = -1;
+            public int GroupId { get; set; } = -1;
             public List<int> TriangleIDs = new List<int>();
 
             public TriPlanarGroup(DMesh3 mesh)
@@ -207,7 +210,7 @@ namespace MeshSimplificationTest.SBRep
                 ///с другими
                 TriPlanarGroup currentTriPlanarGroup = null;
                 while (triangleQueue.Count > 0 ||
-                triangles.Count() > 0)
+                       triangles.Count() > 0)
                 {
                     if (triangleQueue.Count < 1)
                     {
@@ -294,17 +297,56 @@ namespace MeshSimplificationTest.SBRep
             return planes;
         }
 
-        public static IndexedCollection<LoopEdge> BuildLooppart(DMesh3 mesh, IEnumerable<TriPlanarGroup> planarGroups)
+        public static IndexedCollection<LoopEdge> SeparateLoopEdgeByMerged(DMesh3 mesh, IndexedCollection<LoopEdge> loopEdges)
         {
-            ////индексация списка плоскостей
-            //var planarGroupsMarks = new Dictionary<int, TriPlanarGroup>();
-            //var cnt = 0;
-            //foreach (var item in planarGroups)
-            //{
-            //    planarGroupsMarks.Add(cnt, item);
-            //    ++cnt;
-            //}
+            var newLoopEdges = new IndexedCollection<LoopEdge>();
+            foreach (var loopEdge in loopEdges)
+            {
+                var edges = new List<int>(loopEdge.edgeIDs);
+                var edgeQueue = new Queue<int>();
+                LoopEdge currentLE = null;
+                while (edgeQueue.Count > 0 ||
+                       edges.Count() > 0)
+                {
+                    if(edgeQueue.Count < 1)
+                    {
+                        currentLE = new LoopEdge()
+                        {
+                            neigbor = loopEdge.neigbor
+                        };
+                        newLoopEdges.Add(currentLE);
+                        var tempEID = edges.First();
+                        edges.RemoveAt(0);
+                        edgeQueue.Enqueue(tempEID);
+                    }
+                    var eid = edgeQueue.Dequeue();
+                    currentLE.edgeIDs.Add(eid);
+                    if (edges.Count == 0)
+                        continue;
 
+                    var edgeV = mesh.GetEdgeV(eid);
+                    var neighbours = edges.Where(x =>
+                    {
+                        var edgeVtx = mesh.GetEdgeV(x);
+                        return
+                            edgeVtx.a == edgeV.a ||
+                            edgeVtx.b == edgeV.a ||
+                            edgeVtx.a == edgeV.b ||
+                            edgeVtx.b == edgeV.b;
+                    }).ToList();
+                    foreach (var neigbour in neighbours)
+                    {
+                        edgeQueue.Enqueue(neigbour);
+                        edges.Remove(neigbour);
+                    }
+                }
+            }
+
+            return newLoopEdges;
+        }
+
+        public static IndexedCollection<LoopEdge> GroupEdgeByPlaneIntersection(DMesh3 mesh, IEnumerable<TriPlanarGroup> planarGroups)
+        {
             //маркировка треугольников по принадлежности к определённой плоскости
             var triMarks = new Dictionary<int, int>();
             foreach (var group in planarGroups)
@@ -322,6 +364,8 @@ namespace MeshSimplificationTest.SBRep
             foreach (var eid in meshEdges)
             {
                 var edgeTri = mesh.GetEdgeT(eid);
+                if (edgeTri.a == -1 || edgeTri.b == -1)
+                    throw new Exception("Объект не замкнут");
                 var t1Index = triMarks[edgeTri.a];
                 var t2Index = triMarks[edgeTri.b];
                 if (t1Index == t2Index)
@@ -335,8 +379,9 @@ namespace MeshSimplificationTest.SBRep
                 {
                     edgeMarks.Add(neighborIndexes, new List<int>());
                 }
-                edgeMarks[neighborIndexes].Add(eid);                
+                edgeMarks[neighborIndexes].Add(eid);
             }
+
             var loopEdges = new IndexedCollection<LoopEdge>();
             foreach (var item in edgeMarks)
             {
@@ -345,11 +390,41 @@ namespace MeshSimplificationTest.SBRep
             return loopEdges;
         }
 
-        public static IndexedCollection<SBRep_Loop> BuildLoops(
+        public static IndexedCollection<LoopEdge> BuildLooppart(DMesh3 mesh, IEnumerable<TriPlanarGroup> planarGroups)
+        {
+            var loopEdges = GroupEdgeByPlaneIntersection(mesh, planarGroups);
+            //тут нужно разделить рёбра по зонам связанности и отсортировать рёбра по порядку
+            loopEdges = SeparateLoopEdgeByMerged(mesh, loopEdges);
+
+            return loopEdges;
+        }
+
+        private static bool findLoop(IEnumerable<SBRep_Loop> loops, SBRep_Loop newLoop, ref int id)
+        {
+            id = -1;
+
+            foreach(var loop in loops)
+            {
+                if (loop.LoopEdges.Count != newLoop.LoopEdges.Count)
+                    continue;
+                var edgesA = loop.LoopEdges;
+                var edgesB = newLoop.LoopEdges;
+                var identical = edgesA.All(x => edgesB.Contains(x));
+                if (identical)
+                {
+                    id = loop.ID;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static Tuple<IEnumerable<SBRep_Loop>, IDictionary<int, IEnumerable<int>>> BuildLoops(
             IEnumerable<TriPlanarGroup> planarGroups,
             IEnumerable<LoopEdge> loopparts)
         {
-            var newLoops = new IndexedCollection<SBRep_Loop>();
+            //var newLoops = new IndexedCollection<SBRep_Loop>();
             var edgeLP = new Dictionary<int, int>();
             foreach (var looppart in loopparts)
             {
@@ -360,36 +435,62 @@ namespace MeshSimplificationTest.SBRep
             }
 
             var resultLoops = new IndexedCollection<SBRep_Loop>();
-
+            var planarLoopsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var planarGroup in planarGroups)
             {
                 var loops = planarGroup.GetLoops();
 
                 var planesLoopsDict = new Dictionary<int, int>();
-
+                var currentPlanarloops = new List<int>();
                 foreach (var loop in loops)
                 {
-                    var tempEdgeList = new List<int>();
+                    //todo если три точки практически лежат на петле, то и  пропускаем её
+                    var loopPartIDs = new List<int>();
                     foreach (var edge in loop.Edges)
                     {
-                        tempEdgeList.Add(edgeLP[edge]);
+                        loopPartIDs.Add(edgeLP[edge]);
                     }
-                    tempEdgeList = tempEdgeList.Distinct().ToList();
+                    loopPartIDs = loopPartIDs.Distinct().ToList();
+
+                    int loopId = -1;
                     var newLoop = new SBRep_Loop()
                     {
-                        Edges = tempEdgeList,
+                        LoopEdges = loopPartIDs,
                     };
-                    resultLoops.Add(newLoop);
+                    if (!findLoop(resultLoops, newLoop, ref loopId))
+                    {
+                        resultLoops.Add(newLoop);
+                        loopId = newLoop.ID;
+                    }
+                    //resultLoops.Add(newLoop);
+                    currentPlanarloops.Add(loopId);
                 }
+                currentPlanarloops = currentPlanarloops.Distinct().ToList();
+                planarLoopsDict.Add(planarGroup.ID, currentPlanarloops);
             }
 
-            return null;
+            return new Tuple<IEnumerable<SBRep_Loop>, IDictionary<int, IEnumerable<int>>>(resultLoops, planarLoopsDict);
         }
         public static IndexedCollection<SBRep_Face> BuildFaces(
             IEnumerable<TriPlanarGroup> planarGroups,
-            IndexedCollection<SBRep_Loop> loops)
+            IEnumerable<SBRep_Loop> loops,
+            IDictionary<int, IEnumerable<int>> planarsLoops)
         {
-            return null;
+            var faces = new IndexedCollection<SBRep_Face>();
+            foreach (var face in planarGroups)
+            {
+                var allLoopsIDs = planarsLoops[face.ID];
+                //Tuple<int, List<int>> insideOutsideLoops = null;
+                faces.Add(new SBRep_Face()
+                {
+                    ID = face.ID,
+                    Normal = face.Normal,
+                    GroupID = face.GroupId,
+                    //OutsideLoop = insideOutsideLoops.Item1,
+                    InsideLoops = allLoopsIDs.ToList()
+                });
+            }
+            return faces;
         }
 
         //public static void ReindexData()
@@ -405,11 +506,71 @@ namespace MeshSimplificationTest.SBRep
             var edgesDict = new Dictionary<int, Index2i>();
             var loopparts = BuildLooppart(mesh, planarGroups);
             var loops = BuildLoops(planarGroups, loopparts);
-            var buildFaces = BuildFaces(planarGroups, loops);
+            var faces = BuildFaces(planarGroups, loops.Item1, loops.Item2);
 
 
+            var edgesIDs = planarGroups.SelectMany(x => x.GetBoundaryEdges()).Distinct();
+            foreach (var eid in edgesIDs)
+            {
+                edgesDict.Add(eid, mesh.GetEdgeV(eid));
+            }
 
-            return null;
+            var vtxIds = new List<int>();
+            foreach (var edge in edgesDict)
+            {
+                var edgeV = edge.Value;
+                vtxIds.Add(edgeV.a);
+                vtxIds.Add(edgeV.b);
+            }
+            var vtxs = vtxIds.Distinct();
+            foreach (var vid in vtxs)
+            {
+                verticeDict.Add(vid, mesh.GetVertex(vid));
+            }
+
+            var sbRepObject = new SBRepObject();
+
+            foreach (var vtx in verticeDict)
+                sbRepObject._vertices.Add(new SBRep_Vtx()
+                {
+                    ID = vtx.Key,
+                    Coordinate = vtx.Value,
+                });
+
+            foreach (var edge in edgesDict)
+                sbRepObject._edges.Add(new SBRep_Edge()
+                {
+                    ID = edge.Key,
+                    Vertices = edge.Value,
+                });
+
+            foreach (var loopEdge in loopparts)
+                sbRepObject._loopPart.Add(new SBRep_LoopEdge()
+                {
+                    ID = loopEdge.ID,
+                    Edges = loopEdge.edgeIDs,
+                });
+
+            foreach (var loop in loops.Item1)
+                sbRepObject._loops.Add(new SBRep_Loop()
+                {
+                    ID = loop.ID,
+                    LoopEdges = loop.LoopEdges
+                });
+            foreach (var face in faces)
+            {
+                sbRepObject._faces.Add(new SBRep_Face()
+                {
+                    ID = face.ID,
+                    OutsideLoop = face.OutsideLoop,
+                    GroupID = face.GroupID,
+                    Normal = face.Normal,
+                    InsideLoops = face.InsideLoops,
+                });
+            }
+            sbRepObject.RedefineFeedbacks();
+            sbRepObject.DefineFacesOutsideLoop();
+            return sbRepObject;
         }
     }
 }
