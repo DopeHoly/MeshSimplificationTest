@@ -24,17 +24,17 @@ namespace Tests
             var sbRep = SBRepBuilder.Convert(mesh);
 
             Assert.IsNotNull(sbRep);
-            Assert.AreEqual(7, sbRep._faces.Count());
-            Assert.AreEqual(7, sbRep._loops.Count());
-            Assert.AreEqual(13, sbRep._loopPart.Count());
+            Assert.AreEqual(7, sbRep.Faces.Count());
+            Assert.AreEqual(7, sbRep.Loops.Count());
+            Assert.AreEqual(13, sbRep.Verges.Count());
 
             var facesWithInternalLoop = sbRep.GetFaces().Where(x => x.InsideLoops.Count() > 0);
             Assert.AreEqual(1, facesWithInternalLoop.Count());
             var face = facesWithInternalLoop.First();
             Assert.AreEqual(1, face.InsideLoops.Count());
             var lid = face.InsideLoops.First();
-            var loop = sbRep._loops[lid];
-            Assert.AreEqual(1, loop.LoopEdges.Count());
+            var loop = sbRep.Loops[lid];
+            Assert.AreEqual(1, loop.Verges.Count());
         }
 
         [TestMethod]
@@ -58,11 +58,11 @@ namespace Tests
             var mesh = StandardMeshReader.ReadMesh(Sample_CubePath);
             var sbRep = SBRepBuilder.Convert(mesh);
             Assert.IsNotNull(sbRep);
-            Assert.AreEqual(8, sbRep._vertices.Count);
-            Assert.AreEqual(12, sbRep._edges.Count);
-            Assert.AreEqual(12, sbRep._loopPart.Count);
-            Assert.AreEqual(6, sbRep._loops.Count);
-            Assert.AreEqual(6, sbRep._faces.Count);
+            Assert.AreEqual(8, sbRep.Vertices.Count);
+            Assert.AreEqual(12, sbRep.Edges.Count);
+            Assert.AreEqual(12, sbRep.Verges.Count);
+            Assert.AreEqual(6, sbRep.Loops.Count);
+            Assert.AreEqual(6, sbRep.Faces.Count);
         }
 
         [TestMethod]
@@ -92,7 +92,7 @@ namespace Tests
             var mesh = StandardMeshReader.ReadMesh(Sample_CubePath);
             var sbRep = SBRepBuilder.Convert(mesh);
             var loopsAreas = new List<double>();
-            foreach(var loop in sbRep._loops)
+            foreach(var loop in sbRep.Loops)
             {
                 loopsAreas.Add(sbRep.GetLoopArea(loop.ID));
             }

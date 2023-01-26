@@ -1,4 +1,5 @@
 ﻿using CGALDotNet;
+using CGALDotNet.Polyhedra;
 using g3;
 using System;
 using System.Collections.Generic;
@@ -28,7 +29,12 @@ namespace MeshSimplificationTest.SBRep
             public double A, B, C, D;
             public Vector3d Normal;
 
-            //https://ru.onlinemschool.com/math/library/analytic_geometry/p_plane/#:~:text=Расстояние%20от%20точки%20до%20плоскости%20—%20равно%20длине%20перпендикуляра,опущенного%20из%20точки%20на%20плоскость.
+            /// <summary>
+            /// расстояние от точки до плоскости
+            /// https://ru.onlinemschool.com/math/library/analytic_geometry/p_plane/#:~:text=Расстояние%20от%20точки%20до%20плоскости%20—%20равно%20длине%20перпендикуляра,опущенного%20из%20точки%20на%20плоскость.
+            /// </summary>
+            /// <param name="point"></param>
+            /// <returns></returns>
             public double Distance(Vector3d point)
             {
                 var dividend = Math.Abs(A * point.x + B * point.y + C * point.z + D);
@@ -36,12 +42,25 @@ namespace MeshSimplificationTest.SBRep
                 return dividend / devider;
             }
 
+            /// <summary>
+            /// Точка на плоскости
+            /// </summary>
+            /// <param name="point"></param>
+            /// <returns></returns>
             public bool PointOnPlane(Vector3d point)
             {
                 return Distance(point) < EPS_PointOnPlane;
             }
 
-            //http://algolist.ru/maths/geom/equation/plane.php
+            /// <summary>
+            /// Создаёт уравнение плоскости по трём точкам
+            /// http://algolist.ru/maths/geom/equation/plane.php
+            /// </summary>
+            /// <param name="p1"></param>
+            /// <param name="p2"></param>
+            /// <param name="p3"></param>
+            /// <param name="normal"></param>
+            /// <returns></returns>
             public static PlaneFace FromPoints(
                 Vector3d p1,
                 Vector3d p2,
@@ -82,6 +101,10 @@ namespace MeshSimplificationTest.SBRep
                 this.mesh = mesh;
             }
 
+            /// <summary>
+            /// Вычисляет список граничных отрезков данной плоскости
+            /// </summary>
+            /// <returns>Список индексов edge из mesh</returns>
             public List<int> GetBoundaryEdges()
             {
                 var bondaryEdgeIDs = new List<int>();
@@ -106,6 +129,12 @@ namespace MeshSimplificationTest.SBRep
                 //result.Add(bondaryEdgeIDs);
                 return bondaryEdgeIDs;
             }
+
+            /// <summary>
+            /// Проверяет, все ли точки данной плоскости лежат на одной плоскости
+            /// с погрешностью EPS_PointOnPlane = 1e-3
+            /// </summary>
+            /// <returns></returns>
             public bool IsValid()
             {
                 if(TriangleIDs == null || TriangleIDs.Count < 1) return false;
@@ -128,13 +157,15 @@ namespace MeshSimplificationTest.SBRep
                 return true;
             }
 
+            /// <summary>
+            /// Возвращает петли
+            /// </summary>
+            /// <returns>MeshRegionBoundaryLoops - класс из g3 либы, я не совсем уверен, что он в 100 прцентах случаев делает то, что нужно</returns>
             public MeshRegionBoundaryLoops GetLoops()
             {
-                //var loops = new List<Loop>();
-                var edges = GetBoundaryEdges();
                 MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, TriangleIDs.ToArray());
-                
 #if DEBUG
+                var edges = GetBoundaryEdges();
                 foreach (var loop in loops)
                 {
                     if (!loop.Edges.All(x => edges.Contains(x)))
@@ -143,17 +174,15 @@ namespace MeshSimplificationTest.SBRep
 #endif
                 return loops;
             }
-
-            public void ClassifyLoops()
-            {
-                var loops = GetLoops();
-                var dict = new Dictionary<int, List<int>>();
-                foreach (var loop in loops)
-                {
-                }
-            }
         }
 
+        /// <summary>
+        /// Функция проверки равнозначности векторов
+        /// Проверяет с погрешностью EPS_NormalCompare
+        /// </summary>
+        /// <param name="a">Вектор первый</param>
+        /// <param name="b">Вектор второй</param>
+        /// <returns></returns>
         private static bool Vector3dEqual(Vector3d a, Vector3d b)
         {
             return Math.Abs(a.x - b.x) < EPS_NormalCompare &&
@@ -166,7 +195,7 @@ namespace MeshSimplificationTest.SBRep
         /// </summary>
         /// <param name="mesh"></param>
         /// <returns></returns>
-        public static Dictionary<Vector3d, List<int>> GetTriangleIndexesGroupedByNormal(DMesh3 mesh)
+        public static Dictionary<Vector3d, List<int>> GroupTriangleByNormal(DMesh3 mesh)
         {
             var normalGroupedTIDs = new Dictionary<Vector3d, List<int>>();
             foreach (var tid in mesh.TriangleIndices())
@@ -194,7 +223,7 @@ namespace MeshSimplificationTest.SBRep
         /// <param name="mesh"></param>
         /// <param name="normalGroupedTIDs"></param>
         /// <returns></returns>
-        public static IEnumerable<TriPlanarGroup> SeparateByMergedGroups(
+        public static IEnumerable<TriPlanarGroup> SeparateByMergedTri(
             DMesh3 mesh, 
             Dictionary<Vector3d, List<int>> normalGroupedTIDs)
         {
@@ -281,6 +310,11 @@ namespace MeshSimplificationTest.SBRep
             return colorizedFacesTriGroup;
         }
 
+        /// <summary>
+        /// Собирает группы плоских треугольников
+        /// </summary>
+        /// <param name="mesh">исходный объект треугольной сетки</param>
+        /// <returns>список групп плоских треугольников</returns>
         public static IEnumerable<TriPlanarGroup> BuildPlanarGroups(DMesh3 mesh)
         {
             if (mesh == null)
@@ -288,15 +322,21 @@ namespace MeshSimplificationTest.SBRep
             //TODO опциональная, понять насколько тут это нужно
             //RemeshTool.FixAndRepairMesh(mesh);
 
-            var normalGroupedTIDs = GetTriangleIndexesGroupedByNormal(mesh);
+            var normalGroupedTIDs = GroupTriangleByNormal(mesh);
 
-            var facesTriGroup = SeparateByMergedGroups(mesh, normalGroupedTIDs);
+            var facesTriGroup = SeparateByMergedTri(mesh, normalGroupedTIDs);
 
             var planes = SeparateByGroupID(mesh, facesTriGroup);
 
             return planes;
         }
 
+        /// <summary>
+        /// Разделяет индексированный список ломанных на связанные области
+        /// </summary>
+        /// <param name="mesh">исходный объект треугольной сетки</param>
+        /// <param name="loopEdges">индексированный список ломанных</param>
+        /// <returns>Индексированный список ломанных, каждая из которых разделяет две плоскости и разделённые на зоны связанности</returns>
         public static IndexedCollection<LoopEdge> SeparateLoopEdgeByMerged(DMesh3 mesh, IndexedCollection<LoopEdge> loopEdges)
         {
             var newLoopEdges = new IndexedCollection<LoopEdge>();
@@ -345,6 +385,12 @@ namespace MeshSimplificationTest.SBRep
             return newLoopEdges;
         }
 
+        /// <summary>
+        /// Собирает ломанные из отрезков в группы по одинаковым плоскостям, которые разделяет отрезок
+        /// </summary>
+        /// <param name="mesh">исходный объект треугольной сетки</param>
+        /// <param name="planarGroups">группы плоскостей треугольной сетки</param>
+        /// <returns>Индексированный список ломанных, каждая из которых разделяет две плоскости</returns>
         public static IndexedCollection<LoopEdge> GroupEdgeByPlaneIntersection(DMesh3 mesh, IEnumerable<TriPlanarGroup> planarGroups)
         {
             //маркировка треугольников по принадлежности к определённой плоскости
@@ -390,7 +436,13 @@ namespace MeshSimplificationTest.SBRep
             return loopEdges;
         }
 
-        public static IndexedCollection<LoopEdge> BuildLooppart(DMesh3 mesh, IEnumerable<TriPlanarGroup> planarGroups)
+        /// <summary>
+        /// Собирает ломанные
+        /// </summary>
+        /// <param name="mesh">исходный объект треугольной сетки</param>
+        /// <param name="planarGroups">группы плоскостей треугольной сетки</param>
+        /// <returns>Индексированный список ломанных</returns>
+        public static IndexedCollection<LoopEdge> BuildVerges(DMesh3 mesh, IEnumerable<TriPlanarGroup> planarGroups)
         {
             var loopEdges = GroupEdgeByPlaneIntersection(mesh, planarGroups);
             //тут нужно разделить рёбра по зонам связанности и отсортировать рёбра по порядку
@@ -399,16 +451,23 @@ namespace MeshSimplificationTest.SBRep
             return loopEdges;
         }
 
+        /// <summary>
+        /// Ищет в списке loops петлю с идентичными использованными ломанными, как в newLoop
+        /// </summary>
+        /// <param name="loops">Список петель</param>
+        /// <param name="newLoop">Петля</param>
+        /// <param name="id">id найденной петли, -1, если не нашёл</param>
+        /// <returns>петля с аналогичными использованными ломанными найдена</returns>
         private static bool findLoop(IEnumerable<SBRep_Loop> loops, SBRep_Loop newLoop, ref int id)
         {
             id = -1;
 
             foreach(var loop in loops)
             {
-                if (loop.LoopEdges.Count != newLoop.LoopEdges.Count)
+                if (loop.Verges.Count != newLoop.Verges.Count)
                     continue;
-                var edgesA = loop.LoopEdges;
-                var edgesB = newLoop.LoopEdges;
+                var edgesA = loop.Verges;
+                var edgesB = newLoop.Verges;
                 var identical = edgesA.All(x => edgesB.Contains(x));
                 if (identical)
                 {
@@ -420,11 +479,17 @@ namespace MeshSimplificationTest.SBRep
             return false;
         }
 
+        /// <summary>
+        /// Собирает петли и индексирует их по принадлежности к плоскостям
+        /// </summary>
+        /// <param name="planarGroups"></param>
+        /// <param name="loopparts"></param>
+        /// <returns></returns>
         public static Tuple<IEnumerable<SBRep_Loop>, IDictionary<int, IEnumerable<int>>> BuildLoops(
             IEnumerable<TriPlanarGroup> planarGroups,
             IEnumerable<LoopEdge> loopparts)
         {
-            //var newLoops = new IndexedCollection<SBRep_Loop>();
+            //индексация какое ребро к какой ломанной принадлежит
             var edgeLP = new Dictionary<int, int>();
             foreach (var looppart in loopparts)
             {
@@ -455,14 +520,13 @@ namespace MeshSimplificationTest.SBRep
                     int loopId = -1;
                     var newLoop = new SBRep_Loop()
                     {
-                        LoopEdges = loopPartIDs,
+                        Verges = loopPartIDs,
                     };
                     if (!findLoop(resultLoops, newLoop, ref loopId))
                     {
                         resultLoops.Add(newLoop);
                         loopId = newLoop.ID;
                     }
-                    //resultLoops.Add(newLoop);
                     currentPlanarloops.Add(loopId);
                 }
                 currentPlanarloops = currentPlanarloops.Distinct().ToList();
@@ -471,54 +535,62 @@ namespace MeshSimplificationTest.SBRep
 
             return new Tuple<IEnumerable<SBRep_Loop>, IDictionary<int, IEnumerable<int>>>(resultLoops, planarLoopsDict);
         }
+
+        /// <summary>
+        /// Собирает индексированный список плоскостей SBRep
+        /// </summary>
+        /// <param name="planarGroups">плоскости исходного объекта</param>
+        /// <param name="planarsLoops">словарь с использованными для каждой плоскости индексами петель</param>
+        /// <returns>индексированный список плоскостей SBRep</returns>
         public static IndexedCollection<SBRep_Face> BuildFaces(
             IEnumerable<TriPlanarGroup> planarGroups,
-            IEnumerable<SBRep_Loop> loops,
             IDictionary<int, IEnumerable<int>> planarsLoops)
         {
             var faces = new IndexedCollection<SBRep_Face>();
             foreach (var face in planarGroups)
             {
                 var allLoopsIDs = planarsLoops[face.ID];
-                //Tuple<int, List<int>> insideOutsideLoops = null;
                 faces.Add(new SBRep_Face()
                 {
                     ID = face.ID,
                     Normal = face.Normal,
                     GroupID = face.GroupId,
-                    //OutsideLoop = insideOutsideLoops.Item1,
                     InsideLoops = allLoopsIDs.ToList()
                 });
             }
             return faces;
         }
 
-        //public static void ReindexData()
-
-        public static SBRepObject Convert(DMesh3 mesh)
+        /// <summary>
+        /// Выделение из плоскостей объекта список граничных отрезков
+        /// </summary>
+        /// <param name="planarGroups">список плоскостей объекта mesh</param>
+        /// <returns>Словарь (id отрезка, индексы вершин)</returns>
+        public static Dictionary<int, Index2i> GetEdgesFromPlanarGroups(IEnumerable<TriPlanarGroup> planarGroups)
         {
-            if (mesh == null)
-                return null;
-
-            var planarGroups = BuildPlanarGroups(mesh);
-
-            var verticeDict = new Dictionary<int, Vector3d>();
+            var mesh = planarGroups.First().mesh;
             var edgesDict = new Dictionary<int, Index2i>();
-            var loopparts = BuildLooppart(mesh, planarGroups);
-            var loops = BuildLoops(planarGroups, loopparts);
-            var faces = BuildFaces(planarGroups, loops.Item1, loops.Item2);
-
-
             var edgesIDs = planarGroups.SelectMany(x => x.GetBoundaryEdges()).Distinct();
             foreach (var eid in edgesIDs)
             {
                 edgesDict.Add(eid, mesh.GetEdgeV(eid));
             }
+            return edgesDict;
+        }
 
+        /// <summary>
+        /// Выделение вершин из отрезков, представленных список из использованных вершин
+        /// </summary>
+        /// <param name="mesh">объект треугольной сетки</param>
+        /// <param name="edges">список рёбер, заданный двумя индексами вершин</param>
+        /// <returns>Словарь (id вершины, координата)</returns>
+        public static Dictionary<int, Vector3d> GetVerticeFromMeshEdge(DMesh3 mesh, IEnumerable<Index2i> edges)
+        {
+            var verticeDict = new Dictionary<int, Vector3d>();
             var vtxIds = new List<int>();
-            foreach (var edge in edgesDict)
+            foreach (var edge in edges)
             {
-                var edgeV = edge.Value;
+                var edgeV = edge;
                 vtxIds.Add(edgeV.a);
                 vtxIds.Add(edgeV.b);
             }
@@ -527,39 +599,67 @@ namespace MeshSimplificationTest.SBRep
             {
                 verticeDict.Add(vid, mesh.GetVertex(vid));
             }
+            return verticeDict;
+        }
+
+        /// <summary>
+        /// Конвертирует объект треугольной сетки в объект SBRepObject
+        /// </summary>
+        /// <param name="mesh">объект треугольной сетки</param>
+        /// <returns>объект SBRepObject</returns>
+        public static SBRepObject Convert(DMesh3 mesh)
+        {
+            if (mesh == null)
+                return null;
+
+            ///Выделяем из исходного объекта группы связанных треугольников
+            ///лежащих на одной плоскости и имеющие одинаковый GroupID
+            var planarGroups = BuildPlanarGroups(mesh);
+
+            //Получаем словарь Id/Index2i(индексы на точки) из выделеенных групп треугольников
+            var edgesDict = GetEdgesFromPlanarGroups(planarGroups);
+
+            //Формируем из списка использованных граней использованные вершины
+            var verticeDict = GetVerticeFromMeshEdge(mesh, edgesDict.Values);
+            //Собираем ломанные
+            var loopparts = BuildVerges(mesh, planarGroups);
+            //Собираем петли
+            var loops = BuildLoops(planarGroups, loopparts);
+            //Собираем плоскости
+            var faces = BuildFaces(planarGroups,loops.Item2);
 
             var sbRepObject = new SBRepObject();
 
             foreach (var vtx in verticeDict)
-                sbRepObject._vertices.Add(new SBRep_Vtx()
+                sbRepObject.Vertices.Add(new SBRep_Vtx()
                 {
                     ID = vtx.Key,
                     Coordinate = vtx.Value,
                 });
 
             foreach (var edge in edgesDict)
-                sbRepObject._edges.Add(new SBRep_Edge()
+                sbRepObject.Edges.Add(new SBRep_Edge()
                 {
                     ID = edge.Key,
                     Vertices = edge.Value,
                 });
 
             foreach (var loopEdge in loopparts)
-                sbRepObject._loopPart.Add(new SBRep_LoopEdge()
+                sbRepObject.Verges.Add(new SBRep_Verge()
                 {
                     ID = loopEdge.ID,
                     Edges = loopEdge.edgeIDs,
                 });
 
             foreach (var loop in loops.Item1)
-                sbRepObject._loops.Add(new SBRep_Loop()
+                sbRepObject.Loops.Add(new SBRep_Loop()
                 {
                     ID = loop.ID,
-                    LoopEdges = loop.LoopEdges
+                    Verges = loop.Verges
                 });
-            foreach (var face in faces)
-            {
-                sbRepObject._faces.Add(new SBRep_Face()
+
+            foreach (var face in faces) 
+                sbRepObject.Faces.Add(new SBRep_Face()
                 {
                     ID = face.ID,
                     OutsideLoop = face.OutsideLoop,
@@ -567,8 +667,10 @@ namespace MeshSimplificationTest.SBRep
                     Normal = face.Normal,
                     InsideLoops = face.InsideLoops,
                 });
-            }
+
+            //Индексирует обратные связи между разными объектами
             sbRepObject.RedefineFeedbacks();
+            //Разделяет внешние и внутренние грани у плоскостей
             sbRepObject.DefineFacesOutsideLoop();
             return sbRepObject;
         }

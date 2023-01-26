@@ -137,6 +137,11 @@ namespace MeshSimplificationTest.SBRepVM
         public void SetModel(DMesh3 model)
         {
             _sourceModel = model;
+
+            //var vtx = _sourceModel.GetVertex(8139);
+            //vtx.z += 0.5;
+            //SourceModel.SetVertex(8139, vtx);
+
             ModelsVM.Clear();
 
             ModelsVM.Add(new Model3DLayerVM(this)
@@ -164,7 +169,7 @@ namespace MeshSimplificationTest.SBRepVM
 
             var loopEdgeModel = GenerateModelFromLoopEdge(
                 model,
-                SBRepBuilder.BuildLooppart(
+                SBRepBuilder.BuildVerges(
                     model,
                     triPlanarGroup));
             ModelsVM.Add(new Model3DLayerVM(this)
@@ -381,7 +386,7 @@ namespace MeshSimplificationTest.SBRepVM
         public Model3D GenerateModelFromObjectLoop(SBRepObject sbrep)
         {
             var resultmodels = new Model3DGroup();
-            foreach (var loop in sbrep._loops)
+            foreach (var loop in sbrep.Loops)
             {
                 var lid = loop.ID;
                 //if (lid != 2)
@@ -445,7 +450,7 @@ namespace MeshSimplificationTest.SBRepVM
             var edges = new List<int>();
             foreach (var eid in edgesIDs)
             {
-                var idx = mesh._edges[eid].Vertices;
+                var idx = mesh.Edges[eid].Vertices;
                 var a = mesh.GetVertex(idx.a);
                 var b = mesh.GetVertex(idx.b);
                 var ad = new Point3D(a.x, a.y, a.z);

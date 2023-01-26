@@ -115,6 +115,7 @@
     <Compile Include="SBRep\Primitives.cs" />
     <Compile Include="SBRep\SBRepBuilder.cs" />
     <Compile Include="SBRep\SBRepObject.cs" />
+    <Compile Include="SBRep\SBRepOperations.cs" />
     <Compile Include="TrulyObservableCollection.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

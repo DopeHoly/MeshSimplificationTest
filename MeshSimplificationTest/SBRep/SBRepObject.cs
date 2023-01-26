@@ -13,26 +13,30 @@ namespace MeshSimplificationTest.SBRep
 
     public class SBRepObject
     {
-        public IndexedCollection<SBRep_Vtx> _vertices { get; private set; }
-        public IndexedCollection<SBRep_Edge> _edges { get; private set; }
-        public IndexedCollection<SBRep_LoopEdge> _loopPart { get; private set; }
-        public IndexedCollection<SBRep_Loop> _loops { get; private set; }
-        public IndexedCollection<SBRep_Face> _faces { get; private set; }
+        public IndexedCollection<SBRep_Vtx> Vertices { get; private set; }
+        public IndexedCollection<SBRep_Edge> Edges { get; private set; }
+        public IndexedCollection<SBRep_Verge> Verges { get; private set; }
+        public IndexedCollection<SBRep_Loop> Loops { get; private set; }
+        public IndexedCollection<SBRep_Face> Faces { get; private set; }
 
         public SBRepObject()
         {
-            _vertices = new IndexedCollection<SBRep_Vtx>();
-            _edges = new IndexedCollection<SBRep_Edge>();
-            _loopPart = new IndexedCollection<SBRep_LoopEdge>();
-            _loops = new IndexedCollection<SBRep_Loop>();
-            _faces = new IndexedCollection<SBRep_Face>();
+            Vertices = new IndexedCollection<SBRep_Vtx>();
+            Edges = new IndexedCollection<SBRep_Edge>();
+            Verges = new IndexedCollection<SBRep_Verge>();
+            Loops = new IndexedCollection<SBRep_Loop>();
+            Faces = new IndexedCollection<SBRep_Face>();
         }
 
+        /// <summary>
+        /// Разделяет у всех плоскостей петли на внешние и внутренние
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         public void DefineFacesOutsideLoop()
         {
-            foreach (var face in _faces)
+            foreach (var face in Faces)
             {
-                if (face.InsideLoops.Count == 0)
+                if (face.InsideLoops == null || face.InsideLoops.Count == 0)
                     throw new Exception("Отсутствие петель у поверхности");
 
                 if (face.InsideLoops.Count == 1)
@@ -59,110 +63,124 @@ namespace MeshSimplificationTest.SBRep
             }
         }
 
+        /// <summary>
+        /// Для всех примитивов индексирует кем они использованы (parent свойство)
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         public void RedefineFeedbacks()
         {
-            foreach (var loop in _loops)
+            foreach (var loop in Loops)
             {
                 loop.Parents = new List<int>();
             }
-            foreach (var loopPart in _loopPart)
+            foreach (var loopPart in Verges)
             {
                 loopPart.Parents = new List<int>();
             }
-            foreach (var edge in _edges)
+            foreach (var edge in Edges)
             {
                 edge.Parent = -1;
             }
-            foreach (var vtx in _vertices)
+            foreach (var vtx in Vertices)
             {
                 vtx.Parents = new List<int>();
             }
 
-            foreach (var face in _faces)
+            foreach (var face in Faces)
             {
                 //_loops[face.OutsideLoop].Parents.Add(face.ID);
                 foreach (var lid in face.InsideLoops)
                 {
-                    _loops[lid].Parents.Add(face.ID);
+                    Loops[lid].Parents.Add(face.ID);
                 }
             }
 
-            foreach (var loop in _loops)
+            foreach (var loop in Loops)
             {
-                foreach (var leid in loop.LoopEdges)
+                foreach (var leid in loop.Verges)
                 {
-                    _loopPart[leid].Parents.Add(loop.ID);
+                    Verges[leid].Parents.Add(loop.ID);
                 }
             }
 
-            foreach (var le in _loopPart)
+            foreach (var le in Verges)
             {
                 foreach (var eid in le.Edges)
                 {
-                    if (_edges[eid].Parent != -1)
+                    if (Edges[eid].Parent != -1)
                         throw new Exception();
-                    _edges[eid].Parent = le.ID;
+                    Edges[eid].Parent = le.ID;
                 }
             }
 
-            foreach (var edge in _edges)
+            foreach (var edge in Edges)
             {
-                _vertices[edge.Vertices.a].Parents.Add(edge.ID);
-                _vertices[edge.Vertices.b].Parents.Add(edge.ID);
+                Vertices[edge.Vertices.a].Parents.Add(edge.ID);
+                Vertices[edge.Vertices.b].Parents.Add(edge.ID);
             }
         }
 
         #region Data Access
         public IEnumerable<SBRep_Face> GetFaces()
         {
-            return _faces;
+            return Faces;
         }
         public IEnumerable<int> GetFacesIds()
         {
-            return _faces.GetIndexes();
+            return Faces.GetIndexes();
         }
 
         public SBRep_Face GetFace(int id)
         {
-            return _faces[id];
+            return Faces[id];
         }
 
         public Vector3d GetVertex(int id)
         {
-            return _vertices[id].Coordinate;
+            return Vertices[id].Coordinate;
         }
 
         public IEnumerable<Vector3d> GetVertices()
         {
-            return _vertices.Select(x => x.Coordinate);
+            return Vertices.Select(x => x.Coordinate);
         }
         public IEnumerable<int> GetVerticesIds()
         {
-            return _vertices.GetIndexes();
+            return Vertices.GetIndexes();
         }
 
         public IEnumerable<int> GetEdgesIdFromLoopId(int lid)
         {
-            if (!_loops.ContainsKey(lid))
+            if (!Loops.ContainsKey(lid))
                 return null;
-            return _loops[lid].LoopEdges
-                .SelectMany(x => _loopPart[x].Edges)
+            return Loops[lid].Verges
+                .SelectMany(x => Verges[x].Edges)
                 .Distinct()
                 .ToList();
         }
         #endregion
 
+        /// <summary>
+        /// Получить замкнутый контур из петли под индексом lid
+        /// </summary>
+        /// <param name="lid">индекс петли</param>
+        /// <returns>упорядоченный список координат</returns>
         public IEnumerable<Vector3d> GetClosedContour(int lid)
         {
 
-            if (!_loops.ContainsKey(lid))
+            if (!Loops.ContainsKey(lid))
                 return null;
             return GetClosedContourVtx(lid).Select(x => x.Coordinate).ToList();
         }
 
+        /// <summary>
+        /// Получить замкнутый контур из петли под индексом lid
+        /// </summary>
+        /// <param name="lid">индекс петли</param>
+        /// <returns>упорядоченный список Объектов вершин</returns>
         public IEnumerable<SBRep_Vtx> GetClosedContourVtx(int lid)
         {
-            if (!_loops.ContainsKey(lid))
+            if (!Loops.ContainsKey(lid))
                 return null;
 
             var edgesIDs = GetEdgesIdFromLoopId(lid);
@@ -175,7 +193,7 @@ namespace MeshSimplificationTest.SBRep
                 if (currentEdge == -1)
                     currentEdge = startEdge;
 
-                var edge = _edges[currentEdge];
+                var edge = Edges[currentEdge];
                 //edgesIDs.RemoveAt(currentEdge);
                 var verticeIndexes = edge.Vertices;
                 int vtxID = -1;
@@ -187,13 +205,13 @@ namespace MeshSimplificationTest.SBRep
                 {
                     vtxID = verticeIndexes.a == lastVtxID ? verticeIndexes.b : verticeIndexes.a;
                 }
-                var vtx = _vertices[vtxID];
+                var vtx = Vertices[vtxID];
                 vertexOrderList.Add(vtx);
                 lastVtxID = vtx.ID;
 
                 var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
                 if (nextEdge.Count != 1)
-                    throw new Exception("");
+                    throw new Exception("У петли почему то появилась развилка");
                 currentEdge = nextEdge.First();
             }
 
@@ -208,9 +226,9 @@ namespace MeshSimplificationTest.SBRep
         public double GetLoopArea(int lid)
         {
             var contour = GetClosedContour(lid);
-            var loop = _loops[lid];
+            var loop = Loops[lid];
             var parentid = loop.Parents.FirstOrDefault();
-            var face = _faces[parentid];
+            var face = Faces[parentid];
             var contour2d = ConvertPlaneContourTo2D(contour, face.Normal);
             return GetArea(contour2d);
         }

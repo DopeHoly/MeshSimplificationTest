@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using static MeshSimplificationTest.SBRep.SBRepBuilder;
@@ -32,7 +31,7 @@ namespace MeshSimplificationTest.SBRep
         public Index2i Vertices;
         public int Parent = -1;
     }
-    public class SBRep_LoopEdge : SBRep_Primitive
+    public class SBRep_Verge : SBRep_Primitive
     {
         public ICollection<int> Edges;
         public ICollection<int> Parents;
@@ -40,7 +39,7 @@ namespace MeshSimplificationTest.SBRep
 
     public class SBRep_Loop : SBRep_Primitive
     {
-        public ICollection<int> LoopEdges;
+        public ICollection<int> Verges;
         public ICollection<int> Parents;        
     }
     public class SBRep_Face : SBRep_Primitive
@@ -70,7 +69,10 @@ namespace MeshSimplificationTest.SBRep
         }
     }
 
-
+    /// <summary>
+    /// Список элементов IIndexed с автоматической расстановкой ID и доступом по ID
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class IndexedCollection<T> :
         ICollection<T>
         where T : IIndexed
