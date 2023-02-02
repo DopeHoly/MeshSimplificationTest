@@ -1,6 +1,4 @@
-﻿using CGALDotNet;
-using CGALDotNet.Polyhedra;
-using g3;
+﻿using g3;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;

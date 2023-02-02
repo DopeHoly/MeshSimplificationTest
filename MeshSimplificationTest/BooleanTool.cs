@@ -8,7 +8,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 //using UnityEngine;
-using CSGV1;
 //using CGALDotNet.Geometry;
 //using CGALDotNet.Polygons;
 //using CGALDotNet;

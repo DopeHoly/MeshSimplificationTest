@@ -1,11 +1,7 @@
-﻿using CGALDotNet;
-using g3;
-using Net3dBool;
+﻿using g3;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Media.Media3D;
 
 namespace MeshSimplificationTest.SBRep
@@ -158,6 +154,34 @@ namespace MeshSimplificationTest.SBRep
                 .Distinct()
                 .ToList();
         }
+
+        //public IEnumerable<int> GetEdgesIdFromLoopId(int lid)
+        //{
+        //    if (!Loops.ContainsKey(lid))
+        //        return null;
+        //    var vergesIds = GetEdgesIdFromLoopId(lid);
+        //    if (vergesIds == null)
+        //        return null;
+        //    return vergesIds.SelectMany(vergeId => Verges[vergeId].Edges).ToList();
+        //}
+
+        public IEnumerable<int> GetVerticesFromEdgesIds(IEnumerable<int> eids)
+        {
+            return eids
+                .SelectMany(eid => new List<int>() { Edges[eid].Vertices.a, Edges[eid].Vertices.b })
+                .Distinct()
+                .ToList();
+        }
+
+        public IEnumerable<Vector3d> GetCoordinates(IEnumerable<int> vtxIds)
+        {
+            return vtxIds.Select(vid => Vertices[vid].Coordinate).ToList();
+        }
+        public IEnumerable<Index2i> GetEdgesVtxs(IEnumerable<int> edgeIds)
+        {
+            return edgeIds.Select(eid => Edges[eid].Vertices).ToList();
+        }
+
         #endregion
 
         /// <summary>
@@ -183,8 +207,8 @@ namespace MeshSimplificationTest.SBRep
             if (!Loops.ContainsKey(lid))
                 return null;
 
-            var edgesIDs = GetEdgesIdFromLoopId(lid);
-            int startEdge = edgesIDs.First();
+            var vergesIDs = GetEdgesIdFromLoopId(lid);
+            int startEdge = vergesIDs.First();
             int currentEdge = -1;
             var lastVtxID = -1;
             var vertexOrderList = new List<SBRep_Vtx>();
@@ -209,7 +233,7 @@ namespace MeshSimplificationTest.SBRep
                 vertexOrderList.Add(vtx);
                 lastVtxID = vtx.ID;
 
-                var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
+                var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && vergesIDs.Contains(eid)).ToList();
                 if (nextEdge.Count != 1)
                     throw new Exception("У петли почему то появилась развилка");
                 currentEdge = nextEdge.First();
@@ -241,6 +265,7 @@ namespace MeshSimplificationTest.SBRep
         /// <returns></returns>
         public List<Vector2d> ConvertPlaneContourTo2D(IEnumerable<Vector3d> contour, Vector3d normal)
         {
+            //TODO заюзать алгоритм из SBRepToMeshBuilder ConvertTo2D
             var firstVtx = contour.First();
             var contourZero = contour.Select(x => x - firstVtx).ToList();
 

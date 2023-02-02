@@ -58,10 +58,6 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="CGALDotNet, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\CGALDotNet\CGALDotNet\bin\Debug\net451\CGALDotNet.dll</HintPath>
-    </Reference>
     <Reference Include="geometry3Sharp, Version=1.0.324.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\geometry3Sharp.1.0.324\lib\net45\geometry3Sharp.dll</HintPath>
     </Reference>
@@ -70,9 +66,6 @@
     </Reference>
     <Reference Include="HelixToolkit.Wpf, Version=2.20.0.0, Culture=neutral, PublicKeyToken=52aa3500039caf0d, processorArchitecture=MSIL">
       <HintPath>..\packages\HelixToolkit.Wpf.2.20.0\lib\net45\HelixToolkit.Wpf.dll</HintPath>
-    </Reference>
-    <Reference Include="Net3dBool">
-      <HintPath>..\..\Net3dBool\src\Net3dBool\bin\Debug\net451\Net3dBool.dll</HintPath>
     </Reference>
     <Reference Include="PresentationFramework" />
     <Reference Include="System" />
@@ -116,6 +109,8 @@
     <Compile Include="SBRep\SBRepBuilder.cs" />
     <Compile Include="SBRep\SBRepObject.cs" />
     <Compile Include="SBRep\SBRepOperations.cs" />
+    <Compile Include="SBRep\SBRepToMeshBuilder.cs" />
+    <Compile Include="SBRep\Triangulation\TriangulationCaller.cs" />
     <Compile Include="TrulyObservableCollection.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -178,12 +173,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\pb_CSG\pb_CSG.csproj">
-      <Project>{d911fce7-4ad1-4379-a142-dd7cfc60ae9f}</Project>
-      <Name>pb_CSG</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

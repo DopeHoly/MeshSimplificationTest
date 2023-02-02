@@ -16,6 +16,7 @@ namespace MeshSimplificationTest.SBRep
 
     public abstract class SBRep_Primitive : IIndexed
     {
+        public const int UndefinedIndex = -1;
         public int ID { get; set; } = -1;
 
     }

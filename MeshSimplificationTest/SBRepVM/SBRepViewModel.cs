@@ -19,7 +19,7 @@ using System.Windows.Markup;
 using MeshSimplificationTest.SBRep;
 using static MeshSimplificationTest.SBRep.SBRepBuilder;
 using System.Collections.ObjectModel;
-using Net3dBool;
+using MeshSimplificationTest.SBRep.Triangulation;
 
 namespace MeshSimplificationTest.SBRepVM
 {
@@ -93,46 +93,6 @@ namespace MeshSimplificationTest.SBRepVM
             get => GetOutputViewModel();
         }
 
-        //public bool ShowSourceObject
-        //{
-        //    get => _showSourceObject;
-        //    set
-        //    {
-        //        if(value == ShowSourceObject) return;
-        //        _showSourceObject = value;
-        //        OnPropertyChanged(nameof(MainMesh));
-        //    }
-        //}
-        //public bool ShowBoundaryEdges
-        //{
-        //    get => _showBoundaryEdges;
-        //    set
-        //    {
-        //        if (value == _showBoundaryEdges) return;
-        //        _showBoundaryEdges = value;
-        //        OnPropertyChanged(nameof(MainMesh));
-        //    }
-        //}
-        //public bool ShowTriPlanarGroup
-        //{
-        //    get => _showTriPlanarGroup;
-        //    set
-        //    {
-        //        if (value == _showTriPlanarGroup) return;
-        //        _showTriPlanarGroup = value;
-        //        OnPropertyChanged(nameof(MainMesh));
-        //    }
-        //}
-        //public bool ShowLoopEdges
-        //{
-        //    get => _showLoopEdges;
-        //    set
-        //    {
-        //        if (value == _showLoopEdges) return;
-        //        _showLoopEdges = value;
-        //        OnPropertyChanged(nameof(MainMesh));
-        //    }
-        //}
 
         public void SetModel(DMesh3 model)
         {
@@ -150,9 +110,19 @@ namespace MeshSimplificationTest.SBRepVM
                 Model = ConvertToModel3D(SourceModel),
             });
 
+            var contour = new List<Vector2d>() 
+            {
+                new Vector2d(0.0, 0.0),
+                new Vector2d(1.0, 1.0),
+                new Vector2d(1.0, 0.0),
+                new Vector2d(3.0, 0.0),
+                new Vector2d(0.0, 5.0),
+            };
+
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             var sbrep = SBRepBuilder.Convert(model);
+            SBRepOperations.ContourProjection(sbrep, contour, true);
             var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
             ModelsVM.Add(new Model3DLayerVM(this)
             {
@@ -183,6 +153,11 @@ namespace MeshSimplificationTest.SBRepVM
             {
                 Name = "Петли из sbrep",
                 Model = sbrep_loops,
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Триангулированный объект",
+                Model = ConvertToModel3D(SBRepToMeshBuilder.Convert(sbrep)),
             });
             OnPropertyChanged(nameof(MainMesh)); 
             OnPropertyChanged(nameof(ModelsVM));
