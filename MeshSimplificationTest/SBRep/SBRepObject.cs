@@ -155,6 +155,21 @@ namespace MeshSimplificationTest.SBRep
                 .ToList();
         }
 
+        public IEnumerable<int> GetEdgesFromFaceId(int faceId)
+        {
+            var loops = new List<int>();
+            loops.Add(Faces[faceId].OutsideLoop);
+            loops.AddRange(Faces[faceId].InsideLoops);
+            var edgesIds = new List<int>();
+            foreach (var lid in loops)
+            {
+                edgesIds.AddRange(GetEdgesIdFromLoopId(lid));
+            }
+            return edgesIds
+                .Distinct()
+                .ToList();
+        }
+
         //public IEnumerable<int> GetEdgesIdFromLoopId(int lid)
         //{
         //    if (!Loops.ContainsKey(lid))
@@ -170,6 +185,13 @@ namespace MeshSimplificationTest.SBRep
             return eids
                 .SelectMany(eid => new List<int>() { Edges[eid].Vertices.a, Edges[eid].Vertices.b })
                 .Distinct()
+                .ToList();
+        }
+
+        public IEnumerable<int> GetEdgesFromFaces(IEnumerable<int> faces)
+        {
+            return faces.SelectMany(faceID => GetEdgesFromFaceId(faceID))
+                .Distinct() 
                 .ToList();
         }
 

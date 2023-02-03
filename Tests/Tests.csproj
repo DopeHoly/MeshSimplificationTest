@@ -71,6 +71,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SBRepContourProjectionTests.cs" />
     <Compile Include="SBRepTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SBRepToMeshBuilderTests.cs" />

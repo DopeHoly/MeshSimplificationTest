@@ -31,6 +31,11 @@ namespace MeshSimplificationTest.SBRep
     {
         public Index2i Vertices;
         public int Parent = -1;
+
+        public void Separate(IEnumerable<int> vtxIds)
+        {
+            //TODO
+        }
     }
     public class SBRep_Verge : SBRep_Primitive
     {

@@ -11,7 +11,7 @@ namespace Tests
     [TestClass]
     public class SBRepTests
     {
-        private static string SamplesPath = "../../../samples/";
+        private static string SamplesPath = "../../../../samples/";
         private static string Sample_CubePath = SamplesPath + "cubeWithGroupNew.obj";
         private static string Sample_CubeRemeshedPath = SamplesPath + "cubeRemeshed.obj";
         private static string Sample_PipePath = SamplesPath + "pipe.obj";
