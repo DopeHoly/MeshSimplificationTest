@@ -37,6 +37,10 @@
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <ListView ItemsSource="{Binding Data.ModelsVM, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBox Text="{Binding Data.XOffset}"/>
+                <TextBox Text="{Binding Data.YOffset}"/>
+                <Button Height="30" Command="{Binding ApplyOffset}" Content="Применить смещение контура"/>
+                
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
             </StackPanel>
         </ScrollViewer>

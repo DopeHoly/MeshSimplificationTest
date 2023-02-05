@@ -259,25 +259,25 @@ namespace MeshSimplificationTest
             foreach (GeometryModel3D geometryModel in models.Children)
             {
                 var mesh = geometryModel.Geometry as MeshGeometry3D;
-                //var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.005);
-                //DiffuseMaterial wireframe_material =
-                //    new DiffuseMaterial(Brushes.Black);
-                //var wireframe = new GeometryModel3D()
-                //{
-                //    Geometry = triangleMesh,
-                //    Material = new DiffuseMaterial(Brushes.Black)
-                //};
-                //var mat = new MaterialGroup();
-                //mat.Children.Add(new DiffuseMaterial(Brushes.Aqua));
-                //mat.Children.Add(new SpecularMaterial(Brushes.Blue, 80));
+                var triangleMesh = MeshExtensions.ToWireframe(mesh, 0.005);
+                DiffuseMaterial wireframe_material =
+                    new DiffuseMaterial(Brushes.Black);
+                var wireframe = new GeometryModel3D()
+                {
+                    Geometry = triangleMesh,
+                    Material = new DiffuseMaterial(Brushes.Black)
+                };
+                var mat = new MaterialGroup();
+                mat.Children.Add(new DiffuseMaterial(Brushes.Aqua));
+                mat.Children.Add(new SpecularMaterial(Brushes.Blue, 80));
                 var resultMesh = new GeometryModel3D()
                 {
                     Geometry = mesh,
                     Material = new DiffuseMaterial(new SolidColorBrush(
                         GetColor(idGroup)))
                 };
-                //resultmodels.Children.Add(resultMesh);
-                //resultmodels.Children.Add(wireframe);
+                resultmodels.Children.Add(resultMesh);
+                resultmodels.Children.Add(wireframe);
             }
             return resultmodels;
         }

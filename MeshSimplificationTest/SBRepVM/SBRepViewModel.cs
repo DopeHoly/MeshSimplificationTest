@@ -81,9 +81,23 @@ namespace MeshSimplificationTest.SBRepVM
         private DMesh3 _sourceModel;
         public ObservableCollection<Model3DLayerVM> ModelsVM { get; set; }
 
+        public double XOffset { get; set; }
+        public double YOffset { get; set; }
+
+        public List<Vector2d> Contour;
+
         public SBRepModel()
         {
             ModelsVM = new ObservableCollection<Model3DLayerVM>();
+            var contour = new List<Vector2d>();
+            contour.Add(new Vector2d(0, 0));
+            contour.Add(new Vector2d(0, 5));
+            contour.Add(new Vector2d(4, 2));
+            contour.Add(new Vector2d(4, 0));
+            contour.Add(new Vector2d(3, -1));
+            contour.Add(new Vector2d(2, 1));
+            contour.Add(new Vector2d(1, 1));
+            Contour = contour;
         }
 
         public DMesh3 SourceModel => _sourceModel;
@@ -110,19 +124,11 @@ namespace MeshSimplificationTest.SBRepVM
                 Model = ConvertToModel3D(SourceModel),
             });
 
-            var contour = new List<Vector2d>() 
-            {
-                new Vector2d(0.0, 0.0),
-                new Vector2d(1.0, 1.0),
-                new Vector2d(1.0, 0.0),
-                new Vector2d(3.0, 0.0),
-                new Vector2d(0.0, 5.0),
-            };
-
+            var contour = Contour;
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             var sbrep = SBRepBuilder.Convert(model);
-            SBRepOperations.ContourProjection(sbrep, contour, true);
+            var projectionObject = sbrep.ContourProjection(contour, true);
             var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
             ModelsVM.Add(new Model3DLayerVM(this)
             {
@@ -159,6 +165,21 @@ namespace MeshSimplificationTest.SBRepVM
                 Name = "Триангулированный объект",
                 Model = ConvertToModel3D(SBRepToMeshBuilder.Convert(sbrep)),
             });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Точки проекции",
+                Model = GenerateModelFromModelsVerices(projectionObject)
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани проекции",
+                Model = GenerateModelFormSBRepObjectEdges(projectionObject)
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Контур проекции",
+                Model = GenerateModelFrom2dContour(contour, Colors.Green)
+            });
             OnPropertyChanged(nameof(MainMesh)); 
             OnPropertyChanged(nameof(ModelsVM));
         }
@@ -180,6 +201,13 @@ namespace MeshSimplificationTest.SBRepVM
             }
 
             return resultmodels;
+        }
+
+        public void ApplyOffset()
+        {
+            var offsetPoint = new Vector2d(XOffset, YOffset);   
+            Contour = Contour.Select(point => point + offsetPoint).ToList();
+            SetModel(SourceModel);
         }
 
 
@@ -375,7 +403,76 @@ namespace MeshSimplificationTest.SBRepVM
             return resultmodels;
         }
 
+        public Model3D GenerateModelFromModelsVerices(SBRepObject sbrep)
+        {
+            return ModelFromVertices(sbrep, Colors.Red, 3);
+        }
+
+        public Model3D GenerateModelFormSBRepObjectEdges(SBRepObject sbrep)
+        {
+            var edgesIds = sbrep.Edges.GetIndexes();
+            return ModelFromEdge(sbrep, edgesIds, Colors.Yellow, 2);
+        }
+
+        public Model3D GenerateModelFrom2dContour(IEnumerable<Vector2d> contour, Color color, double contsZ = 0, double diameterScale = 1)
+        {
+            var theta = 4;
+            var rad = diameterScale * 1.3 * 0.01;
+            var phi = 4;
+            var builder = new MeshBuilder(true, true);
+            var points = new List<Point3D>();
+            var edges = new List<int>();
+            foreach (var vtx in contour)
+            {
+                var a = vtx;
+                var point = new Point3D(a.x, a.y, contsZ);
+                points.Add(point);
+            }
+            for(int i = 0; i < points.Count; ++i)
+            {
+                var a = i;
+                var b = i + 1;
+                if (b == points.Count)
+                    b = 0;
+                edges.Add(a);
+                edges.Add(b);
+            }
+            builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
+            foreach (var point in points)
+                builder.AddEllipsoid(point, rad, rad, rad, theta, phi);
+            return new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(color))
+            };
+        }
+
         #region VisualBuilder
+        public Model3D ModelFromVertices(SBRepObject mesh,
+            Color color, double diameterScale = 1)
+        {
+            var theta = 4;
+            var rad = diameterScale * 1.3 * 0.01;
+            var phi = 4;
+            var builder = new MeshBuilder(true, true);
+            var points = new List<Point3D>();
+            var edges = new List<int>();
+            foreach(var vtx in mesh.Vertices)
+            {
+                var a = vtx.Coordinate;
+                var point = new Point3D(a.x, a.y, a.z);
+                points.Add(point);
+            }
+            builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
+            foreach (var point in points)
+                builder.AddEllipsoid(point, rad, rad, rad, theta, phi);
+            return new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(color))
+            };
+        }
+
         public Model3D ModelFromEdge(DMesh3 mesh, 
             IEnumerable<int> edgesIDs,
             Color color, double diameterScale = 1)
@@ -465,12 +562,16 @@ namespace MeshSimplificationTest.SBRepVM
         public SBRepModel Data => data;
 
         protected Lazy<DelegateCommand> _loadModelCommand;
+        protected Lazy<DelegateCommand> _ApplyOffsetCommand;
         public ICommand LoadModelCommand => _loadModelCommand.Value;
+        public ICommand ApplyOffset => _ApplyOffsetCommand.Value;
 
         public SBRepViewModel()
         {
             _loadModelCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(LoadModel));
+            _ApplyOffsetCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(x => data.ApplyOffset()));
             data = new SBRepModel();
         }
         private void LoadModel(object obj)

@@ -1,6 +1,7 @@
 ﻿using g3;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Windows;
@@ -9,7 +10,7 @@ namespace MeshSimplificationTest.SBRep
 {
     public class PointI
     {
-        public int SourceID = -1;
+        //public int SourceID = -1;
         public Vector2d Coord { get; set; }
         public PointPosition Position { get; set; } = null;
         public PointI() 
@@ -20,27 +21,27 @@ namespace MeshSimplificationTest.SBRep
         {
             this.Coord = coord;
         }
-        public PointI(SBRep_Vtx vtx)
-        {
-            Coord = vtx.Coordinate.xy;
-            SourceID = vtx.ID;
-        }
+        //public PointI(SBRep_Vtx vtx)
+        //{
+        //    Coord = vtx.Coordinate.xy;
+        //    SourceID = vtx.ID;
+        //}
     }
 
     public class EdgeI
     {
-        public int SourceID = -1;
+        //public int SourceID = -1;
         public Index2i Points;
         public EdgePosition Position { get; set; } = null;
         public EdgeI(int a = -1, int b = -1)
         {
             Points = new Index2i(a, b);
         }
-        public EdgeI(SBRep_Edge edge)
-        {
-            Points = edge.Vertices;
-            SourceID = edge.ID;
-        }
+        //public EdgeI(SBRep_Edge edge)
+        //{
+        //    Points = edge.Vertices;
+        //    SourceID = edge.ID;
+        //}
     }
 
     public class ContourI
@@ -100,6 +101,155 @@ namespace MeshSimplificationTest.SBRep
                 Edges[EdgeBid]);
         }
 
+        public ContourI Difference(ContourI other)
+        {
+            if(other == null) return null;
+            if(other.Vertices.Count == 0) return null;
+            if(other.Vertices.Count != Vertices.Count) return null;
+            if(other.Edges.Count != Edges.Count) return null;
+
+            var dif = new ContourI();
+
+            for(int i = 0; i < Vertices.Count; ++i)
+            {
+                var vtx = Vertices[i];
+                var otherVtx = other.Vertices[i];
+                Debug.Assert(vtx.Position.Mode != PointPositionMode.Undefined);
+                Debug.Assert(vtx.Position.Mode != PointPositionMode.OnEdge);
+                Debug.Assert(otherVtx.Position.Mode != PointPositionMode.Undefined);
+                Debug.Assert(otherVtx.Position.Mode != PointPositionMode.OnEdge);
+
+                if (vtx.Coord != otherVtx.Coord)
+                    throw new Exception("Точки не совпадают");
+                var position = new PointPosition();
+
+                if(vtx.Position.Mode == otherVtx.Position.Mode)
+                {
+                    position.Mode = vtx.Position.Mode;
+                    Debug.Assert(vtx.Position.EdgeID == otherVtx.Position.EdgeID);
+                    position.EdgeID = vtx.Position.EdgeID;
+                    Debug.Assert(vtx.Position.EdgeID == otherVtx.Position.EdgeID);
+                    position.VtxID = vtx.Position.VtxID;
+                }
+                else
+                {
+                    var sourceInPlane =
+                        vtx.Position.Mode == PointPositionMode.InPlane ||
+                        vtx.Position.Mode == PointPositionMode.OnVertex;
+
+                    var otherInPlane = 
+                        otherVtx.Position.Mode == PointPositionMode.InPlane ||
+                        otherVtx.Position.Mode == PointPositionMode.OnVertex;
+                    if (sourceInPlane)
+                    {
+                        if (otherInPlane)
+                        {
+                            position.Mode = otherVtx.Position.Mode;
+                            position.EdgeID = otherVtx.Position.EdgeID;
+                            position.VtxID = otherVtx.Position.VtxID;
+                        }
+                        else
+                        {
+                            position.Mode = vtx.Position.Mode;
+                            position.EdgeID = vtx.Position.EdgeID;
+                            position.VtxID = vtx.Position.VtxID;
+                        }
+                    }
+                    else
+                    {
+                        position.Mode = vtx.Position.Mode;
+                        position.EdgeID = vtx.Position.EdgeID;
+                        position.VtxID = vtx.Position.VtxID;
+                    }
+                }
+
+                //TODO
+
+                var point = new PointI()
+                {
+                    Coord = vtx.Coord,
+                    Position = position
+                };
+                dif.Vertices.Add(point);
+            }
+
+            return dif;
+        }
+
+        public ContourI SeparateByCrossing()
+        {
+            var result = new ContourI();
+
+            for(int i = 0; i < Edges.Count; i++)
+            {
+                result.Vertices.Add(new PointI()
+                {
+                    Coord = Vertices[i].Coord,
+                    Position = new PointPosition()
+                    {
+                        EdgeID = Vertices[i].Position.EdgeID,
+                        Mode = Vertices[i].Position.Mode,
+                        VtxID = Vertices[i].Position.VtxID
+                    }
+                });
+
+                var edge = Edges[i];
+                if(edge.Position.Mode == EdgePositionMode.Cross)
+                {
+                    foreach (var cross in edge.Position.Crosses)
+                    {
+                        if(cross.IntersectionType == EdgeIntersectionType.Point)
+                        {
+
+                        }
+                    }
+
+                }
+            }
+
+            return result;
+        }
+
+        public List<Vector2d> GetPointsInCross()
+        {
+            var points = new List<Vector2d>();
+            for(int i = 0; i < Vertices.Count; i++)
+            {
+                var vertex = Vertices[i];
+                if (vertex.Position.Mode == PointPositionMode.OnEdge ||
+                    vertex.Position.Mode == PointPositionMode.InPlane ||
+                    vertex.Position.Mode == PointPositionMode.OnVertex)
+                {
+                    points.Add(vertex.Coord);
+                }
+
+                var edge = Edges[i];
+                if(edge.Position.Mode == EdgePositionMode.Cross)
+                {
+                    foreach (var cross in edge.Position.Crosses)
+                    {
+                        if(cross.IntersectionType == EdgeIntersectionType.Point)
+                        {
+                            points.Add(cross.Point0);
+                        }
+                        if(cross.IntersectionType == EdgeIntersectionType.Segment)
+                        {
+                            var neigbors = GetPointFromEdgeId(i);
+
+                            if (!(Geometry2DHelper.EqualPoints(cross.Point0, neigbors.Item1.Coord, 1e-6) ||
+                            Geometry2DHelper.EqualPoints(cross.Point0, neigbors.Item2.Coord, 1e-6)))
+                                points.Add(cross.Point0);
+
+                            if (!(Geometry2DHelper.EqualPoints(cross.Point1, neigbors.Item1.Coord, 1e-6) ||
+                            Geometry2DHelper.EqualPoints(cross.Point1, neigbors.Item2.Coord, 1e-6)))
+                                points.Add(cross.Point1);
+                        }
+                    }
+                }
+            }
+            return points;
+        }
+
         public static ContourI FromPointList(IEnumerable<Vector2d> vertices)
         {
             var contour = new ContourI();
@@ -116,6 +266,7 @@ namespace MeshSimplificationTest.SBRep
             return contour;
         }
 
+
         public string GetReport()
         {
             var builder = new StringBuilder();
@@ -131,13 +282,6 @@ namespace MeshSimplificationTest.SBRep
             }
 
             return builder.ToString();
-        }
-    }
-
-    public class ContourBoolean
-    {
-        public ContourBoolean() 
-        {
         }
     }
 
@@ -210,6 +354,24 @@ namespace MeshSimplificationTest.SBRep
                         if (Geometry2DHelper.EqualPoints(cross.Point0, edgeA, eps) ||
                             Geometry2DHelper.EqualPoints(cross.Point0, edgeB, eps))
                             continue;
+                    }
+                    if(cross.IntersectionType == EdgeIntersectionType.Segment)
+                    {
+                        var aEqual = Geometry2DHelper.EqualPoints(cross.Point0, edgeA, eps);
+                        var bEqual = Geometry2DHelper.EqualPoints(cross.Point1, edgeB, eps);
+                        if (aEqual && bEqual)
+                        {
+                            cross.IntersectionType = EdgeIntersectionType.AllEdge;
+                        }
+                        else
+                        {
+                            aEqual = Geometry2DHelper.EqualPoints(cross.Point1, edgeA, eps);
+                            bEqual = Geometry2DHelper.EqualPoints(cross.Point0, edgeB, eps);
+                            if (aEqual && bEqual)
+                            {
+                                cross.IntersectionType = EdgeIntersectionType.AllEdge;
+                            }
+                        }
                     }
                     cross.EdgeID = edge.ID;
                     crosses.Add(cross);

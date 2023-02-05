@@ -110,6 +110,7 @@
     <Compile Include="SBRep\SBRepBuilder.cs" />
     <Compile Include="SBRep\SBRepObject.cs" />
     <Compile Include="SBRep\SBRepOperations.cs" />
+    <Compile Include="SBRep\SBRepOperations\IntersectContour.cs" />
     <Compile Include="SBRep\SBRepToMeshBuilder.cs" />
     <Compile Include="SBRep\Triangulation\TriangulationCaller.cs" />
     <Compile Include="TrulyObservableCollection.cs" />

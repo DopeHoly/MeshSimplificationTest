@@ -50,6 +50,11 @@ namespace MeshSimplificationTest.SBRep
                 return Distance(point) < EPS_PointOnPlane;
             }
 
+            public double GetZ(double x, double y)
+            {
+                return (-A * x - B * y - D) / C;
+            }
+
             /// <summary>
             /// Создаёт уравнение плоскости по трём точкам
             /// http://algolist.ru/maths/geom/equation/plane.php
@@ -69,7 +74,7 @@ namespace MeshSimplificationTest.SBRep
                 a = p1.y * (p2.z - p3.z) + p2.y * (p3.z - p1.z) + p3.y * (p1.z - p2.z);
                 b = p1.z * (p2.x - p3.x) + p2.z * (p3.x - p1.x) + p3.z * (p1.x - p2.x);
                 c = p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y);
-                d = (p1.x*(p2.y * p3.z - p3.y * p2.z) + p2.x* (p3.y * p1.z - p1.y * p3.z) + p3.x* (p1.y* p2.z - p2.y* p1.z)) * -1.0;
+                d = (p1.x * (p2.y * p3.z - p3.y * p2.z) + p2.x * (p3.y * p1.z - p1.y * p3.z) + p3.x * (p1.y * p2.z - p2.y * p1.z)) * -1.0;
 
                 return new PlaneFace()
                 {
@@ -97,6 +102,17 @@ namespace MeshSimplificationTest.SBRep
             public TriPlanarGroup(DMesh3 mesh)
             {
                 this.mesh = mesh;
+            }
+
+            public PlaneFace GetPlane()
+            {
+                var fTID = TriangleIDs.First();
+                Vector3d v0 = Vector3d.Zero;
+                Vector3d v1 = Vector3d.Zero;
+                Vector3d v2 = Vector3d.Zero;
+                mesh.GetTriVertices(fTID, ref v0, ref v1, ref v2);
+                var plane = PlaneFace.FromPoints(v0, v1, v2, Normal);
+                return plane;
             }
 
             /// <summary>
@@ -135,13 +151,11 @@ namespace MeshSimplificationTest.SBRep
             /// <returns></returns>
             public bool IsValid()
             {
-                if(TriangleIDs == null || TriangleIDs.Count < 1) return false;
-                var fTID = TriangleIDs.First();
+                if (TriangleIDs == null || TriangleIDs.Count < 1) return false;
+                var plane = GetPlane();
                 Vector3d v0 = Vector3d.Zero;
                 Vector3d v1 = Vector3d.Zero;
                 Vector3d v2 = Vector3d.Zero;
-                mesh.GetTriVertices(fTID, ref v0, ref v1, ref v2);
-                var plane = PlaneFace.FromPoints(v0, v1, v2, Normal);
                 foreach (var tid in TriangleIDs)
                 {
                     mesh.GetTriVertices(tid, ref v0, ref v1, ref v2);
@@ -186,6 +200,8 @@ namespace MeshSimplificationTest.SBRep
             return Math.Abs(a.x - b.x) < EPS_NormalCompare &&
                 Math.Abs(a.y - b.y) < EPS_NormalCompare &&
                 Math.Abs(a.z - b.z) < EPS_NormalCompare;
+            //return a.EpsilonEqual(b, EPS_NormalCompare);
+            //return a.Equals(b);
         }
 
         /// <summary>
@@ -196,6 +212,11 @@ namespace MeshSimplificationTest.SBRep
         public static Dictionary<Vector3d, List<int>> GroupTriangleByNormal(DMesh3 mesh)
         {
             var normalGroupedTIDs = new Dictionary<Vector3d, List<int>>();
+            var normalTriDict = new Dictionary<int, Vector3d>();
+            //foreach (var tid in mesh.TriangleIndices())
+            //{
+            //    normalTriDict.Add(tid, mesh.GetTriNormal(tid));
+            //}
             foreach (var tid in mesh.TriangleIndices())
             {
                 var normal = mesh.GetTriNormal(tid);
@@ -553,7 +574,8 @@ namespace MeshSimplificationTest.SBRep
                     ID = face.ID,
                     Normal = face.Normal,
                     GroupID = face.GroupId,
-                    InsideLoops = allLoopsIDs.ToList()
+                    InsideLoops = allLoopsIDs.ToList(),
+                    Plane = face.GetPlane(),
                 });
             }
             return faces;
@@ -664,6 +686,7 @@ namespace MeshSimplificationTest.SBRep
                     GroupID = face.GroupID,
                     Normal = face.Normal,
                     InsideLoops = face.InsideLoops,
+                    Plane = face.Plane,
                 });
 
             //Индексирует обратные связи между разными объектами

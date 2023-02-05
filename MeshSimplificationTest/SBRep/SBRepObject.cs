@@ -24,6 +24,41 @@ namespace MeshSimplificationTest.SBRep
             Faces = new IndexedCollection<SBRep_Face>();
         }
 
+        public SBRepObject(SBRepObject other) : this()
+        {
+            Copy(other);
+        }
+
+        public void Copy(SBRepObject other)
+        {
+            Vertices.Clear();
+            Edges.Clear();
+            Verges.Clear();
+            Loops.Clear();
+            Faces.Clear();
+            foreach (var v in other.Vertices)
+            {
+                Vertices.Add(new SBRep_Vtx(v));
+            }
+            foreach (var edge in other.Edges)
+            {
+                Edges.Add(new SBRep_Edge(edge));
+            }
+            foreach (var verge in other.Verges)
+            {
+                Verges.Add(new SBRep_Verge(verge));
+            }
+            foreach (var loop in other.Loops)
+            {
+                Loops.Add(new SBRep_Loop(loop));
+            }
+            foreach (var face in other.Faces)
+            {
+                Faces.Add(new SBRep_Face(face));
+            }
+            //TODO
+        }
+
         /// <summary>
         /// Разделяет у всех плоскостей петли на внешние и внутренние
         /// </summary>
@@ -229,8 +264,8 @@ namespace MeshSimplificationTest.SBRep
             if (!Loops.ContainsKey(lid))
                 return null;
 
-            var vergesIDs = GetEdgesIdFromLoopId(lid);
-            int startEdge = vergesIDs.First();
+            var edgesIDs = GetEdgesIdFromLoopId(lid);
+            int startEdge = edgesIDs.First();
             int currentEdge = -1;
             var lastVtxID = -1;
             var vertexOrderList = new List<SBRep_Vtx>();
@@ -255,13 +290,60 @@ namespace MeshSimplificationTest.SBRep
                 vertexOrderList.Add(vtx);
                 lastVtxID = vtx.ID;
 
-                var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && vergesIDs.Contains(eid)).ToList();
+                var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
                 if (nextEdge.Count != 1)
                     throw new Exception("У петли почему то появилась развилка");
                 currentEdge = nextEdge.First();
             }
 
             return vertexOrderList;
+        }
+        /// <summary>
+        /// Получить замкнутый контур из петли под индексом lid
+        /// </summary>
+        /// <param name="lid">индекс петли</param>
+        /// <returns>упорядоченный список Объектов вершин</returns>
+        public IEnumerable<SBRep_Edge> GetClosedContourEdges(int lid)
+        {
+            if (!Loops.ContainsKey(lid))
+                return null;
+
+            var edgesIDs = GetEdgesIdFromLoopId(lid);
+            int startEdge = edgesIDs.First();
+            int currentEdge = -1;
+            var lastVtxID = -1;
+            var edgesOrderList = new List<SBRep_Edge>();
+            while (startEdge != currentEdge)
+            {
+                if (currentEdge == -1)
+                {
+                    currentEdge = startEdge;
+                }
+
+                var edge = Edges[currentEdge];
+                //edgesIDs.RemoveAt(currentEdge);
+                var verticeIndexes = edge.Vertices;
+                int vtxID = -1;
+                if (lastVtxID == -1)
+                {
+                    vtxID = verticeIndexes.a;
+                }
+                else
+                {
+                    vtxID = verticeIndexes.a == lastVtxID ? verticeIndexes.b : verticeIndexes.a;
+                }
+                var vtx = Vertices[vtxID];
+                //vertexOrderList.Add(vtx);
+                lastVtxID = vtx.ID;
+
+                var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
+                if (nextEdge.Count != 1)
+                    throw new Exception("У петли почему то появилась развилка");
+                currentEdge = nextEdge.First();
+                edgesOrderList.Add(Edges[currentEdge]);
+            }
+
+            return edgesOrderList;
         }
 
         /// <summary>

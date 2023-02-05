@@ -19,18 +19,39 @@ namespace MeshSimplificationTest.SBRep
         public const int UndefinedIndex = -1;
         public int ID { get; set; } = -1;
 
+        public SBRep_Primitive(int id = UndefinedIndex)
+        {
+            ID = id;
+        }
     }
 
     public class SBRep_Vtx : SBRep_Primitive
     {
         public Vector3d Coordinate;
         public ICollection<int> Parents;
+        public SBRep_Vtx() : base()
+        {
+            Parents = new List<int>();
+        }
+
+        public SBRep_Vtx(SBRep_Vtx other) : base(other.ID)
+        {
+            Coordinate = other.Coordinate;
+            Parents = new List<int>(other.Parents);
+        }
     }
 
     public class SBRep_Edge : SBRep_Primitive
     {
         public Index2i Vertices;
         public int Parent = -1;
+
+        public SBRep_Edge() : base() { }
+        public SBRep_Edge(SBRep_Edge other) : base(other.ID) 
+        { 
+            Vertices = other.Vertices;
+            Parent = other.Parent;
+        }
 
         public void Separate(IEnumerable<int> vtxIds)
         {
@@ -41,19 +62,44 @@ namespace MeshSimplificationTest.SBRep
     {
         public ICollection<int> Edges;
         public ICollection<int> Parents;
+
+        public SBRep_Verge() : base() { }
+        public SBRep_Verge(SBRep_Verge other) : base(other.ID)
+        {
+            Edges = new List<int>(other.Edges);
+            Parents = new List<int>(other.Parents);
+        }
     }
 
     public class SBRep_Loop : SBRep_Primitive
     {
         public ICollection<int> Verges;
-        public ICollection<int> Parents;        
+        public ICollection<int> Parents; 
+        public SBRep_Loop() : base() { }
+        public SBRep_Loop(SBRep_Loop other) : base(other.ID)
+        {
+            Verges = new List<int>(other.Verges);
+            Parents = new List<int>(other.Parents);
+        }
     }
     public class SBRep_Face : SBRep_Primitive
     {
         public int GroupID = -1;
         public Vector3d Normal;
+        public PlaneFace Plane;
         public int OutsideLoop;
         public ICollection<int> InsideLoops;
+
+        public SBRep_Face() : base() { }
+
+        public SBRep_Face(SBRep_Face other) : base(other.ID) 
+        {
+            GroupID = other.GroupID; 
+            Normal = other.Normal;
+            Plane = other.Plane;
+            OutsideLoop = other.OutsideLoop;
+            InsideLoops = new List<int>(other.InsideLoops);
+        }
     }
 
 
@@ -125,6 +171,7 @@ namespace MeshSimplificationTest.SBRep
 
         public void Clear()
         {
+            _maxIndex = undefindedID;
             map.Clear();
         }
 
