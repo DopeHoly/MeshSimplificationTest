@@ -147,6 +147,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
 
     public class IntersectContour
     {
+        public const double EPS = 1e-6;
         public IndexedCollection<Point> Points { get; set; }
         public IndexedCollection<Edge> Edges { get; set;}
 
@@ -286,7 +287,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             result.ReindexPointsParents();
             return result;
         }
-
+        /*
         public static IntersectContour IntersectOld(IntersectContour left, IntersectContour right)
         {
             var eps = 1e-6;
@@ -397,10 +398,10 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             intersect.ReindexPointsParents();
             return intersect;
         }
-
+        */
         public static IntersectContour Intersect(IntersectContour left, IntersectContour right)
         {
-            var eps = 1e-6;
+            var eps = EPS;
             if (left == null || right == null) return null;
             var intersect = new IntersectContour();
 
@@ -433,48 +434,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     edgePosition,
                     pointsIndexesDictionary[edge.Points.a],
                     pointsIndexesDictionary[edge.Points.b]);
-                foreach (var eid in edges)
-                {
-                    var currentEdge = intersect.Edges[eid];
-                    edgesPoints = intersect.GetEdgePoints(currentEdge);
-                    var pointA = edgesPoints.Item1;
-                    var pointB = edgesPoints.Item2;
-                    //тут мы подразумеваем, что edge без пересечений
-                    if (pointA.Position.Mode == PointPositionMode.InPlane ||
-                        pointB.Position.Mode == PointPositionMode.InPlane)
-                    {
-                        currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
-                    }
-                    else
-                    if (pointA.Position.Mode == PointPositionMode.OutPlane ||
-                        pointB.Position.Mode == PointPositionMode.OutPlane)
-                    {
-                        currentEdge.Position.Mode = ShortEdgePositionMode.OutPlane;
-                    }
-                    else
-                    if (pointA.Position.Mode == PointPositionMode.OnVertex &&
-                        pointB.Position.Mode == PointPositionMode.OnVertex) //TODO сломается на случае пересечения в двух точках вне контура
-                    {
-                        currentEdge.Position.Mode = ShortEdgePositionMode.ExistingEdge;
-                        var aOrigId = pointA.Position.VtxID;
-                        var bOrigId = pointB.Position.VtxID;
-                        var indexAB = new Index2i(aOrigId, bOrigId);
-                        var indexBA = new Index2i(bOrigId, aOrigId);
-                        currentEdge.Position.EdgeId = right.Edges.First(e => e.Points == indexAB || e.Points == indexBA).ID;
-                    }
-                    else
-                    if (pointA.Position.Mode == PointPositionMode.OnEdge ||
-                        pointB.Position.Mode == PointPositionMode.OnEdge) //TODO пересмотреть
-                    {
-                        currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
-                        var pointOnEdge = pointA.Position.Mode == PointPositionMode.OnEdge ? pointA : pointB;
-                        currentEdge.Position.EdgeId = pointOnEdge.Position.EdgeID;
-                    }
-                    else
-                    {
-                        throw new Exception();//TODO
-                    }
-                }
+                ClassifyEdgePosition(intersect, right, edges, eps);
             }
 
             Debug.Assert(intersect.Edges.Count == intersect.Points.Count);
@@ -487,6 +447,145 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
         public static IntersectContour Difference(IntersectContour left, IntersectContour right)
         {
             return null;
+        }
+
+        public static void ClassifyEdgePosition(IntersectContour intersect, IntersectContour right, IEnumerable<int> edges, double eps)
+        {
+            foreach (var eid in edges)
+            {
+                var currentEdge = intersect.Edges[eid];
+                var edgesPoints = intersect.GetEdgePoints(currentEdge);
+                var pointA = edgesPoints.Item1;
+                var pointB = edgesPoints.Item2;
+                //тут мы подразумеваем, что edge без пересечений
+                if (pointA.Position.Mode == PointPositionMode.InPlane ||
+                    pointB.Position.Mode == PointPositionMode.InPlane)
+                {
+                    currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
+                }
+                else
+                if (pointA.Position.Mode == PointPositionMode.OutPlane ||
+                    pointB.Position.Mode == PointPositionMode.OutPlane)
+                {
+                    currentEdge.Position.Mode = ShortEdgePositionMode.OutPlane;
+                }
+                else//если на этом этапе, то обе точки точно принадлежат рёбрам
+                if (pointA.Position.Mode == PointPositionMode.OnEdge &&
+                    pointB.Position.Mode == PointPositionMode.OnEdge)//обе точки посреди рёбер
+                {
+                    if (pointA.Position.EdgeID == pointB.Position.EdgeID)//если индекс рёбер совпадает, то это сегмент ребра
+                    {
+                        currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
+                        currentEdge.Position.EdgeId = pointA.Position.EdgeID;
+                    }
+                    else //если нет, то получается это высящее ребро. может быть либо внутри, либо снаружи
+                    {
+                        var center = (pointA.Coord + pointB.Coord) / 2.0;
+                        var centerPosition = CalcPointPosition(right, center, eps);
+                        if (centerPosition.Mode == PointPositionMode.InPlane)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
+                        }
+                        else
+                        if (centerPosition.Mode == PointPositionMode.OutPlane)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.OutPlane;
+                        }
+                        else
+                            throw new Exception($"Невозможно определить расположение ребра: {currentEdge}");
+                    }
+                }
+                else //если зашли сюда, значит одна из вершин висит на точке                
+                {
+                    if (pointA.Position.Mode == PointPositionMode.OnVertex &&
+                        pointB.Position.Mode == PointPositionMode.OnVertex)//сразу обработаем случай, когда обе точки находятся в вершинах
+                    {
+                        var aOrigId = pointA.Position.VtxID;
+                        var bOrigId = pointB.Position.VtxID;
+                        var indexAB = new Index2i(aOrigId, bOrigId);
+                        var indexBA = new Index2i(bOrigId, aOrigId);
+                        var edgeAB = right.Edges.FirstOrDefault(e => e.Points == indexAB || e.Points == indexBA);
+                        if(edgeAB != null) // если есть в контуре объекта грань с вершинами AB, то совпадение
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.ExistingEdge;
+                            currentEdge.Position.EdgeId = edgeAB.ID;
+                        }
+                        else //если нет, то через центр точки определяем, куда попали
+                        {
+                            var center = (pointA.Coord + pointB.Coord) / 2.0;
+                            var centerPosition = CalcPointPosition(right, center, eps);
+                            if (centerPosition.Mode == PointPositionMode.InPlane)
+                            {
+                                currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
+                            }
+                            else
+                            if (centerPosition.Mode == PointPositionMode.OutPlane)
+                            {
+                                currentEdge.Position.Mode = ShortEdgePositionMode.OutPlane;
+                            }
+                            else
+                            if (centerPosition.Mode == PointPositionMode.OnEdge)
+                            {
+                                currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
+                                currentEdge.Position.EdgeId = centerPosition.EdgeID;
+                            }
+                            else
+                                throw new Exception($"Невозможно определить расположение ребра: {currentEdge}");
+                        }
+                    }
+                    else
+                    if (pointA.Position.Mode == PointPositionMode.OnVertex ||
+                        pointB.Position.Mode == PointPositionMode.OnVertex)
+                    {
+                        //var pointOnEdge = pointA.Position.Mode == PointPositionMode.OnEdge ? pointA : pointB;
+                        //var pointOnVertex = pointA.Position.Mode == PointPositionMode.OnVertex ? pointA : pointB;
+                        var center = (pointA.Coord + pointB.Coord) / 2.0;
+                        var centerPosition = CalcPointPosition(right, center, eps);
+                        if (centerPosition.Mode == PointPositionMode.InPlane)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
+                        }
+                        else
+                        if (centerPosition.Mode == PointPositionMode.OutPlane)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.OutPlane;
+                        }
+                        else
+                        if (centerPosition.Mode == PointPositionMode.OnEdge)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
+                            currentEdge.Position.EdgeId = centerPosition.EdgeID;
+                        }
+                        else
+                        {
+                            throw new Exception();//TODO
+                        }
+
+                    }
+                    else
+                        throw new Exception();//TODO
+                }
+
+                //if (pointA.Position.Mode == PointPositionMode.OnVertex &&
+                //    pointB.Position.Mode == PointPositionMode.OnVertex) //TODO сломается на случае пересечения в двух точках вне контура
+                //{
+                //    currentEdge.Position.Mode = ShortEdgePositionMode.ExistingEdge;
+                //    var aOrigId = pointA.Position.VtxID;
+                //    var bOrigId = pointB.Position.VtxID;
+                //    var indexAB = new Index2i(aOrigId, bOrigId);
+                //    var indexBA = new Index2i(bOrigId, aOrigId);
+                //    currentEdge.Position.EdgeId = right.Edges.First(e => e.Points == indexAB || e.Points == indexBA).ID;
+                //}
+                //else
+                //if (pointA.Position.Mode == PointPositionMode.OnEdge ||
+                //    pointB.Position.Mode == PointPositionMode.OnEdge) //TODO пересмотреть
+                //{
+                //    //тут есть следующие случаи: ес
+                //    currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
+                //    var pointOnEdge = pointA.Position.Mode == PointPositionMode.OnEdge ? pointA : pointB;
+                //    currentEdge.Position.EdgeId = pointOnEdge.Position.EdgeID;
+                //}
+            }
         }
 
         public static PointPosition CalcPointPosition(IntersectContour contour, Vector2d point, double eps)
@@ -707,6 +806,24 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             return newEdges;
         }
 
+        public bool? EdgeInside(Vector2d a, Vector2d b, double eps = EPS)
+        {
+            //foreach (var edge in Edges)
+            //{
+            //    var edgesPoints = GetEdgePoints(edge);
+            //    var edgeA = edgesPoints.Item1.Coord;
+            //    var edgeB = edgesPoints.Item2.Coord;
+            //    var cross = Geometry2DHelper.EdgesInterposition(edgeA, edgeB, a, b, eps);
+            //    if (cross.Intersection != IntersectionVariants.NoIntersection)
+            //        return null;
+            //}
+            var center = (a + b) / 2.0;
+            var centerPosition = CalcPointPosition(this, center, eps);
+            if (centerPosition.Mode == PointPositionMode.InPlane) return true;
+            if (centerPosition.Mode == PointPositionMode.OutPlane) return false;
+
+            return true;
+        }
 
         public override string ToString()
         {

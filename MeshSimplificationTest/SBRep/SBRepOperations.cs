@@ -2,6 +2,7 @@
 using MeshSimplificationTest.SBRep.SBRepOperations;
 using System;
 using System.CodeDom;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -216,7 +217,7 @@ namespace MeshSimplificationTest.SBRep
         private static IntersectContour GetContourFromLoop(SBRepObject sbrep, int lid)
         {
             var loopVertices = sbrep.GetClosedContourVtx(lid);
-            var loopEdges = sbrep.GetClosedContourEdges(lid);
+            var loopEdges = sbrep.GetClosedContourEdgesFromLoopID(lid);
             return IntersectContour.FromSBRepLoop(loopVertices, loopEdges);
         }
 
@@ -234,7 +235,7 @@ namespace MeshSimplificationTest.SBRep
             var filteredFaces = obj.Faces.Where(face => comparer(face.Normal.z)).ToList();
 
             var projectionContour = IntersectContour.FromPoints(contour);
-
+            var count = 0;
             foreach (var face in filteredFaces)
             {
                 var projContour = new IntersectContour(projectionContour);
@@ -242,12 +243,13 @@ namespace MeshSimplificationTest.SBRep
                 var insideLoops = face.InsideLoops.Select(lid =>
                  new IntersectContour(GetContourFromLoop(obj, lid)))
                     .ToList();
-                var resultIntersect = IntersectContour.Intersect(outsideLoop, projContour);
+                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
                 foreach (var insideLoop in insideLoops)
                 {
                     resultIntersect = IntersectContour.Difference(projContour, outsideLoop);
                 }
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect);
+                ++count;
             }
 
             return obj;
@@ -269,15 +271,23 @@ namespace MeshSimplificationTest.SBRep
 
             //добавляем точки на грани
             AddPointsToEdges(sbrep, faceID, contour, ref pointIndexDict);
-            
-
-            // потом заново берём петлю
 
             //добавляем новые рёбра
-
+            var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict);
 
             //вычисляем, какие рёбра внутри, какие снаружи
 
+            //берём все рёбра принадлежащих грани
+            var facesEdges = sbrep.GetEdgesFromFaceId(faceID);
+            var faceEdgesPosition = new Dictionary<int, bool?>();
+            foreach(var edge in facesEdges)
+            {
+                var points = sbrep.GetEdgePoints(edge);
+                var a = points.Item1.xy;
+                var b = points.Item2.xy;
+                faceEdgesPosition.Add(edge ,contour.EdgeInside(a, b));
+            }
+            ;
             //вычисляем множества рёбер для новых и старых граней
 
             //Собираем петли для новых граней
@@ -385,8 +395,30 @@ namespace MeshSimplificationTest.SBRep
             //сортировка
             var sorted = Geometry2DHelper.SortPointsOnEdge(a, b, package);
             //распаковка
-            //TODO
-            return null;//sorted.Select(x => x.Value).ToList();
+            var tmp = new Dictionary<int, SBRepOperations.Point>();
+            foreach (var point in points)
+            {
+                tmp.Add(point.ID, point);
+            }
+
+            var result = new List<SBRepOperations.Point>();
+            foreach (var sortedItem in sorted)
+            {
+                result.Add(tmp[sortedItem.Key]);
+            }
+            return result;
+        }
+
+        public static ICollection<int> AddNewEdges(SBRepObject sbrep, IntersectContour contour, Dictionary<int, int> pointIndexDict)
+        {
+            var addedEdgesIDs = new List<int>(); 
+            var addingEdges = contour.Edges.Where(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane).ToList();
+            foreach (var edge in addingEdges)
+            {
+                var newEdgeIndex = sbrep.AddEdge(pointIndexDict[edge.Points.a], pointIndexDict[edge.Points.b]);
+                addedEdgesIDs.Add(newEdgeIndex);
+            }
+            return addedEdgesIDs;
         }
 
         public static void Experements(SBRepObject obj, List<Vector2d> contour, bool topDirection)
@@ -429,7 +461,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 var facesOutsideLoop = obj.GetClosedContourVtx(lid);
                 var contourIntersect = ContourI.FromPointList(contour);
-                var faceEdges = obj.GetClosedContourEdges(lid);
+                var faceEdges = obj.GetClosedContourEdgesFromLoopID(lid);
 
                 ContourBoolean2DSolver.InitContourPositions(contourIntersect, facesOutsideLoop, faceEdges);
                 loopContourIntersect.Add(lid, contourIntersect);
@@ -699,27 +731,31 @@ namespace MeshSimplificationTest.SBRep
             return crosses;
         }
 
-        private static double CalcT(Vector2d a, Vector2d b, KeyValuePair<int, Vector2d> point, double eps = 1e-6)
+        private static double CalcT(Vector2d a, Vector2d b, KeyValuePair<int, Vector2d> point, double eps = 1e-12)
         {
             var p = point.Value;
             var leftOperand = (Math.Abs(b.x - a.x) > eps);
             var rightOperand = (Math.Abs(b.y - a.y) > eps);
             double sum = 0.0;
             if (leftOperand)
-                sum += (point.Value.x - a.x) / (b.x - a.x);
-            if (rightOperand)
-                sum -= (point.Value.y - a.y) / (b.y - a.y);
+                sum = (point.Value.x - a.x) / (b.x - a.x);
+            if (rightOperand && !leftOperand)
+                sum = (point.Value.y - a.y) / (b.y - a.y);
             return sum;
         }
 
         public static Dictionary<int, Vector2d> SortPointsOnEdge(Vector2d a, Vector2d b, Dictionary<int, Vector2d> points)
         {
             if (Geometry2DHelper.EqualPoints(a, b))
-                throw new Exception("Точки a и b совпадают. Сортировка невозможна");
+            {
+                //throw new Exception("Точки a и b совпадают. Сортировка невозможна");
+                return points;
+            }
             var tDict = new Dictionary<double, int>();
             foreach (var point in points)
             {
-                tDict.Add(CalcT(a, b, point), point.Key);
+                var t = CalcT(a, b, point);
+                tDict.Add(t, point.Key);
             }
             var sortedT = tDict.Keys.ToList();
             sortedT.Sort();

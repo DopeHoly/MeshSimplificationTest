@@ -71,12 +71,13 @@ namespace MeshSimplificationTest.SBRep
             return newVertex.ID;
         }
 
-        public int NewEdge(int indexA, int indexB)
+        public int AddEdge(int indexA, int indexB, int parentVergeID = -1)
         {
             if(!(Vertices.ContainsKey(indexA) && Vertices.ContainsKey(indexB))) return -1;
             var newEdge = new SBRep_Edge()
             {
-                Vertices = new Index2i(indexA, indexB)
+                Vertices = new Index2i(indexA, indexB),
+                Parent = parentVergeID
             };
             Edges.Add(newEdge);
             Vertices[indexA].Parents.Add(newEdge.ID);
@@ -130,8 +131,9 @@ namespace MeshSimplificationTest.SBRep
                 if (i == vertices.Count())
                     currentPointId = indexB;
                 else
-                    currentPointId = pointsIndexesDictionary[i];
-                NewEdge(previewsPointId, currentPointId);
+                    currentPointId = pointsIndexesDictionary.ElementAt(i).Value;
+                var newEdgeId = AddEdge(previewsPointId, currentPointId, parent);
+                edges.Add(newEdgeId);
                 previewsPointId = currentPointId;
             }
 
@@ -255,6 +257,15 @@ namespace MeshSimplificationTest.SBRep
             return Vertices[id].Coordinate;
         }
 
+        public Tuple<Vector3d, Vector3d> GetEdgePoints(int eid)
+        {
+            if (!Edges.ContainsKey(eid)) return null;
+            var edge = Edges[eid];
+            var pA = edge.Vertices.a;
+            var pB = edge.Vertices.b;
+            return new Tuple<Vector3d, Vector3d>(Vertices[pA].Coordinate, Vertices[pB].Coordinate);
+        }
+
         public IEnumerable<Vector3d> GetVertices()
         {
             return Vertices.Select(x => x.Coordinate);
@@ -375,6 +386,9 @@ namespace MeshSimplificationTest.SBRep
                 lastVtxID = vtx.ID;
 
                 var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
+
+                if (nextEdge.Count == 0)
+                    throw new Exception("Нет пути");
                 if (nextEdge.Count != 1)
                     throw new Exception("У петли почему то появилась развилка");
                 currentEdge = nextEdge.First();
@@ -387,7 +401,7 @@ namespace MeshSimplificationTest.SBRep
         /// </summary>
         /// <param name="lid">индекс петли</param>
         /// <returns>упорядоченный список Объектов вершин</returns>
-        public IEnumerable<SBRep_Edge> GetClosedContourEdges(int lid)
+        public IEnumerable<SBRep_Edge> GetClosedContourEdgesFromLoopID(int lid)
         {
             if (!Loops.ContainsKey(lid))
                 return null;

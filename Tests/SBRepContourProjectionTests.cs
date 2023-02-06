@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,6 +18,7 @@ namespace Tests
         private static string SamplesPath = "../../../../samples/";
         private static string Sample_Cube4x4Path = SamplesPath + "Кубик4Fix.obj";
         private static string Sample_PipePath = SamplesPath + "pipe.obj";
+        private static string Sample_LargePipePath = SamplesPath + "Труба большая.obj";
 
         private SBRepObject GetSampleSBRep()
         {
@@ -41,11 +43,8 @@ namespace Tests
             return obj;
         }
 
-        [TestMethod]
-        public void BooleanTest()
+        private List<Vector2d> SampleContour()
         {
-            var path = new DirectoryInfo(SamplesPath);
-
             var contour = new List<Vector2d>();
             contour.Add(new Vector2d(0, 0));
             contour.Add(new Vector2d(0, 5));
@@ -56,6 +55,21 @@ namespace Tests
             contour.Add(new Vector2d(3, -1));
             contour.Add(new Vector2d(2, 1));
             contour.Add(new Vector2d(1, 1));
+
+            return contour;
+        }
+
+        public List<Vector2d> OffsetContour(List<Vector2d> contour, double x, double y)
+        {
+            return contour.Select(point => new Vector2d(point.x + x, point.y + y)).ToList();
+        }
+
+        [TestMethod]
+        public void BooleanTest()
+        {
+            var path = new DirectoryInfo(SamplesPath);
+
+            var contour = SampleContour();
 
             var mesh = StandardMeshReader.ReadMesh(Sample_Cube4x4Path);
             var sbRep = SBRepBuilder.Convert(mesh);
@@ -92,16 +106,7 @@ namespace Tests
         [TestMethod]
         public void IntersectContourGetPoints()
         {
-            var contour = new List<Vector2d>();
-            contour.Add(new Vector2d(0, 0));
-            contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(3, 5));
-            contour.Add(new Vector2d(5, 3));
-            contour.Add(new Vector2d(4, 2));
-            contour.Add(new Vector2d(4, 0));
-            contour.Add(new Vector2d(3, -1));
-            contour.Add(new Vector2d(2, 1));
-            contour.Add(new Vector2d(1, 1));
+            var contour = SampleContour();
 
             var intersectContour = IntersectContour.FromPoints(contour);
             var counter = 0;
@@ -116,16 +121,7 @@ namespace Tests
         [TestMethod]
         public void IntersectContourGetEdges()
         {
-            var contour = new List<Vector2d>();
-            contour.Add(new Vector2d(0, 0));
-            contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(3, 5));
-            contour.Add(new Vector2d(5, 3));
-            contour.Add(new Vector2d(4, 2));
-            contour.Add(new Vector2d(4, 0));
-            contour.Add(new Vector2d(3, -1));
-            contour.Add(new Vector2d(2, 1));
-            contour.Add(new Vector2d(1, 1));
+            var contour = SampleContour();
 
             var intersectContour = IntersectContour.FromPoints(contour);
             Assert.AreEqual(contour.Count, intersectContour.GetEdges().ToList().Count);
@@ -165,16 +161,7 @@ namespace Tests
         [TestMethod]
         public void IntersectTest()
         {
-            var contour = new List<Vector2d>();
-            contour.Add(new Vector2d(0, 0));
-            contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(3, 5));
-            contour.Add(new Vector2d(5, 3));
-            contour.Add(new Vector2d(4, 2));
-            contour.Add(new Vector2d(4, 0));
-            contour.Add(new Vector2d(3, -1));
-            contour.Add(new Vector2d(2, 1));
-            contour.Add(new Vector2d(1, 1));
+            var contour = SampleContour();
 
             var objectLoop = new List<Vector2d>();
             objectLoop.Add(new Vector2d(0, 0));
@@ -230,6 +217,44 @@ namespace Tests
                 Assert.IsTrue(result.ContainsKey(i));
                 Assert.AreEqual(points[i], result[i]);
             }
+        }
+
+        [TestMethod]
+        public void LargePipe()
+        {
+            var contour = OffsetContour(SampleContour(), 15, 15);
+            var mesh = StandardMeshReader.ReadMesh(Sample_LargePipePath);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            sbRep.ContourProjection(contour, true);
+        }
+
+        [TestMethod]
+        public void InsertPointToEdge()
+        {
+            var contour = SampleContour();
+            var mesh = StandardMeshReader.ReadMesh(Sample_Cube4x4Path);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            //sbRep.ContourProjection(contour, true);
+            var loopVertices = sbRep.GetClosedContourVtx(3);
+            var edgesLoop = sbRep.GetClosedContourEdgesFromLoopID(3);
+            var points = new List<SBRep_Vtx>();
+            points.Add(new SBRep_Vtx()
+            {
+                ID = 200,
+                Coordinate = new Vector3d(1, 0, 4),
+            });
+            points.Add(new SBRep_Vtx()
+            {
+                ID = 201,
+                Coordinate = new Vector3d(2, 0, 4),
+            });
+            points.Add(new SBRep_Vtx()
+            {
+                ID = 202,
+                Coordinate = new Vector3d(3, 0, 4),
+            });
+            var addedEdges = sbRep.AddPointsOnEdge(7, points);
+            var edges = sbRep.GetClosedContourEdgesFromLoopID(3);
         }
     }
 }
