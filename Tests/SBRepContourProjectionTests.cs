@@ -69,8 +69,6 @@ namespace Tests
             var contour = new List<Vector2d>();
             contour.Add(new Vector2d(0, 0));
             contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(3, 5));
-            contour.Add(new Vector2d(5, 3));
             contour.Add(new Vector2d(4, 2));
             contour.Add(new Vector2d(4, 0));
             contour.Add(new Vector2d(3, -1));
@@ -131,7 +129,7 @@ namespace Tests
 
             var intersectContour = IntersectContour.FromPoints(contour);
             Assert.AreEqual(contour.Count, intersectContour.GetEdges().ToList().Count);
-            var indexes = intersectContour.GetEdges().Select(x => new Index2i(x.Item1.ID, x.Item2.ID)).ToList();
+            var indexes = intersectContour.GetEdges().Select(x => x.Points).ToList();
             var i = 0;
             foreach(var index in indexes)
             {
@@ -158,9 +156,80 @@ namespace Tests
             var cross = IntersectContour.CalcEdgePositions(new Vector2d(3, 5), new Vector2d(5, 3), intersectContour, 1e-6);
 
             Assert.AreEqual(EdgePositionMode.Cross, cross.Mode);
-            Assert.AreEqual(1, cross.Crosses);
+            Assert.AreEqual(1, cross.Crosses.Count());
+            Assert.AreEqual(2, cross.Crosses.First().VtxID);
             Assert.AreEqual(EdgeIntersectionType.ExistingPoint, cross.Crosses.First().IntersectionType);
             Assert.IsTrue(Geometry2DHelper.EqualPoints(new Vector2d(4, 4), cross.Crosses.First().Point0));
+        }
+
+        [TestMethod]
+        public void IntersectTest()
+        {
+            var contour = new List<Vector2d>();
+            contour.Add(new Vector2d(0, 0));
+            contour.Add(new Vector2d(0, 5));
+            contour.Add(new Vector2d(3, 5));
+            contour.Add(new Vector2d(5, 3));
+            contour.Add(new Vector2d(4, 2));
+            contour.Add(new Vector2d(4, 0));
+            contour.Add(new Vector2d(3, -1));
+            contour.Add(new Vector2d(2, 1));
+            contour.Add(new Vector2d(1, 1));
+
+            var objectLoop = new List<Vector2d>();
+            objectLoop.Add(new Vector2d(0, 0));
+            objectLoop.Add(new Vector2d(0, 4));
+            objectLoop.Add(new Vector2d(4, 4));
+            objectLoop.Add(new Vector2d(4, 0));
+
+
+            var intersectContour = IntersectContour.FromPoints(contour);
+            var intersectLoop = IntersectContour.FromPoints(objectLoop);
+            var result = IntersectContour.Intersect(intersectContour, intersectLoop);
+            Assert.AreEqual(12, result.Count);
+            var report = result.ToString();
+            var ExpectContour = new List<Vector2d>();
+            ExpectContour.Add(new Vector2d(0, 0));
+            ExpectContour.Add(new Vector2d(0, 4));
+            ExpectContour.Add(new Vector2d(0, 5));
+            ExpectContour.Add(new Vector2d(3, 5));
+            ExpectContour.Add(new Vector2d(4, 4));
+            ExpectContour.Add(new Vector2d(5, 3));
+            ExpectContour.Add(new Vector2d(4, 2));
+            ExpectContour.Add(new Vector2d(4, 0));
+            ExpectContour.Add(new Vector2d(3, -1));
+            ExpectContour.Add(new Vector2d(2.5, 0));
+            ExpectContour.Add(new Vector2d(2, 1));
+            ExpectContour.Add(new Vector2d(1, 1));
+            int i = 0;
+            foreach (var point in result.GetContour())
+            {
+                Assert.IsTrue(Geometry2DHelper.EqualPoints(ExpectContour[i], point.Coord));
+                ++i;
+            }
+        }
+
+        [TestMethod]
+        public void SortPointOnEdgeTest()
+        {
+            var a = new Vector2d(0, 0);
+            var b = new Vector2d(11, 0);
+            var points = new Dictionary<int, Vector2d>();
+            points.Add(0, new Vector2d(0, 0));
+            points.Add(1, new Vector2d(2, 0));
+            points.Add(4, new Vector2d(7, 0));
+            points.Add(7, new Vector2d(11, 0));
+            points.Add(6, new Vector2d(9, 0));
+            points.Add(5, new Vector2d(8, 0));
+            points.Add(2, new Vector2d(3, 0));
+            points.Add(3, new Vector2d(5, 0));
+            var result = Geometry2DHelper.SortPointsOnEdge(a, b, points);
+            Assert.AreEqual(points.Count, result.Count);
+            for(int i = 0; i <= 7; ++i)
+            {
+                Assert.IsTrue(result.ContainsKey(i));
+                Assert.AreEqual(points[i], result[i]);
+            }
         }
     }
 }

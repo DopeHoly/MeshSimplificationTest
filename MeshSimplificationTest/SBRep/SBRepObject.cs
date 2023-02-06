@@ -1,7 +1,9 @@
 ﻿using g3;
+using MeshSimplificationTest.SBRep.SBRepOperations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Windows.Media.Media3D;
 
 namespace MeshSimplificationTest.SBRep
@@ -57,6 +59,88 @@ namespace MeshSimplificationTest.SBRep
                 Faces.Add(new SBRep_Face(face));
             }
             //TODO
+        }
+
+        public int AddVertex(Vector3d vertex)
+        {
+            var newVertex = new SBRep_Vtx()
+            {
+                Coordinate = vertex,
+            };
+            Vertices.Add(newVertex);
+            return newVertex.ID;
+        }
+
+        public int NewEdge(int indexA, int indexB)
+        {
+            if(!(Vertices.ContainsKey(indexA) && Vertices.ContainsKey(indexB))) return -1;
+            var newEdge = new SBRep_Edge()
+            {
+                Vertices = new Index2i(indexA, indexB)
+            };
+            Edges.Add(newEdge);
+            Vertices[indexA].Parents.Add(newEdge.ID);
+            Vertices[indexB].Parents.Add(newEdge.ID);
+            return newEdge.ID;
+        }
+
+        public void RemoveEdge(SBRep_Edge edge)
+        {
+            var indexA = edge.Vertices.a;
+            var indexB = edge.Vertices.b;
+            Vertices[indexA].Parents.Remove(edge.ID);
+            Vertices[indexB].Parents.Remove(edge.ID);
+
+            var parent = edge.Parent;
+            var parentVerge = Verges[parent];
+            parentVerge.Edges.Remove(edge.ID);
+            Edges.Remove(edge);
+        }
+
+        /// <summary>
+        /// Добавляет точки vertices в ребро с индексом eid
+        /// </summary>
+        /// <param name="eid">индекс грани</param>
+        /// <param name="vertices">список точек с индексами</param>
+        /// <returns>словарь (старый индекс вершины, новый индекс вершины)</returns>
+        public Dictionary<int,int> AddPointsOnEdge(int eid, IEnumerable<IIndexedVector3d> vertices)
+        {
+            if(!Edges.ContainsKey(eid)) return null;
+            var edge = Edges[eid];
+            var parent = edge.Parent;
+            var parentVerge = Verges[parent];
+
+            var edges = new List<int>();
+            var indexA = edge.Vertices.a;
+            var indexB = edge.Vertices.b;
+            var pointsIndexesDictionary = new Dictionary<int, int>();
+            //добавляем в объект набор точек и получаем словарь с индексами
+            foreach (var vtx in vertices)
+            {
+                var newIndex = AddVertex(vtx.Coordinate);
+                pointsIndexesDictionary.Add(vtx.ID, newIndex);
+                vtx.ID = newIndex;
+            }
+
+            //добавляем в Edges (подразумеваем, что точки приходят отсортированными от A до B)
+            var previewsPointId = indexA;
+            for (int i = 0; i < vertices.Count() + 1; ++i)
+            {
+                int currentPointId = -1;
+                if (i == vertices.Count())
+                    currentPointId = indexB;
+                else
+                    currentPointId = pointsIndexesDictionary[i];
+                NewEdge(previewsPointId, currentPointId);
+                previewsPointId = currentPointId;
+            }
+
+            RemoveEdge(edge);
+            foreach (var addedEdge in edges)
+            {
+                parentVerge.Edges.Add(addedEdge);
+            }
+            return pointsIndexesDictionary;
         }
 
         /// <summary>

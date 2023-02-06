@@ -128,6 +128,23 @@ namespace MeshSimplificationTest.SBRep
             return false;
         }
 
+        public override int GetHashCode()
+        {
+            var itersectHash = Intersection.GetHashCode();
+            var itersectTypeHash = IntersectionType.GetHashCode();
+            var vtxHash = VtxID.GetHashCode();
+            var edgeHash = EdgeID.GetHashCode();
+            return itersectHash ^ itersectTypeHash ^ vtxHash ^ edgeHash;
+        }
+
+        public override bool Equals(object obj)
+        {
+            var ecp = obj as EdgeCrossPosition;
+            if (ecp == null)
+                return false;
+            return Equals(ecp);
+        }
+
         public override string ToString()
         {
             switch (Intersection)
@@ -196,6 +213,13 @@ namespace MeshSimplificationTest.SBRep
 
     public static class SBRepOperationsExtension
     {
+        private static IntersectContour GetContourFromLoop(SBRepObject sbrep, int lid)
+        {
+            var loopVertices = sbrep.GetClosedContourVtx(lid);
+            var loopEdges = sbrep.GetClosedContourEdges(lid);
+            return IntersectContour.FromSBRepLoop(loopVertices, loopEdges);
+        }
+
         public static SBRepObject ContourProjection(this SBRepObject sbrep, List<Vector2d> contour, bool topDirection)
         {
 
@@ -209,33 +233,14 @@ namespace MeshSimplificationTest.SBRep
 
             var filteredFaces = obj.Faces.Where(face => comparer(face.Normal.z)).ToList();
 
-            //Берём все петли, которые встречаются в выбранных гранях
-            var loopsIDs = filteredFaces.SelectMany(face =>
-            {
-                var loops = new List<int>();
-                loops.Add(face.OutsideLoop);
-                loops.AddRange(face.InsideLoops);
-                return loops;
-            }).Distinct().ToList();
-
             var projectionContour = IntersectContour.FromPoints(contour);
-
-            var loopsIntersectContours = new Dictionary<int, IntersectContour>();
-            foreach (var lid in loopsIDs)
-            {
-                var loopVertices = obj.GetClosedContourVtx(lid);
-                var loopEdges = obj.GetClosedContourEdges(lid);
-                var loopContour = IntersectContour.FromSBRepLoop(loopVertices, loopEdges);
-
-                loopsIntersectContours.Add(lid, loopContour);
-            }
 
             foreach (var face in filteredFaces)
             {
                 var projContour = new IntersectContour(projectionContour);
-                var outsideLoop = new IntersectContour(loopsIntersectContours[face.OutsideLoop]);
+                var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
                 var insideLoops = face.InsideLoops.Select(lid =>
-                 new IntersectContour(loopsIntersectContours[lid]))
+                 new IntersectContour(GetContourFromLoop(obj, lid)))
                     .ToList();
                 var resultIntersect = IntersectContour.Intersect(outsideLoop, projContour);
                 foreach (var insideLoop in insideLoops)
@@ -253,9 +258,18 @@ namespace MeshSimplificationTest.SBRep
             //TODO очень важно!!!!!
 
             //сначала добавляем все точки из contour в sbrep
-            var pointsInPlane = contour.Points.Where(point => point.Position.Mode == PointPositionMode.InPlane);
-            var pointsExisting = contour.Points.Where(point => point.Position.Mode == PointPositionMode.OnVertex);
-            var pointsOnEdge = contour.Points.Where(point => point.Position.Mode == PointPositionMode.OnEdge);
+
+            var pointIndexDict = new Dictionary<int, int>();
+
+            //индексируем существующие точки
+            IndexedExistingPoints(sbrep, contour, ref pointIndexDict);
+
+            //добавляем точки на плоскость
+            AddPlanePoint(sbrep, faceID, contour, ref pointIndexDict);
+
+            //добавляем точки на грани
+            AddPointsToEdges(sbrep, faceID, contour, ref pointIndexDict);
+            
 
             // потом заново берём петлю
 
@@ -275,6 +289,104 @@ namespace MeshSimplificationTest.SBRep
             //пересобираем грани
 
             //применяем изменения к sbrep
+        }
+
+        public static void IndexedExistingPoints(
+            SBRepObject sbrep,
+            IntersectContour contour,
+            ref Dictionary<int, int> pointIndexDict)
+        {
+            var pointsExisting = contour.Points.Where(point => point.Position.Mode == PointPositionMode.OnVertex);
+            foreach (var point in pointsExisting)
+            {
+                pointIndexDict.Add(point.ID, point.Position.VtxID);
+            }
+        } 
+
+        public static void AddPlanePoint(
+            SBRepObject sbrep,
+            int faceID,
+            IntersectContour contour,
+            ref Dictionary<int, int> pointIndexDict)
+        {
+            var face = sbrep.Faces[faceID];
+            var plane = face.Plane;
+            var pointsInPlane = contour.Points.Where(point => point.Position.Mode == PointPositionMode.InPlane);
+
+            foreach (var point in pointsInPlane)
+            {
+                var point3D = new Vector3d(
+                    point.Coord.x,
+                    point.Coord.y,
+                    plane.GetZ(point.Coord.x, point.Coord.y));
+
+                int newIndex = sbrep.AddVertex(point3D);
+                pointIndexDict.Add(point.ID, newIndex);
+            }
+        }
+
+        public static void AddPointsToEdges(
+            SBRepObject sbrep,
+            int faceID,
+            IntersectContour contour,
+            ref Dictionary<int, int> pointIndexDict)
+        {
+            var face = sbrep.Faces[faceID];
+            var plane = face.Plane;
+            var pointsOnEdge = contour.Points.Where(point => point.Position.Mode == PointPositionMode.OnEdge);
+            var pointsOnEdgeDict = new Dictionary<int, ICollection<SBRepOperations.Point>>();
+            var pointsOnEdgeDictSorted = new Dictionary<int, ICollection<SBRepOperations.Point>>();
+            //группируем по принадлежности граням
+            foreach (var point in pointsOnEdge)
+            {
+                var eid = point.Position.EdgeID;
+                if (!pointsOnEdgeDict.ContainsKey(eid))
+                    pointsOnEdgeDict.Add(eid, new List<SBRepOperations.Point>());
+                pointsOnEdgeDict[eid].Add(point);
+            }
+            //отсортировать по каждому ребру от точки А до B
+            foreach (var points in pointsOnEdgeDict)
+            {
+                var eid = points.Key;
+                var aIndex = sbrep.Edges[eid].Vertices.a;
+                var bIndex = sbrep.Edges[eid].Vertices.b;
+                var a = sbrep.Vertices[aIndex].Coordinate.xy;
+                var b = sbrep.Vertices[bIndex].Coordinate.xy;
+                pointsOnEdgeDictSorted.Add(eid, SortPointsOnEdge(a, b, points.Value));
+            }
+            //добавить гряням точки
+            foreach (var points in pointsOnEdgeDictSorted)
+            {
+                var points3DOnEdge = points.Value.Select(point => 
+                    new SBRep_Vtx()
+                    {
+                        Coordinate = new Vector3d(
+                            point.Coord.x,
+                            point.Coord.y,
+                            plane.GetZ(point.Coord.x, point.Coord.y)),
+                        ID = point.ID                    
+                    });
+                var pointDict = sbrep.AddPointsOnEdge(points.Key, points3DOnEdge);
+                foreach(var pointIndexed in pointDict)
+                {
+                    pointIndexDict.Add(pointIndexed.Key, pointIndexed.Value);
+                }
+            }
+        }
+
+        private static ICollection<SBRepOperations.Point> SortPointsOnEdge(Vector2d a, Vector2d b, IEnumerable<SBRepOperations.Point> points)
+        {
+            //упаковка
+            var package = new Dictionary<int, Vector2d>();
+            foreach (var point in points)
+            {
+                package.Add(point.ID, point.Coord);
+            }
+            //сортировка
+            var sorted = Geometry2DHelper.SortPointsOnEdge(a, b, package);
+            //распаковка
+            //TODO
+            return null;//sorted.Select(x => x.Value).ToList();
         }
 
         public static void Experements(SBRepObject obj, List<Vector2d> contour, bool topDirection)
@@ -587,6 +699,38 @@ namespace MeshSimplificationTest.SBRep
             return crosses;
         }
 
+        private static double CalcT(Vector2d a, Vector2d b, KeyValuePair<int, Vector2d> point, double eps = 1e-6)
+        {
+            var p = point.Value;
+            var leftOperand = (Math.Abs(b.x - a.x) > eps);
+            var rightOperand = (Math.Abs(b.y - a.y) > eps);
+            double sum = 0.0;
+            if (leftOperand)
+                sum += (point.Value.x - a.x) / (b.x - a.x);
+            if (rightOperand)
+                sum -= (point.Value.y - a.y) / (b.y - a.y);
+            return sum;
+        }
+
+        public static Dictionary<int, Vector2d> SortPointsOnEdge(Vector2d a, Vector2d b, Dictionary<int, Vector2d> points)
+        {
+            if (Geometry2DHelper.EqualPoints(a, b))
+                throw new Exception("Точки a и b совпадают. Сортировка невозможна");
+            var tDict = new Dictionary<double, int>();
+            foreach (var point in points)
+            {
+                tDict.Add(CalcT(a, b, point), point.Key);
+            }
+            var sortedT = tDict.Keys.ToList();
+            sortedT.Sort();
+            var result = new Dictionary<int, Vector2d>();
+            foreach (var t in sortedT)
+            {
+                var key = tDict[t];
+                result.Add(key, points[key]);
+            }
+            return result;
+        }
     }
 
     //public class ChainCountour

@@ -25,9 +25,14 @@ namespace MeshSimplificationTest.SBRep
         }
     }
 
-    public class SBRep_Vtx : SBRep_Primitive
+    public interface IIndexedVector3d : IIndexed
     {
-        public Vector3d Coordinate;
+        Vector3d Coordinate { get; }
+    }
+
+    public class SBRep_Vtx : SBRep_Primitive, IIndexedVector3d
+    {
+        public Vector3d Coordinate { get; set; }
         public ICollection<int> Parents;
         public SBRep_Vtx() : base()
         {
@@ -52,12 +57,8 @@ namespace MeshSimplificationTest.SBRep
             Vertices = other.Vertices;
             Parent = other.Parent;
         }
-
-        public void Separate(IEnumerable<int> vtxIds)
-        {
-            //TODO
-        }
     }
+
     public class SBRep_Verge : SBRep_Primitive
     {
         public ICollection<int> Edges;
