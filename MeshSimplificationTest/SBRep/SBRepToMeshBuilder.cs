@@ -144,6 +144,22 @@ namespace MeshSimplificationTest.SBRep
             return new Tuple<IEnumerable<Vector2d>, IEnumerable<Index3i>>(triVertices, triangles);
         }
 
+        public static int GetVtxHash(Vector3d vector)
+        {
+            const int digits = 7;
+            //int hCode = 
+            //    Math.Round(vector.x, digits).GetHashCode() ^
+            //    Math.Round(vector.y, digits).GetHashCode() ^
+            //    Math.Round(vector.z, digits).GetHashCode()
+            //    ;
+            var hCode = new Vector3d(
+                Math.Round(vector.x, digits),
+                Math.Round(vector.y, digits),
+                Math.Round(vector.z, digits)
+                ).GetHashCode();
+            return hCode;
+        }
+
         public static Tuple<IEnumerable<Vector3d>, IEnumerable<FacedTriangle>> ReindexTriangulateDatas(
             IEnumerable<FacedTriangulateData> triangulateDatas)
         {
@@ -153,11 +169,17 @@ namespace MeshSimplificationTest.SBRep
             foreach (var triData in triangulateDatas)
             {
                 var vtxIndexes = new Dictionary<int, int>();
+                var vtxHashs = new Dictionary<int, int>();
                 var currentIndex = 0;
                 foreach (var vertice in triData.vertices)
                 {
+                    //TODO Оптимизацияя
                     var verticeIndex = vertices.FindIndex(vtx => Vector3dEqual(vtx, vertice));
-                    if(verticeIndex == -1)
+                    //var verticeIndex = -1;
+                    //var hash = GetVtxHash(vertice);
+                    //if(vtxHashs.ContainsKey(hash))
+                    //    verticeIndex = vtxHashs[hash];
+                    if (verticeIndex == -1)
                     {
                         vtxIndexes.Add(currentIndex, verticesGlobalIndex);
                         vertices.Add(vertice);

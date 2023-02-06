@@ -1,7 +1,9 @@
 ﻿using g3;
+using Microsoft.SqlServer.Server;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -204,6 +206,22 @@ namespace MeshSimplificationTest.SBRep
             //return a.Equals(b);
         }
 
+        private static int VectorHashCodeNDigit(Vector3d vector, int digits)
+        {
+            int hCode = 
+                Math.Round(vector.x, digits).GetHashCode() ^
+                Math.Round(vector.y, digits).GetHashCode() ^
+                Math.Round(vector.z, digits).GetHashCode();
+            return hCode;
+        }
+        private static Vector3d VectorNDigit(Vector3d vector, int digits)
+        {
+            return new Vector3d(
+                Math.Round(vector.x, digits),
+                Math.Round(vector.y, digits),
+                Math.Round(vector.z, digits));
+        }
+
         /// <summary>
         /// разделение треугольников на группы по направлению нормали
         /// </summary>
@@ -212,26 +230,13 @@ namespace MeshSimplificationTest.SBRep
         public static Dictionary<Vector3d, List<int>> GroupTriangleByNormal(DMesh3 mesh)
         {
             var normalGroupedTIDs = new Dictionary<Vector3d, List<int>>();
-            var normalTriDict = new Dictionary<int, Vector3d>();
-            //foreach (var tid in mesh.TriangleIndices())
-            //{
-            //    normalTriDict.Add(tid, mesh.GetTriNormal(tid));
-            //}
+            var normalTriDict = new Dictionary<Vector3d, int>();
             foreach (var tid in mesh.TriangleIndices())
             {
-                var normal = mesh.GetTriNormal(tid);
-                //вариант разбиения с точной проверкой нормали
-                /*if (!normalGroupedTIDs.ContainsKey(normal))
+                var normal = VectorNDigit(mesh.GetTriNormal(tid), 4);
+                if (!normalGroupedTIDs.ContainsKey(normal))
                     normalGroupedTIDs.Add(normal, new List<int>());
-                normalGroupedTIDs[normal].Add(tid);*/
-
-                //вариант разбиения с проверкой нормали с погрешностью EPS
-                //TODO - оптимизировать
-                var tmpCollection = normalGroupedTIDs.Keys.Where(x => Vector3dEqual(x, normal));
-                if (tmpCollection.Count() < 1)
-                    normalGroupedTIDs.Add(normal, new List<int>());
-                normalGroupedTIDs[tmpCollection.First()].Add(tid);
-
+                normalGroupedTIDs[normal].Add(tid);
             }
             return normalGroupedTIDs;
         }
@@ -498,6 +503,16 @@ namespace MeshSimplificationTest.SBRep
             return false;
         }
 
+        private static int LoopHash(SBRep_Loop loop)
+        {
+            //int hash = 0;
+            //foreach (var item in loop.Verges)
+            //{
+            //    hash = hash ^ item;
+            //}
+            return loop.GetHashCode();
+        }
+
         /// <summary>
         /// Собирает петли и индексирует их по принадлежности к плоскостям
         /// </summary>
@@ -519,6 +534,7 @@ namespace MeshSimplificationTest.SBRep
             }
 
             var resultLoops = new IndexedCollection<SBRep_Loop>();
+            var resultLoopsHash = new Dictionary<int, int>();
             var planarLoopsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var planarGroup in planarGroups)
             {
@@ -541,10 +557,22 @@ namespace MeshSimplificationTest.SBRep
                     {
                         Verges = loopPartIDs,
                     };
-                    if (!findLoop(resultLoops, newLoop, ref loopId))
+                    //TODO оптимизация
+                    //if (!findLoop(resultLoops, newLoop, ref loopId))
+                    //{
+                    //    resultLoops.Add(newLoop);
+                    //    loopId = newLoop.ID;
+                    //}
+                    var loopHash = LoopHash(newLoop);
+                    if (!resultLoopsHash.ContainsKey(loopHash))
                     {
                         resultLoops.Add(newLoop);
                         loopId = newLoop.ID;
+                        resultLoopsHash.Add(loopHash, loopId);
+                    }
+                    else
+                    {
+                        loopId = resultLoopsHash[loopHash];
                     }
                     currentPlanarloops.Add(loopId);
                 }
@@ -632,9 +660,14 @@ namespace MeshSimplificationTest.SBRep
             if (mesh == null)
                 return null;
 
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             ///Выделяем из исходного объекта группы связанных треугольников
             ///лежащих на одной плоскости и имеющие одинаковый GroupID
             var planarGroups = BuildPlanarGroups(mesh);
+
+            stopwatch.Stop();
+            var ms = stopwatch.ElapsedMilliseconds;
 
             //Получаем словарь Id/Index2i(индексы на точки) из выделеенных групп треугольников
             var edgesDict = GetEdgesFromPlanarGroups(planarGroups);
@@ -644,7 +677,11 @@ namespace MeshSimplificationTest.SBRep
             //Собираем ломанные
             var loopparts = BuildVerges(mesh, planarGroups);
             //Собираем петли
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
             var loops = BuildLoops(planarGroups, loopparts);
+            stopwatch.Stop();
+            ms = stopwatch.ElapsedMilliseconds;
             //Собираем плоскости
             var faces = BuildFaces(planarGroups,loops.Item2);
 
