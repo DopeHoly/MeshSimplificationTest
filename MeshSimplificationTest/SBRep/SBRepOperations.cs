@@ -276,8 +276,6 @@ namespace MeshSimplificationTest.SBRep
             var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict);
 
             //вычисляем, какие рёбра внутри, какие снаружи
-
-            //берём все рёбра принадлежащих грани
             var facesEdges = sbrep.GetEdgesFromFaceId(faceID);
             var faceEdgesPosition = new Dictionary<int, bool?>();
             foreach(var edge in facesEdges)
