@@ -277,13 +277,6 @@ namespace MeshSimplificationTest.SBRep
                         }
                     }
                 }
-                foreach (var loop in loops)
-                {
-                    if (loop.Contains(6425) && loop.Contains(6427))
-                    {
-                        ;
-                    }
-                }
                 return loops;
             }
         }
@@ -526,8 +519,6 @@ namespace MeshSimplificationTest.SBRep
                     }
                     foreach (var neigbour in neighbours)
                     {
-                        if (eid == 6425)
-                            ;
                         edgeQueue.Enqueue(neigbour);
                         edges.Remove(neigbour);
                     }
