@@ -1,10 +1,13 @@
 ﻿using g3;
+using HelixToolkit.Wpf;
 using MeshSimplificationTest.SBRep.SBRepOperations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Media.Media3D;
+using static MeshSimplificationTest.SBRep.SBRepBuilder;
 
 namespace MeshSimplificationTest.SBRep
 {
@@ -85,6 +88,68 @@ namespace MeshSimplificationTest.SBRep
             return newEdge.ID;
         }
 
+        public int AddVerge(IEnumerable<int> edgesIDs)
+        {
+            if (!edgesIDs.All(eid => Edges.ContainsKey(eid))) return -1;
+            //TODO проверка на то, все ли они соеденены между собой
+            var newVerge = new SBRep_Verge()
+            {
+                Edges = new List<int>(edgesIDs),
+            };
+            Verges.Add(newVerge);
+            foreach (var eid in edgesIDs)
+            {
+                Edges[eid].Parent = newVerge.ID;
+            }
+            return newVerge.ID;
+        }
+
+        public int AddLoop(IEnumerable<int> vergesIds)
+        {
+            if (!vergesIds.All(vergeid => Verges.ContainsKey(vergeid))) return -1;
+            var newLoop = new SBRep_Loop()
+            {
+                Verges = new List<int>(vergesIds),
+            };
+            Loops.Add(newLoop);
+            foreach (var vergeid in vergesIds)
+            {
+                Verges[vergeid].Parents.Add(newLoop.ID);
+            }
+            return newLoop.ID;
+        }
+
+        public int AddFace(int groupID, PlaneFace plane, Vector3d normal, int outsideLoopId, ICollection<int> insideLoopsIds = null)
+        {
+            if(!Loops.ContainsKey(outsideLoopId)) return -1;
+            if(insideLoopsIds != null)
+            {
+                if (!insideLoopsIds.All(lid => Loops.ContainsKey(lid))) return -1;
+            }
+            List<int> insideLoops = new List<int>();
+            if(insideLoopsIds != null)
+                insideLoops = new List<int>(insideLoopsIds);
+
+            var newFace = new SBRep_Face()
+            {
+                GroupID = groupID,
+                Plane = plane,
+                Normal = normal,
+                OutsideLoop = outsideLoopId,
+                InsideLoops = insideLoops
+            };
+            Faces.Add(newFace);
+            Loops[outsideLoopId].Parents.Add(newFace.ID);
+            if (insideLoops != null)
+            {
+                foreach (var lid in insideLoops)
+                {
+                    Loops[lid].Parents.Add(newFace.ID);
+                }
+            }
+            return newFace.ID;
+        }
+
         public void RemoveEdge(SBRep_Edge edge)
         {
             var indexA = edge.Vertices.a;
@@ -104,7 +169,7 @@ namespace MeshSimplificationTest.SBRep
         /// <param name="eid">индекс грани</param>
         /// <param name="vertices">список точек с индексами</param>
         /// <returns>словарь (старый индекс вершины, новый индекс вершины)</returns>
-        public Dictionary<int,int> AddPointsOnEdge(int eid, IEnumerable<IIndexedVector3d> vertices)
+        public Tuple<Dictionary<int,int>, IEnumerable<int>> AddPointsOnEdge(int eid, IEnumerable<IIndexedVector3d> vertices)
         {
             if(!Edges.ContainsKey(eid)) return null;
             var edge = Edges[eid];
@@ -142,7 +207,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 parentVerge.Edges.Add(addedEdge);
             }
-            return pointsIndexesDictionary;
+            return new Tuple<Dictionary<int, int>, IEnumerable<int>> (pointsIndexesDictionary, edges);
         }
 
         /// <summary>
@@ -337,6 +402,96 @@ namespace MeshSimplificationTest.SBRep
         #endregion
 
         /// <summary>
+        /// Вернуть id вершины соседнюю к vid, соеденённых ребром eid
+        /// </summary>
+        /// <param name="vid"></param>
+        /// <param name="eid"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public int GetVertexNeigborIdByEdge(int vid, int eid)
+        {
+            if(!Edges.ContainsKey(eid))
+                throw new Exception($"Нет ребра с ID {eid}");
+            var edgePoints = Edges[eid].Vertices;
+            if(edgePoints.a == vid || edgePoints.b == vid)
+                return edgePoints.a == vid ? edgePoints.b : edgePoints.a;
+            throw new Exception($"Ребро {eid} не содержит {vid}");
+        }
+
+        public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, IEnumerable<int> edgesIDs)
+        {
+            var objString = obj.ToString();
+            //проверяем критерий обходимости
+            var edges = edgesIDs.Select(eid => obj.Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge => 
+                new int [2]{ edge.Vertices.a,edge.Vertices.b}
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => obj.Vertices[vid]).ToList();
+            var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
+            foreach (var vtx in vertices)
+            {
+                var parents = vtx.Parents.Intersect(edgesIDs);
+                if (parents.Count() % 2 == 1)
+                    throw new Exception("Невозможно обойти граф");
+                vertParentsDict.Add(vtx.ID, parents);
+            }
+            var bypassEdges = new List<int>(edgesIDs);
+            var loops = new List<IEnumerable<int>>();
+            var verticesQueue = new Queue<int>();
+            List<int> currentLoopEdges = null;
+            while(verticesQueue.Count > 0 ||
+                verticesIds.Count > 0)
+            {
+                if (verticesQueue.Count < 1)
+                {
+                    currentLoopEdges = new List<int>();
+                    loops.Add(currentLoopEdges);
+                    var tempTID = verticesIds.First();
+                    verticesIds.RemoveAt(0);
+                    verticesQueue.Enqueue(tempTID);
+                }
+                var vid = verticesQueue.Dequeue();
+                var parents = vertParentsDict[vid];
+                if (parents.Count() == 2)
+                {
+                    var parent0 = parents.ElementAt(0);
+                    var parent1 = parents.ElementAt(1);
+                    var vtx0 = obj.GetVertexNeigborIdByEdge(vid, parent0);
+                    var vtx1 = obj.GetVertexNeigborIdByEdge(vid, parent1);
+                    if (bypassEdges.Contains(parent0))
+                    {
+                        currentLoopEdges.Add(parent0);
+                        bypassEdges.Remove(parent0);
+                        if (verticesIds.Contains(vtx0))
+                        {
+                            verticesQueue.Enqueue(vtx0);
+                            verticesIds.Remove(vtx0);
+                        }
+                    }
+                    if (bypassEdges.Contains(parent1))
+                    {
+                        currentLoopEdges.Add(parent1);
+                        bypassEdges.Remove(parent1);
+                        if (verticesIds.Contains(vtx1))
+                        {
+                            verticesQueue.Enqueue(vtx1);
+                            verticesIds.Remove(vtx1);
+                        }
+                    }
+                }
+            }
+
+            return loops;
+        }
+
+        public void RebuildVerges()
+        {
+            //TODO
+        }
+
+        /// <summary>
         /// Получить замкнутый контур из петли под индексом lid
         /// </summary>
         /// <param name="lid">индекс петли</param>
@@ -518,5 +673,30 @@ namespace MeshSimplificationTest.SBRep
             return area;
         }
 
+        public override string ToString()
+        {
+            var builder = new StringBuilder();
+            foreach (var face in Faces)
+            {
+                builder.AppendLine(face.ToString());
+            }
+            foreach (var item in Loops)
+            {
+                builder.AppendLine(item.ToString());
+            }
+            foreach (var item in Verges)
+            {
+                builder.AppendLine(item.ToString());
+            }
+            foreach (var item in Edges)
+            {
+                builder.AppendLine(item.ToString());
+            }
+            foreach (var item in Vertices)
+            {
+                builder.AppendLine(item.ToString());
+            }
+            return builder.ToString();
+        }
     }
 }

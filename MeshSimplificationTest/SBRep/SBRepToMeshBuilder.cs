@@ -282,9 +282,9 @@ namespace MeshSimplificationTest.SBRep
                 tri.FixNormal(meshVertices);
             }
 
-            var indexedTriangles = resultMeshData.Item2.Select(triData => triData.vertex);
-            var faces = resultMeshData.Item2.Select(triData => triData.GroupID);
-            var normals = resultMeshData.Item2.Select(triData =>new Vector3f(triData.normal));
+            var indexedTriangles = resultMeshData.Item2.Select(triData => triData.vertex).ToList();
+            var faces = resultMeshData.Item2.Select(triData => triData.GroupID).ToList();
+            var normals = resultMeshData.Item2.Select(triData =>new Vector3f(triData.normal)).ToList();
 
             var mesh = DMesh3Builder.Build<Vector3d, Index3i, Vector3f>(
                 meshVertices,

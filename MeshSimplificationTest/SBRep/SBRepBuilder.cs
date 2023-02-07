@@ -87,6 +87,19 @@ namespace MeshSimplificationTest.SBRep
                     Normal = normal
                 };
             }
+
+            public override string ToString()
+            {
+                var signA = Math.Sign(A) >= 0 ? "" : "-";
+                var signB = Math.Sign(B) >= 0 ? "+" : "-";
+                var signC = Math.Sign(C) >= 0 ? "+" : "-";
+                var signD = Math.Sign(D) >= 0 ? "+" : "-";
+                var strA = Math.Round(Math.Abs(A), 2).ToString();
+                var strB = Math.Round(Math.Abs(B), 2).ToString();
+                var strC = Math.Round(Math.Abs(C), 2).ToString();
+                var strD = Math.Round(Math.Abs(D), 2).ToString();
+                return $"{signA} {strA}x {signB} {strB}y {signC} {strC}z {signD} {strD} = 0";
+            }
         }
 
         /// <summary>
@@ -544,7 +557,7 @@ namespace MeshSimplificationTest.SBRep
                 var currentPlanarloops = new List<int>();
                 foreach (var loop in loops)
                 {
-                    //todo если три точки практически лежат на петле, то и  пропускаем её
+                    //TODO если три точки практически лежат на петле, то и  пропускаем её
                     var loopPartIDs = new List<int>();
                     foreach (var edge in loop.Edges)
                     {
@@ -558,22 +571,22 @@ namespace MeshSimplificationTest.SBRep
                         Verges = loopPartIDs,
                     };
                     //TODO оптимизация
-                    //if (!findLoop(resultLoops, newLoop, ref loopId))
-                    //{
-                    //    resultLoops.Add(newLoop);
-                    //    loopId = newLoop.ID;
-                    //}
-                    var loopHash = LoopHash(newLoop);
-                    if (!resultLoopsHash.ContainsKey(loopHash))
+                    if (!findLoop(resultLoops, newLoop, ref loopId))
                     {
                         resultLoops.Add(newLoop);
                         loopId = newLoop.ID;
-                        resultLoopsHash.Add(loopHash, loopId);
                     }
-                    else
-                    {
-                        loopId = resultLoopsHash[loopHash];
-                    }
+                    //var loopHash = LoopHash(newLoop);
+                    //if (!resultLoopsHash.ContainsKey(loopHash))
+                    //{
+                    //    resultLoops.Add(newLoop);
+                    //    loopId = newLoop.ID;
+                    //    resultLoopsHash.Add(loopHash, loopId);
+                    //}
+                    //else
+                    //{
+                    //    loopId = resultLoopsHash[loopHash];
+                    //}
                     currentPlanarloops.Add(loopId);
                 }
                 currentPlanarloops = currentPlanarloops.Distinct().ToList();
@@ -660,14 +673,9 @@ namespace MeshSimplificationTest.SBRep
             if (mesh == null)
                 return null;
 
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
             ///Выделяем из исходного объекта группы связанных треугольников
             ///лежащих на одной плоскости и имеющие одинаковый GroupID
             var planarGroups = BuildPlanarGroups(mesh);
-
-            stopwatch.Stop();
-            var ms = stopwatch.ElapsedMilliseconds;
 
             //Получаем словарь Id/Index2i(индексы на точки) из выделеенных групп треугольников
             var edgesDict = GetEdgesFromPlanarGroups(planarGroups);
@@ -677,11 +685,7 @@ namespace MeshSimplificationTest.SBRep
             //Собираем ломанные
             var loopparts = BuildVerges(mesh, planarGroups);
             //Собираем петли
-            stopwatch = new Stopwatch();
-            stopwatch.Start();
             var loops = BuildLoops(planarGroups, loopparts);
-            stopwatch.Stop();
-            ms = stopwatch.ElapsedMilliseconds;
             //Собираем плоскости
             var faces = BuildFaces(planarGroups,loops.Item2);
 

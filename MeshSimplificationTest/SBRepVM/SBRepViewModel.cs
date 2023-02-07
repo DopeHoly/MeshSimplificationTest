@@ -90,6 +90,7 @@ namespace MeshSimplificationTest.SBRepVM
         {
             ModelsVM = new ObservableCollection<Model3DLayerVM>();
             var contour = new List<Vector2d>();
+            //дефолтный тестовый контур
             contour.Add(new Vector2d(0, 0));
             contour.Add(new Vector2d(0, 5));
             contour.Add(new Vector2d(4, 2));
@@ -97,6 +98,22 @@ namespace MeshSimplificationTest.SBRepVM
             contour.Add(new Vector2d(3, -1));
             contour.Add(new Vector2d(2, 1));
             contour.Add(new Vector2d(1, 1));
+
+            //контур внутри куба 4 на 4
+            //contour.Add(new Vector2d(1, 1));
+            //contour.Add(new Vector2d(3, 3));
+            //contour.Add(new Vector2d(3, 1));
+
+            //контур с самопересечением
+            //contour.Add(new Vector2d(1, 2));
+            //contour.Add(new Vector2d(1, 3));
+            //contour.Add(new Vector2d(2, 3));
+            //contour.Add(new Vector2d(1, 1));
+            //contour.Add(new Vector2d(3, 2));
+            //contour.Add(new Vector2d(3, 1));
+            //contour.Add(new Vector2d(2, 1));
+
+
             Contour = contour;
         }
 
@@ -128,7 +145,7 @@ namespace MeshSimplificationTest.SBRepVM
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             var sbrep = SBRepBuilder.Convert(model);
-            //var projectionObject = sbrep.ContourProjection(contour, true);
+            var projectionObject = sbrep.ContourProjection(contour, true);
             var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
             ModelsVM.Add(new Model3DLayerVM(this)
             {
@@ -136,50 +153,55 @@ namespace MeshSimplificationTest.SBRepVM
                 Model = boundaryEdgesModel,
             });
 
-            //var triPlanarGroupModel = GenerateModelFromTriPlanarGroup(triPlanarGroup);
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Петли",
-            //    Model = triPlanarGroupModel,
-            //});
+            var triPlanarGroupModel = GenerateModelFromTriPlanarGroup(triPlanarGroup);
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Петли",
+                Model = triPlanarGroupModel,
+            });
 
-            //var loopEdgeModel = GenerateModelFromLoopEdge(
-            //    model,
-            //    SBRepBuilder.BuildVerges(
-            //        model,
-            //        triPlanarGroup));
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Грани петель",
-            //    Model = loopEdgeModel,
-            //});
+            var loopEdgeModel = GenerateModelFromLoopEdge(
+                model,
+                SBRepBuilder.BuildVerges(
+                    model,
+                    triPlanarGroup));
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани петель",
+                Model = loopEdgeModel,
+            });
 
-            //var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Петли из sbrep",
-            //    Model = sbrep_loops,
-            //});
+            var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Петли из sbrep",
+                Model = sbrep_loops,
+            });
             ModelsVM.Add(new Model3DLayerVM(this)
             {
                 Name = "Триангулированный объект",
                 Model = ConvertToModel3D(SBRepToMeshBuilder.Convert(sbrep)),
             });
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Точки проекции",
-            //    Model = GenerateModelFromModelsVerices(projectionObject)
-            //});
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Грани проекции",
-            //    Model = GenerateModelFormSBRepObjectEdges(projectionObject)
-            //});
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Контур проекции",
-            //    Model = GenerateModelFrom2dContour(contour, Colors.Green)
-            //});
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Точки проекции",
+                Model = GenerateModelFromModelsVerices(projectionObject)
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани проекции",
+                Model = GenerateModelFormSBRepObjectEdges(projectionObject)
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Контур проекции",
+                Model = GenerateModelFrom2dContour(contour, Colors.Green)
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Триангулированный объект c проекцией",
+                Model = ConvertToModel3D(SBRepToMeshBuilder.Convert(projectionObject)),
+            });
             OnPropertyChanged(nameof(MainMesh)); 
             OnPropertyChanged(nameof(ModelsVM));
         }

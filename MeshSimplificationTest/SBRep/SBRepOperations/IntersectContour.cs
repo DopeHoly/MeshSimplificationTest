@@ -565,26 +565,6 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     else
                         throw new Exception();//TODO
                 }
-
-                //if (pointA.Position.Mode == PointPositionMode.OnVertex &&
-                //    pointB.Position.Mode == PointPositionMode.OnVertex) //TODO сломается на случае пересечения в двух точках вне контура
-                //{
-                //    currentEdge.Position.Mode = ShortEdgePositionMode.ExistingEdge;
-                //    var aOrigId = pointA.Position.VtxID;
-                //    var bOrigId = pointB.Position.VtxID;
-                //    var indexAB = new Index2i(aOrigId, bOrigId);
-                //    var indexBA = new Index2i(bOrigId, aOrigId);
-                //    currentEdge.Position.EdgeId = right.Edges.First(e => e.Points == indexAB || e.Points == indexBA).ID;
-                //}
-                //else
-                //if (pointA.Position.Mode == PointPositionMode.OnEdge ||
-                //    pointB.Position.Mode == PointPositionMode.OnEdge) //TODO пересмотреть
-                //{
-                //    //тут есть следующие случаи: ес
-                //    currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
-                //    var pointOnEdge = pointA.Position.Mode == PointPositionMode.OnEdge ? pointA : pointB;
-                //    currentEdge.Position.EdgeId = pointOnEdge.Position.EdgeID;
-                //}
             }
         }
 
@@ -806,6 +786,13 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             return newEdges;
         }
 
+        /// <summary>
+        /// True, еcли внутри? false, значит снаружи, null - на грани
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <param name="eps"></param>
+        /// <returns></returns>
         public bool? EdgeInside(Vector2d a, Vector2d b, double eps = EPS)
         {
             //foreach (var edge in Edges)
@@ -822,7 +809,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             if (centerPosition.Mode == PointPositionMode.InPlane) return true;
             if (centerPosition.Mode == PointPositionMode.OutPlane) return false;
 
-            return true;
+            return null;
         }
 
         public override string ToString()
