@@ -119,7 +119,7 @@ namespace MeshSimplificationTest.SBRep
             return newLoop.ID;
         }
 
-        public int AddFace(int groupID, PlaneFace plane, Vector3d normal, int outsideLoopId, ICollection<int> insideLoopsIds = null)
+        public int AddFace(int groupID, PlaneFace plane, Vector3d normal, int outsideLoopId, IEnumerable<int> insideLoopsIds = null)
         {
             if(!Loops.ContainsKey(outsideLoopId)) return -1;
             if(insideLoopsIds != null)
@@ -150,8 +150,9 @@ namespace MeshSimplificationTest.SBRep
             return newFace.ID;
         }
 
-        public void RemoveEdge(SBRep_Edge edge)
+        public void RemoveEdge(int eid)
         {
+            var edge = Edges[eid];
             var indexA = edge.Vertices.a;
             var indexB = edge.Vertices.b;
             Vertices[indexA].Parents.Remove(edge.ID);
@@ -160,7 +161,36 @@ namespace MeshSimplificationTest.SBRep
             var parent = edge.Parent;
             var parentVerge = Verges[parent];
             parentVerge.Edges.Remove(edge.ID);
+            //if (parentVerge.Edges.Count == 0)//TODO
+                //RemoveVerge(parent);
             Edges.Remove(edge);
+        }
+
+        public void RemoveVerge(int vergeId)
+        {
+            var verge = Verges[vergeId];
+            foreach (var eid in verge.Edges)
+            {
+                Edges[eid].Parent = -1;
+            }
+            foreach (var lid in verge.Parents)
+            {
+                Loops[lid].Verges.Remove(vergeId);
+                //if (Loops[lid].Verges.Count == 0)//TODO
+                    //RemoveLoops(lid);
+            }
+            Verges.Remove(verge);
+        }
+
+        public void RemoveFace(int faceId)
+        {
+            var face = Faces[faceId];
+            foreach (var insideLoop in face.InsideLoops)
+            {
+                Loops[insideLoop].Parents.Remove(faceId);
+            }
+            Loops[face.OutsideLoop].Parents.Remove(faceId);
+            Faces.Remove(face);
         }
 
         /// <summary>
@@ -202,7 +232,7 @@ namespace MeshSimplificationTest.SBRep
                 previewsPointId = currentPointId;
             }
 
-            RemoveEdge(edge);
+            RemoveEdge(edge.ID);
             foreach (var addedEdge in edges)
             {
                 parentVerge.Edges.Add(addedEdge);
@@ -398,6 +428,11 @@ namespace MeshSimplificationTest.SBRep
         {
             return edgeIds.Select(eid => Edges[eid].Vertices).ToList();
         }
+        public Tuple<Vector3d, Vector3d> GetEdgeCoordinates(int eid)
+        {
+            var edge = Edges[eid];
+            return new Tuple<Vector3d, Vector3d>(Vertices[edge.Vertices.a].Coordinate, Vertices[edge.Vertices.b].Coordinate);
+        }
 
         #endregion
 
@@ -488,7 +523,7 @@ namespace MeshSimplificationTest.SBRep
 
         public void RebuildVerges()
         {
-            //TODO
+            //TODO срочное
         }
 
         /// <summary>

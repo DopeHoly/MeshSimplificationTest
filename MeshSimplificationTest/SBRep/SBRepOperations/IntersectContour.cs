@@ -399,7 +399,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             return intersect;
         }
         */
-        public static IntersectContour Intersect(IntersectContour left, IntersectContour right)
+        public static IntersectContour Intersect(IntersectContour left, IntersectContour right, bool isDifference = false)
         {
             var eps = EPS;
             if (left == null || right == null) return null;
@@ -412,6 +412,9 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             foreach (var point in left.GetContour())
             {
                 var position = CalcPointPosition(right, point.Coord, eps);
+                Debug.Assert(position.Mode != PointPositionMode.Undefined);
+                if (isDifference)
+                    position = CalcRevertPointPosition(position, point);
 
                 var newPoint = new Point(point.Coord)
                 {
@@ -434,7 +437,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     edgePosition,
                     pointsIndexesDictionary[edge.Points.a],
                     pointsIndexesDictionary[edge.Points.b]);
-                ClassifyEdgePosition(intersect, right, edges, eps);
+                ClassifyEdgePosition(intersect, right, edges, eps, isDifference);
             }
 
             Debug.Assert(intersect.Edges.Count == intersect.Points.Count);
@@ -446,10 +449,10 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
 
         public static IntersectContour Difference(IntersectContour left, IntersectContour right)
         {
-            return null;
+            return Intersect(left, right, true);
         }
 
-        public static void ClassifyEdgePosition(IntersectContour intersect, IntersectContour right, IEnumerable<int> edges, double eps)
+        public static void ClassifyEdgePosition(IntersectContour intersect, IntersectContour right, IEnumerable<int> edges, double eps, bool revert = false)
         {
             foreach (var eid in edges)
             {
@@ -482,6 +485,8 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     {
                         var center = (pointA.Coord + pointB.Coord) / 2.0;
                         var centerPosition = CalcPointPosition(right, center, eps);
+                        if(revert)
+                            centerPosition = CalcRevertPointPosition(centerPosition);
                         if (centerPosition.Mode == PointPositionMode.InPlane)
                         {
                             currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
@@ -514,6 +519,8 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                         {
                             var center = (pointA.Coord + pointB.Coord) / 2.0;
                             var centerPosition = CalcPointPosition(right, center, eps);
+                            if (revert)
+                                centerPosition = CalcRevertPointPosition(centerPosition);
                             if (centerPosition.Mode == PointPositionMode.InPlane)
                             {
                                 currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
@@ -537,10 +544,10 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     if (pointA.Position.Mode == PointPositionMode.OnVertex ||
                         pointB.Position.Mode == PointPositionMode.OnVertex)
                     {
-                        //var pointOnEdge = pointA.Position.Mode == PointPositionMode.OnEdge ? pointA : pointB;
-                        //var pointOnVertex = pointA.Position.Mode == PointPositionMode.OnVertex ? pointA : pointB;
                         var center = (pointA.Coord + pointB.Coord) / 2.0;
                         var centerPosition = CalcPointPosition(right, center, eps);
+                        if (revert)
+                            centerPosition = CalcRevertPointPosition(centerPosition);
                         if (centerPosition.Mode == PointPositionMode.InPlane)
                         {
                             currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
@@ -608,6 +615,20 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             {
                 Mode = mode
             };
+        }
+
+        public static PointPosition CalcRevertPointPosition(PointPosition position, Point point = null)
+        {
+            Debug.Assert(position.Mode != PointPositionMode.Undefined);
+
+            if (position.Mode == PointPositionMode.InPlane)
+                position.Mode = PointPositionMode.OutPlane;
+            if(point != null)
+            {
+                if (position.Mode == PointPositionMode.OutPlane)
+                    position.Mode = point.Position.Mode;
+            }
+            return position;
         }
 
         public static EdgePosition CalcEdgePositions(
@@ -750,7 +771,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             foreach (var point in uniquePointsDict)
             {
                 var position = CalcPointPosition(right, point.Value, eps);
-
+                Debug.Assert(position.Mode == PointPositionMode.OnEdge || position.Mode == PointPositionMode.OnVertex);
                 var newPoint = new Point(point.Value)
                 {
                     Position = position,
@@ -787,7 +808,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
         }
 
         /// <summary>
-        /// True, еcли внутри? false, значит снаружи, null - на грани
+        /// True = еcли внутри; false = значит снаружи, null = на грани
         /// </summary>
         /// <param name="a"></param>
         /// <param name="b"></param>
@@ -804,6 +825,24 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             //    if (cross.Intersection != IntersectionVariants.NoIntersection)
             //        return null;
             //}
+            var center = (a + b) / 2.0;
+            var centerPosition = CalcPointPosition(this, center, eps);
+            if (centerPosition.Mode == PointPositionMode.InPlane) return true;
+            if (centerPosition.Mode == PointPositionMode.OutPlane) return false;
+
+            return null;
+        }
+        public bool? EdgeInsideDeep(Vector2d a, Vector2d b, double eps = EPS)
+        {
+            foreach (var edge in Edges)
+            {
+                var edgesPoints = GetEdgePoints(edge);
+                var edgeA = edgesPoints.Item1.Coord;
+                var edgeB = edgesPoints.Item2.Coord;
+                var cross = Geometry2DHelper.EdgesInterposition(edgeA, edgeB, a, b, eps);
+                if (cross.Intersection != IntersectionVariants.NoIntersection)
+                    return null;
+            }
             var center = (a + b) / 2.0;
             var centerPosition = CalcPointPosition(this, center, eps);
             if (centerPosition.Mode == PointPositionMode.InPlane) return true;

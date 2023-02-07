@@ -99,6 +99,12 @@ namespace MeshSimplificationTest.SBRepVM
             contour.Add(new Vector2d(2, 1));
             contour.Add(new Vector2d(1, 1));
 
+            //болшой контур покрытия
+            //contour.Add(new Vector2d(0, 0));
+            //contour.Add(new Vector2d(1000, 0));
+            //contour.Add(new Vector2d(1000, 1000));
+            //contour.Add(new Vector2d(0, 1000));
+
             //контур внутри куба 4 на 4
             //contour.Add(new Vector2d(1, 1));
             //contour.Add(new Vector2d(3, 3));
@@ -124,6 +130,15 @@ namespace MeshSimplificationTest.SBRepVM
             get => GetOutputViewModel();
         }
 
+        private DMesh3 projectionObjectMesh;
+        public bool MeshValid
+        {
+            get
+            {
+                return projectionObjectMesh?.CheckValidity(eFailMode: FailMode.ReturnOnly) ?? false;
+            }
+        }
+
 
         public void SetModel(DMesh3 model)
         {
@@ -143,9 +158,22 @@ namespace MeshSimplificationTest.SBRepVM
 
             var contour = Contour;
 
+            var contour1 = new List<Vector2d>();
+            contour1.Add(new Vector2d(1, 1));
+            contour1.Add(new Vector2d(1, 3));
+            contour1.Add(new Vector2d(3, 2));
+
+            var contour2 = new List<Vector2d>();
+            contour2.Add(new Vector2d(3, 1));
+            contour2.Add(new Vector2d(3, 3));
+            contour2.Add(new Vector2d(2, 1));
+
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             var sbrep = SBRepBuilder.Convert(model);
-            var projectionObject = sbrep.ContourProjection(contour, true);
+            var projectionObject = sbrep.ContourProjection(contour1, true);
+
+            projectionObject = projectionObject.ContourProjection(contour2, true);
+
             var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
             ModelsVM.Add(new Model3DLayerVM(this)
             {
@@ -197,13 +225,15 @@ namespace MeshSimplificationTest.SBRepVM
                 Name = "Контур проекции",
                 Model = GenerateModelFrom2dContour(contour, Colors.Green)
             });
+            projectionObjectMesh = SBRepToMeshBuilder.Convert(projectionObject);
             ModelsVM.Add(new Model3DLayerVM(this)
             {
                 Name = "Триангулированный объект c проекцией",
-                Model = ConvertToModel3D(SBRepToMeshBuilder.Convert(projectionObject)),
+                Model = ConvertToModel3D(projectionObjectMesh),
             });
             OnPropertyChanged(nameof(MainMesh)); 
             OnPropertyChanged(nameof(ModelsVM));
+            OnPropertyChanged(nameof(MeshValid));
         }
 
         public void LoadModel(string path)

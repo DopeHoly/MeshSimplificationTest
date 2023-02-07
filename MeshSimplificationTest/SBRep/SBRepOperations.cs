@@ -7,10 +7,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Xml.Linq;
+using static g3.DPolyLine2f;
 
 namespace MeshSimplificationTest.SBRep
 {
@@ -233,12 +236,14 @@ namespace MeshSimplificationTest.SBRep
             else
                 comparer = (x) => x < 0;
 
+            int maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
+            var replaceIntdex = ++maxGroidID;
             foreach (var face in obj.Faces)
             {
-                face.GroupID = 1;
+                face.GroupID = face.GroupID != -1 ? face.GroupID : replaceIntdex;
             }
 
-            int maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
+            maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
             var groupIDsDict = new Dictionary<int, int>();
 
             var filteredFaces = obj.Faces.Where(face => comparer(face.Normal.z)).ToList();
@@ -257,7 +262,7 @@ namespace MeshSimplificationTest.SBRep
                 var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
                 foreach (var insideLoop in insideLoops)
                 {
-                    resultIntersect = IntersectContour.Difference(projContour, outsideLoop);
+                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID);
                 ++count;
@@ -289,14 +294,18 @@ namespace MeshSimplificationTest.SBRep
             }
 
             //Обработка случая, когда попали проекцией полностью на контур, и ничего не задели
-            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane))
+            //если все грани внутри, но больше 1 точки касаются грани, то скипаем, иначе юзаем упрощённый алгоритм
+            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) && 
+                contour.Points.Where(
+                    point => point.Position.Mode == PointPositionMode.OnEdge ||
+                    point.Position.Mode == PointPositionMode.OnVertex)
+                .Count() < 2)
             {
                 AddContourOnFace(sbrep, faceID, contour, groupIDsDict, ref maxGroidID);
                 return;
             }
 
             //если дошёл до этого места, то контур пересекается либо с внешней петлёй, либо со внутренними
-
 
             //сначала добавляем все точки из contour в sbrep
             //var objString = sbrep.ToString();
@@ -358,36 +367,146 @@ namespace MeshSimplificationTest.SBRep
 
             /////////////////////Зона эксперементов
 
-            //var loopsWithoutFaceLoops = sbrep.Loops.Where(loop => loop.ID != face.OutsideLoop && !face.InsideLoops.Contains(loop.ID));
-
             //тут получаем все рассматриваемые рёбра
             var edges = new List<int>();
-            newFaceEdges.AddRange(faceEdgesPosition.Keys.ToList());
-            newFaceEdges.AddRange(addedEdges.Keys.ToList());
-
-            //дальше сносим все ломанные, которые к ним относятся
+            edges.AddRange(faceEdgesPosition.Keys.ToList());
+            edges.AddRange(addedEdges.Keys.ToList());
+            edges = edges.Distinct().ToList();
 
             //дальше собираем добавляем ломанные в brep по принципу - одно ребро - одна ломанная
+            var vergeEdgeDict = new Dictionary<int, IEnumerable<int>>();
+            foreach (var eid in edges)
+            {
+                var id = sbrep.Edges[eid].Parent;
+                if (id == -1)
+                    continue;
+                vergeEdgeDict.Add(eid, sbrep.Verges[id].Parents);
+            }
+
+            //дальше сносим все ломанные, которые к ним относятся
+            var edgeToOldVergesID = new Dictionary<int, int>();
+            var vergesIds = edges.Select(eid => sbrep.Edges[eid].Parent).Distinct().ToList();
+            foreach (var vergeId in vergesIds)
+            {
+                if (vergeId == -1)
+                    continue;
+                var verge = sbrep.Verges[vergeId];
+                foreach (var eid in verge.Edges)
+                {
+                    edgeToOldVergesID.Add(eid, vergeId);
+                }
+                sbrep.RemoveVerge(vergeId);
+            }
+
+            var dictEdgeNewVerge = new Dictionary<int, int>();
+            foreach (var eid in edges)
+            {
+                var vergeIndex = sbrep.AddVerge(new List<int> { eid });
+                dictEdgeNewVerge.Add(eid, vergeIndex);
+                var verge = sbrep.Verges[vergeIndex];
+                if (vergeEdgeDict.ContainsKey(eid))
+                {
+                    verge.Parents = new List<int>(vergeEdgeDict[eid]);
+                    foreach (var loopId in vergeEdgeDict[eid])
+                    {
+                        sbrep.Loops[loopId].Verges.Add(vergeIndex);
+                    }
+                }                    
+            }
 
             //Создаём петли и запихиваем их в sbrep
+            var loopsByNewFaces = new IndexedCollection<SBRep_Loop>();
+            foreach (var loop in newFacesLoops)
+            {
+                if (loop.Count() == 0) continue;
+                var loopId = sbrep.AddLoop(loop.Select(eid => dictEdgeNewVerge[eid]).ToList());
+                loopsByNewFaces.Add(sbrep.Loops[loopId]);
+            }
+            var loopsByOldFaces = new IndexedCollection<SBRep_Loop>();
+            foreach (var loop in oldFacesLoops)
+            {
+                if(loop.Count() == 0) continue;
+                var loopId = sbrep.AddLoop(loop.Select(eid => dictEdgeNewVerge[eid]).ToList());
+                loopsByOldFaces.Add(sbrep.Loops[loopId]);
+            }
 
 
-            //дальше создаём по петлям все заготовки данных для грани
+            //дальше создаём по петлям все заготовки данных для грани (какие петли внутренние, какие внешние)
+
+            var blackList = new List<int>();
+            var facesLoopsColectionOld = new Dictionary<int, IEnumerable<int>>();
+            foreach (var loop in loopsByOldFaces)
+            {
+                IEnumerable<int> insideLoopsIds = new List<int>();
+                var checkedLoops = loopsByOldFaces.Where(checkedLoop => checkedLoop != loop).ToList();
+                insideLoopsIds = GetInsideLoops(sbrep, loop, checkedLoops);
+                blackList.AddRange(insideLoopsIds);
+                facesLoopsColectionOld.Add(loop.ID, insideLoopsIds);
+            }
+            var facesLoopsColectionNew = new Dictionary<int, List<int>>();
+            foreach (var loop in loopsByNewFaces)
+            {
+                facesLoopsColectionNew.Add(loop.ID, new List<int>());
+            }
 
             //сносим старую грань
+            sbrep.RemoveFace(faceID); 
 
+            //добавляем новые грани
+            foreach (var facedLoops in facesLoopsColectionOld)
+            {
+                if (blackList.Contains(facedLoops.Key))
+                    continue;
+                sbrep.AddFace(face.GroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
+            }
+            ++maxGroidID;
+            foreach (var facedLoops in facesLoopsColectionNew)
+            {
+                var newGroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
+                sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
+            }
+
+            //пересобираем verges по принадлежности одинаковым граням и по зонам связанности
+            sbrep.RebuildVerges();//TODO а надо ли
             ////////////////////
 
+        }
+
+        public static IEnumerable<int> GetInsideLoops(SBRepObject sbrep, SBRep_Loop mainLoop, IEnumerable<SBRep_Loop> checkedLoop)
+        {
+            var resultCollection = new List<int>();
+            var contour = new IntersectContour(GetContourFromLoop(sbrep, mainLoop.ID));
+            foreach (var loop in checkedLoop)
+            {
+                if(LoopInsideContour(contour, sbrep, loop))
+                    resultCollection.Add(loop.ID);
+            }
+            return resultCollection;
+        }
+
+        public static bool LoopInsideContour(IntersectContour contour, SBRepObject sbrep, SBRep_Loop loop)
+        {
+            var edgesIDs = sbrep.GetEdgesIdFromLoopId(loop.ID);
+            foreach (var eid in edgesIDs)
+            {
+                var coords = sbrep.GetEdgeCoordinates(eid);
+                var result = contour.EdgeInsideDeep(coords.Item1.xy, coords.Item2.xy);
+                if (result != true)
+                    return false;
+            }
+            return true;
         }
 
         public static void AddContourOnFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID)
         {
             var face = sbrep.Faces[faceID];
             var pointIndexDict = new Dictionary<int, int>();
+            IndexedExistingPoints(sbrep, contour, ref pointIndexDict);
             //добавляем точки на плоскость
             AddPlanePoint(sbrep, faceID, contour, ref pointIndexDict);
+            var edgesReplaceDict = AddPointsToEdges(sbrep, faceID, contour, ref pointIndexDict);
             //добавляем новые рёбра
-            var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict, null);
+            var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict, edgesReplaceDict);
             //вычисляем множества рёбер для новых граней
             var newFaceEdges = new List<int>();
             newFaceEdges.AddRange(addedEdges.Keys.ToList());

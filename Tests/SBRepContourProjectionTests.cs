@@ -19,6 +19,7 @@ namespace Tests
         private static string Sample_Cube4x4Path = SamplesPath + "Кубик4Fix.obj";
         private static string Sample_PipePath = SamplesPath + "pipe.obj";
         private static string Sample_LargePipePath = SamplesPath + "Труба большая.obj";
+        private static string Sample_CubeImplicitOnSidePath = SamplesPath + "CubeImplicitOnSide.obj";
 
         private SBRepObject GetSampleSBRep()
         {
@@ -256,5 +257,24 @@ namespace Tests
             var addedEdges = sbRep.AddPointsOnEdge(7, points);
             var edges = sbRep.GetClosedContourEdgesFromLoopID(3);
         }
+
+        [TestMethod]
+        public void ImplicidCube()
+        {
+            var contour = new List<Vector2d>();
+            contour.Add(new Vector2d(0, 0));
+            contour.Add(new Vector2d(0, 5));
+            contour.Add(new Vector2d(4, 2));
+            contour.Add(new Vector2d(4, 0));
+            contour.Add(new Vector2d(3, -1));
+            contour.Add(new Vector2d(2, 1));
+            contour.Add(new Vector2d(1, 1));
+            contour = OffsetContour(contour, 26, 30);
+
+            var mesh = StandardMeshReader.ReadMesh(Sample_CubeImplicitOnSidePath);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            sbRep.ContourProjection(contour, true);
+        }
+
     }
 }

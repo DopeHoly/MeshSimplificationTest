@@ -37,11 +37,15 @@
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <ListView ItemsSource="{Binding Data.ModelsVM, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="x"/>
                 <TextBox Text="{Binding Data.XOffset}"/>
+                <TextBlock Text="y"/>
                 <TextBox Text="{Binding Data.YOffset}"/>
                 <Button Height="30" Command="{Binding ApplyOffset}" Content="Применить смещение контура"/>
-                
+
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
+                <TextBlock Text="Сетка валидна"/>
+                <CheckBox IsChecked="{Binding Data.MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="False"/>
             </StackPanel>
         </ScrollViewer>
 
