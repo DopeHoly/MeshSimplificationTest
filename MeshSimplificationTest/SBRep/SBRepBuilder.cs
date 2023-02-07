@@ -188,7 +188,7 @@ namespace MeshSimplificationTest.SBRep
             /// Возвращает петли
             /// </summary>
             /// <returns>MeshRegionBoundaryLoops - класс из g3 либы, я не совсем уверен, что он в 100 прцентах случаев делает то, что нужно</returns>
-            public MeshRegionBoundaryLoops GetLoops()
+            public IEnumerable<IEnumerable<int>> GetLoops()
             {
                 MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, TriangleIDs.ToArray());
 #if DEBUG
@@ -199,6 +199,91 @@ namespace MeshSimplificationTest.SBRep
                         throw new Exception();
                 }
 #endif
+                var result = new List<IEnumerable<int>>();
+                foreach (var loop in loops)
+                {
+                    result.Add(loop.Edges);
+                }
+                return result;                
+            }
+
+            private int GetVertexNeigborIdByEdge(int vid, int eid)
+            {
+                var edgePoints = mesh.GetEdgeV(eid);
+                if (edgePoints.a == vid || edgePoints.b == vid)
+                    return edgePoints.a == vid ? edgePoints.b : edgePoints.a;
+                throw new Exception($"Ребро {eid} не содержит {vid}");
+            }
+            public IEnumerable<IEnumerable<int>> GetLoops2()
+            {
+                var edgesIDs = GetBoundaryEdges();
+                //проверяем критерий обходимости
+                var edges = edgesIDs.Select(eid => mesh.GetEdgeV(eid)).ToList();
+                var verticesIds = edges.SelectMany(edge =>
+                    new int[2] { edge.a, edge.b }
+                    )
+                    .Distinct()
+                    .ToList();
+                var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
+                foreach (var vid in verticesIds)
+                {
+                    var parents = mesh.VtxEdgesItr(vid).Intersect(edgesIDs);
+                    if (parents.Count() % 2 == 1)
+                        throw new Exception("Невозможно обойти граф");
+                    vertParentsDict.Add(vid, parents);
+                }
+                var bypassEdges = new List<int>(edgesIDs);
+                var loops = new List<IEnumerable<int>>();
+                var verticesQueue = new Queue<int>();
+                List<int> currentLoopEdges = null;
+                while (verticesQueue.Count > 0 ||
+                    verticesIds.Count > 0)
+                {
+                    if (verticesQueue.Count < 1)
+                    {
+                        currentLoopEdges = new List<int>();
+                        loops.Add(currentLoopEdges);
+                        var tempTID = verticesIds.First();
+                        verticesIds.RemoveAt(0);
+                        verticesQueue.Enqueue(tempTID);
+                    }
+                    var vid = verticesQueue.Dequeue();
+                    var parents = vertParentsDict[vid];
+                    if (parents.Count() == 2)
+                    {
+                        var parent0 = parents.ElementAt(0);
+                        var parent1 = parents.ElementAt(1);
+                        var vtx0 = GetVertexNeigborIdByEdge(vid, parent0);
+                        var vtx1 = GetVertexNeigborIdByEdge(vid, parent1);
+                        if (bypassEdges.Contains(parent0))
+                        {
+                            currentLoopEdges.Add(parent0);
+                            bypassEdges.Remove(parent0);
+                            if (verticesIds.Contains(vtx0))
+                            {
+                                verticesQueue.Enqueue(vtx0);
+                                verticesIds.Remove(vtx0);
+                            }
+                        }
+                        if (bypassEdges.Contains(parent1))
+                        {
+                            currentLoopEdges.Add(parent1);
+                            bypassEdges.Remove(parent1);
+                            if (verticesIds.Contains(vtx1))
+                            {
+                                verticesQueue.Enqueue(vtx1);
+                                verticesIds.Remove(vtx1);
+                            }
+                        }
+                    }
+                }
+                foreach (var loop in loops)
+                {
+                    if (loop.Contains(6425) && loop.Contains(6427))
+                    {
+                        ;
+                    }
+                }
                 return loops;
             }
         }
@@ -380,6 +465,27 @@ namespace MeshSimplificationTest.SBRep
             foreach (var loopEdge in loopEdges)
             {
                 var edges = new List<int>(loopEdge.edgeIDs);
+
+                var points = new Dictionary<int, int>();
+                foreach (var eid in loopEdge.edgeIDs)
+                {
+                    var edgeVtx = mesh.GetEdgeV(eid);
+                    var a = edgeVtx.a;
+                    var b = edgeVtx.b;
+                    if (!points.ContainsKey(a))
+                        points.Add(a, 0);
+                    if (!points.ContainsKey(b))
+                        points.Add(b, 0);
+                    ++points[a];
+                    ++points[b];
+                }
+                var blackPoints = new List<int>();
+                foreach (var point in points)
+                {
+                    if (point.Value > 2)
+                        blackPoints.Add(point.Key);
+                }
+
                 var edgeQueue = new Queue<int>();
                 LoopEdge currentLE = null;
                 while (edgeQueue.Count > 0 ||
@@ -405,14 +511,23 @@ namespace MeshSimplificationTest.SBRep
                     var neighbours = edges.Where(x =>
                     {
                         var edgeVtx = mesh.GetEdgeV(x);
+                        if (blackPoints.Contains(edgeVtx.a) ||
+                            blackPoints.Contains(edgeVtx.b))
+                            return false;
                         return
                             edgeVtx.a == edgeV.a ||
                             edgeVtx.b == edgeV.a ||
                             edgeVtx.a == edgeV.b ||
                             edgeVtx.b == edgeV.b;
                     }).ToList();
+                    if(neighbours.Count > 2)
+                    {
+                        continue;
+                    }
                     foreach (var neigbour in neighbours)
                     {
+                        if (eid == 6425)
+                            ;
                         edgeQueue.Enqueue(neigbour);
                         edges.Remove(neigbour);
                     }
@@ -551,7 +666,7 @@ namespace MeshSimplificationTest.SBRep
             var planarLoopsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var planarGroup in planarGroups)
             {
-                var loops = planarGroup.GetLoops();
+                var loops = planarGroup.GetLoops2();
 
                 var planesLoopsDict = new Dictionary<int, int>();
                 var currentPlanarloops = new List<int>();
@@ -559,7 +674,7 @@ namespace MeshSimplificationTest.SBRep
                 {
                     //TODO если три точки практически лежат на петле, то и  пропускаем её
                     var loopPartIDs = new List<int>();
-                    foreach (var edge in loop.Edges)
+                    foreach (var edge in loop)
                     {
                         loopPartIDs.Add(edgeLP[edge]);
                     }

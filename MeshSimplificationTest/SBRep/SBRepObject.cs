@@ -455,7 +455,6 @@ namespace MeshSimplificationTest.SBRep
 
         public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, IEnumerable<int> edgesIDs)
         {
-            var objString = obj.ToString();
             //проверяем критерий обходимости
             var edges = edgesIDs.Select(eid => obj.Edges[eid]).ToList();
             var verticesIds = edges.SelectMany(edge => 

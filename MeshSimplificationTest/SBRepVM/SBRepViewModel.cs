@@ -406,9 +406,9 @@ namespace MeshSimplificationTest.SBRepVM
             return ModelFromEdge(mesh, edgesIDs, color, (valid ? 1 : 2));
         }
 
-        public Model3D GenerateModelFromLoop(DMesh3 mesh, EdgeLoop loop)
+        public Model3D GenerateModelFromLoop(DMesh3 mesh, IEnumerable<int> loop)
         {
-            return ModelFromEdge(mesh, loop.Edges, Colors.Green, 1);
+            return ModelFromEdge(mesh, loop, Colors.Green, 1);
         }
 
         public Model3D GenerateModelFromTriPlanarGroup(IEnumerable<TriPlanarGroup> planes)

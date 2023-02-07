@@ -171,7 +171,8 @@ namespace MeshSimplificationTest.SBRep
     {
         public int ID { get; set; } = -1;
         public ICollection<int> edgeIDs;
-        public Index2i neigbor;
+        //набор индексов соседних граней объекта TriPlanarGroup
+        public Index2i neigbor { get; set; }
 
         public LoopEdge()
         {
