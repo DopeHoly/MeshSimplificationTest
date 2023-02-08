@@ -20,6 +20,7 @@ using MeshSimplificationTest.SBRep;
 using static MeshSimplificationTest.SBRep.SBRepBuilder;
 using System.Collections.ObjectModel;
 using MeshSimplificationTest.SBRep.Triangulation;
+using System.Xml.Serialization;
 
 namespace MeshSimplificationTest.SBRepVM
 {
@@ -89,15 +90,16 @@ namespace MeshSimplificationTest.SBRepVM
         public SBRepModel()
         {
             ModelsVM = new ObservableCollection<Model3DLayerVM>();
-            var contour = new List<Vector2d>();
-            //дефолтный тестовый контур
-            contour.Add(new Vector2d(0, 0));
-            contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(4, 2));
-            contour.Add(new Vector2d(4, 0));
-            contour.Add(new Vector2d(3, -1));
-            contour.Add(new Vector2d(2, 1));
-            contour.Add(new Vector2d(1, 1));
+            var contour = LoadContour("D:\\ContourProjection\\contour + 5d7fb584-f43b-4ece-b258-c0cb252f01e9.cnt");
+            //var contour = new List<Vector2d>();
+            ////дефолтный тестовый контур
+            //contour.Add(new Vector2d(0, 0));
+            //contour.Add(new Vector2d(0, 5));
+            //contour.Add(new Vector2d(4, 2));
+            //contour.Add(new Vector2d(4, 0));
+            //contour.Add(new Vector2d(3, -1));
+            //contour.Add(new Vector2d(2, 1));
+            //contour.Add(new Vector2d(1, 1));
 
             //болшой контур покрытия
             //contour.Add(new Vector2d(0, 0));
@@ -121,6 +123,27 @@ namespace MeshSimplificationTest.SBRepVM
 
 
             Contour = contour;
+        }
+        private static void SaveContour(string path, List<Vector2d> contour)
+        {
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
+            var dict = new FileInfo(path);
+            if (!dict.Directory.Exists) dict.Directory.Create();
+            using (StreamWriter writer = new StreamWriter(path, false))
+            {
+                xmlSerializer.Serialize(writer, contour);
+            }
+
+        }
+        private static List<Vector2d> LoadContour(string path)
+        {
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
+            List<Vector2d> result = null;
+            using (var reader = new StreamReader(path))
+            {
+                result = xmlSerializer.Deserialize(reader) as List<Vector2d>;
+            }
+            return result;
         }
 
         public DMesh3 SourceModel => _sourceModel;
@@ -166,7 +189,7 @@ namespace MeshSimplificationTest.SBRepVM
             var contour2 = new List<Vector2d>();
             contour2.Add(new Vector2d(3, 1));
             contour2.Add(new Vector2d(3, 3));
-            contour2.Add(new Vector2d(2, 1));
+            contour2.Add(new Vector2d(1, 2));
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             var sbrep = SBRepBuilder.Convert(model);
