@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 
-namespace MeshSimplificationTest.SBRep.Triangulation
+namespace MeshSimplificationTest.SBRep.Utils
 {
     [StructLayout(LayoutKind.Sequential)]
     public struct Vector2D
@@ -55,7 +52,7 @@ namespace MeshSimplificationTest.SBRep.Triangulation
     {
         [DllImport("..\\..\\..\\..\\..\\MeshSimplificationTest\\CDT_Simmakers\\bin\\x64\\Debug\\CDT_Simmakers.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern bool Triangulate(
-            int verticesCount, 
+            int verticesCount,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct, SizeParamIndex = 1)] Vector2D[] vertices,
             int edgesCount,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct, SizeParamIndex = 1)] Edge2i[] edges,
@@ -80,9 +77,9 @@ namespace MeshSimplificationTest.SBRep.Triangulation
 
             var noError = Triangulate(
                 verticeArray.Length, verticeArray,
-                edgesArray.Length,  edgesArray,
+                edgesArray.Length, edgesArray,
                 out triangleVerticesCount, out verticesPtr,
-                out trianglesCount,out trianglesPtr);
+                out trianglesCount, out trianglesPtr);
 
             if (triangleVerticesCount == -1 || trianglesCount == -1)
             {
@@ -101,19 +98,16 @@ namespace MeshSimplificationTest.SBRep.Triangulation
         }
 
         private static IEnumerable<T> CopyStructArrayFromPointer<T>(IntPtr pointer, int size)
-            where T: struct
+            where T : struct
         {
             T[] resultArray = new T[size];
             IntPtr current = pointer;
             for (int i = 0; i < size && current != IntPtr.Zero; i++)
             {
-                //resultArray[i] = new T();
                 resultArray[i] = (T)Marshal.PtrToStructure(current, typeof(T));
                 Marshal.DestroyStructure(current, typeof(T));
                 current = (IntPtr)((long)current + Marshal.SizeOf(resultArray[i]));
             }
-
-            //Marshal.FreeCoTaskMem(pointer);
 
             return resultArray;
         }

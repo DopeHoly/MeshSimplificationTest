@@ -1,19 +1,12 @@
 ﻿using g3;
 using System;
-using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Reflection;
-using System.Security.RightsManagement;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Media.Media3D;
-using static g3.DPolyLine2f;
 
-namespace MeshSimplificationTest.SBRep.SBRepOperations
+namespace MeshSimplificationTest.SBRep.Utils
 {
     public class Point : IIndexed
     {
@@ -24,8 +17,8 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
 
         public Vector2d Coord { get; set; }
 
-        public Point(Vector2d coord) 
-        { 
+        public Point(Vector2d coord)
+        {
             Coord = coord;
             Parents = new List<int>();
         }
@@ -53,52 +46,13 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             return $"PointID{ID} {Coord}, {parents}: {Position}";
         }
     }
-    public enum ShortEdgePositionMode
-    {
-        Undefined,
-        InPlane,
-        OutPlane,
-        ExistingEdge,
-        EdgeSegment
-    }
-
-    public class ShortEdgePosition
-    {
-        public ShortEdgePositionMode Mode;
-        public int EdgeId = -1;
-        public ShortEdgePosition() { }
-        public ShortEdgePosition(ShortEdgePosition other)
-        {
-            Mode = other.Mode;
-            EdgeId = other.EdgeId;
-        }
-        public override string ToString()
-        {
-            switch (Mode)
-            {
-                case ShortEdgePositionMode.Undefined:
-                    return "Не расчитанно";
-                case ShortEdgePositionMode.InPlane:
-                    return "Внутри контура";
-                case ShortEdgePositionMode.OutPlane:
-                    return "Снаружи контура";
-                case ShortEdgePositionMode.ExistingEdge:
-                    return $"Совпадает с ребром {EdgeId}";
-                case ShortEdgePositionMode.EdgeSegment:
-                    return $"Лежит на ребре {EdgeId}";
-                default:
-                    break;
-            }
-            return null;
-        }
-    }
 
     public class Edge : IIndexed
     {
         public int ID { get; set; } = -1;
         public Index2i Points { get; set; }
         public ShortEdgePosition Position;
-        public Edge(Index2i points) 
+        public Edge(Index2i points)
         {
             Points = points;
         }
@@ -149,11 +103,11 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
     {
         public const double EPS = 1e-6;
         public IndexedCollection<Point> Points { get; set; }
-        public IndexedCollection<Edge> Edges { get; set;}
+        public IndexedCollection<Edge> Edges { get; set; }
 
         public int Count => Points.Count;
 
-        private IntersectContour() 
+        private IntersectContour()
         {
             Points = new IndexedCollection<Point>();
             Edges = new IndexedCollection<Edge>();
@@ -235,7 +189,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             {
                 point.Parents.Clear();
             }
-            foreach(var edge in Edges)
+            foreach (var edge in Edges)
             {
                 Points[edge.Points.a].Parents.Add(edge.ID);
                 Points[edge.Points.b].Parents.Add(edge.ID);
@@ -287,118 +241,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             result.ReindexPointsParents();
             return result;
         }
-        /*
-        public static IntersectContour IntersectOld(IntersectContour left, IntersectContour right)
-        {
-            var eps = 1e-6;
-            if(left == null || right == null) return null;
-            var intersect = new IntersectContour();
 
-            Debug.Assert(left.Edges.Count == left.Points.Count);
-            Debug.Assert(right.Edges.Count == right.Points.Count);
-
-            var count = left.Count;
-            var startPointId = left.Points.First().ID;
-            var currentPointId = -1;
-            Edge currentEdge = null;
-            var currentEdgeId = -1;
-            while (startPointId != currentPointId)
-            {
-                if(currentPointId == -1)
-                    currentPointId = startPointId;
-
-                var currentPoint = left.Points[currentPointId];
-
-                //Тут определяем, как точка пересекается с right контуром
-                var pointPosition = CalcPointPosition(right, currentPoint.Coord, eps);
-
-                var newPoint = new Point(currentPoint.Coord)
-                {
-                    Position = pointPosition,
-                };
-                intersect.Points.Add(newPoint);
-                var lastCreatedPointId = newPoint.ID;
-                var nextCreatingPointId = intersect.Points.Count;
-                //Тут определем, как ребро пересекается с right контуром и добавляем по этим результатам новые точки и рёбра в результаты
-                //Берём следующее ребро
-                var nextEdgeID = currentPoint.Parents.First(eid => eid != currentEdgeId);
-                currentEdge = left.Edges[nextEdgeID];
-                currentEdgeId = nextEdgeID;
-                var nextPointId = currentEdge.GetNext(currentPointId);
-
-                var edgePosition = CalcEdgePositions(left.Points[currentPointId].Coord, left.Points[nextPointId].Coord, right, eps);
-                
-                if (edgePosition.Mode == EdgePositionMode.InPlane ||
-                    edgePosition.Mode == EdgePositionMode.OutPlane)
-                {
-                    intersect.Edges.Add(new Edge(lastCreatedPointId, nextCreatingPointId)//TODO пересмотреть
-                    {
-                        Position = new ShortEdgePosition()
-                        {
-                            Mode = ShortEdgePositionMode.Undefined
-                        },
-                    });
-                }
-                else
-                {
-                    foreach (var cross in edgePosition.Crosses)
-                    {
-                        Debug.Assert(cross.Intersection == IntersectionVariants.Intersects);
-                        if (cross.IntersectionType == EdgeIntersectionType.Point)
-                        {
-                            var a = lastCreatedPointId;
-                            var crossPoint = new Point(cross.Point0)
-                            {
-                                Position = new PointPosition()
-                                {
-                                    EdgeID = cross.EdgeID,
-                                }
-                            };
-                            intersect.Points.Add(crossPoint);
-                            nextCreatingPointId = intersect.Points.Count;
-                            intersect.Edges.Add(new Edge(lastCreatedPointId, crossPoint.ID));
-                            intersect.Edges.Add(new Edge(crossPoint.ID, nextCreatingPointId));
-                            lastCreatedPointId = crossPoint.ID;
-
-                        }
-                        else if (cross.IntersectionType == EdgeIntersectionType.ExistingPoint)
-                        {
-                            var a = lastCreatedPointId;
-                            var crossPoint = new Point(cross.Point0)
-                            {
-                                Position = new PointPosition()
-                                {
-                                    VtxID = cross.VtxID,
-                                }
-                            };
-                            intersect.Points.Add(crossPoint);
-                            nextCreatingPointId = intersect.Points.Count;
-                            intersect.Edges.Add(new Edge(lastCreatedPointId, crossPoint.ID));
-                            intersect.Edges.Add(new Edge(crossPoint.ID, nextCreatingPointId));
-                            lastCreatedPointId = crossPoint.ID;
-
-                        }
-                        else if (cross.IntersectionType == EdgeIntersectionType.AllEdge)
-                        {
-
-                        }
-                        else if (cross.IntersectionType == EdgeIntersectionType.Segment)
-                        {
-
-                        }
-                        else
-                            throw new Exception("Не предусмотренно");
-                    }
-                }
-
-                currentPointId = nextPointId;
-
-
-            }
-            intersect.ReindexPointsParents();
-            return intersect;
-        }
-        */
         public static IntersectContour Intersect(IntersectContour left, IntersectContour right, bool isDifference = false)
         {
             var eps = EPS;
@@ -430,9 +273,10 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                 var edgesPoints = left.GetEdgePoints(edge);
                 var edgeA = edgesPoints.Item1.Coord;
                 var edgeB = edgesPoints.Item2.Coord;
-                var edgePosition = CalcEdgePositions(edgeA, edgeB, right, eps);
+                var edgePosition = CalcEdgePositions(edgeA, edgeB, edge.ID, right, eps);
                 var edges = SeparateEdgeFromEdgePosition(
-                    intersect, 
+                    intersect,
+                    left,
                     right,
                     edgePosition,
                     pointsIndexesDictionary[edge.Points.a],
@@ -444,6 +288,17 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             Debug.Assert(!intersect.Edges.Any(edge => edge.Position.Mode == ShortEdgePositionMode.Undefined));
             intersect.ReindexPointsParents();
 
+            Debug.Assert(intersect.Points.All(point => {
+                if (point.Position.Mode == PointPositionMode.OnEdge)
+                {
+                    return point.Position.EdgeID != -1;
+                }
+                if (point.Position.Mode == PointPositionMode.OnVertex)
+                {
+                    return point.Position.VtxID != -1;
+                }
+                return true;
+            }));
             return intersect;
         }
 
@@ -485,8 +340,14 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     {
                         var center = (pointA.Coord + pointB.Coord) / 2.0;
                         var centerPosition = CalcPointPosition(right, center, eps);
-                        if(revert)
+                        if (revert)
+                        {
+                            if (centerPosition.Mode == PointPositionMode.OutPlane)
+                            {
+                                continue;
+                            }
                             centerPosition = CalcRevertPointPosition(centerPosition);
+                        }
                         if (centerPosition.Mode == PointPositionMode.InPlane)
                         {
                             currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
@@ -510,7 +371,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                         var indexAB = new Index2i(aOrigId, bOrigId);
                         var indexBA = new Index2i(bOrigId, aOrigId);
                         var edgeAB = right.Edges.FirstOrDefault(e => e.Points == indexAB || e.Points == indexBA);
-                        if(edgeAB != null) // если есть в контуре объекта грань с вершинами AB, то совпадение
+                        if (edgeAB != null) // если есть в контуре объекта грань с вершинами AB, то совпадение
                         {
                             currentEdge.Position.Mode = ShortEdgePositionMode.ExistingEdge;
                             currentEdge.Position.EdgeId = edgeAB.ID;
@@ -520,7 +381,13 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                             var center = (pointA.Coord + pointB.Coord) / 2.0;
                             var centerPosition = CalcPointPosition(right, center, eps);
                             if (revert)
+                            {
+                                if (centerPosition.Mode == PointPositionMode.OutPlane)
+                                {
+                                    continue;
+                                }
                                 centerPosition = CalcRevertPointPosition(centerPosition);
+                            }
                             if (centerPosition.Mode == PointPositionMode.InPlane)
                             {
                                 currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
@@ -547,7 +414,13 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                         var center = (pointA.Coord + pointB.Coord) / 2.0;
                         var centerPosition = CalcPointPosition(right, center, eps);
                         if (revert)
+                        {
+                            if(centerPosition.Mode == PointPositionMode.OutPlane)
+                            {
+                                continue;
+                            }
                             centerPosition = CalcRevertPointPosition(centerPosition);
+                        }
                         if (centerPosition.Mode == PointPositionMode.InPlane)
                         {
                             currentEdge.Position.Mode = ShortEdgePositionMode.InPlane;
@@ -623,16 +496,19 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
 
             if (position.Mode == PointPositionMode.InPlane)
                 position.Mode = PointPositionMode.OutPlane;
-            if(point != null)
+            else
+            if (point != null)
             {
                 if (position.Mode == PointPositionMode.OutPlane)
-                    position.Mode = point.Position.Mode;
+                {
+                    position = new PointPosition(point.Position);
+                }
             }
             return position;
         }
 
         public static EdgePosition CalcEdgePositions(
-            Vector2d a, Vector2d b,
+            Vector2d a, Vector2d b, int edgeID,
             IntersectContour contour,
             double eps)
         {
@@ -662,7 +538,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                             cross.IntersectionType = EdgeIntersectionType.ExistingPoint;
                             cross.VtxID = edgesPoints.Item1.ID;
                         }
-                        if(Geometry2DHelper.EqualPoints(cross.Point0, edgeB, eps))
+                        if (Geometry2DHelper.EqualPoints(cross.Point0, edgeB, eps))
                         {
                             cross.IntersectionType = EdgeIntersectionType.ExistingPoint;
                             cross.VtxID = edgesPoints.Item2.ID;
@@ -686,7 +562,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                             }
                         }
                     }
-                    if(cross.IntersectionType != EdgeIntersectionType.ExistingPoint)
+                    if (cross.IntersectionType != EdgeIntersectionType.ExistingPoint)
                     {
                         //var pointsParentIntersect = edge.Item1.Parents.Intersect(edge.Item2.Parents);
                         //Debug.Assert(pointsParentIntersect.Count() == 1);
@@ -697,7 +573,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             }
 
             //тут нужно почистить от дубликатов и отсортировать (при надобности)
-            if(crosses.Count > 0)
+            if (crosses.Count > 0)
             {
                 crosses = crosses.Distinct().ToList();
             }
@@ -708,6 +584,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
 
             var position = new EdgePosition()
             {
+                SourceID = edgeID,
                 Crosses = crosses,
                 Mode = mode
             };
@@ -717,6 +594,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
 
         public static IEnumerable<int> SeparateEdgeFromEdgePosition(
             IntersectContour target,
+            IntersectContour left,
             IntersectContour right,
             EdgePosition edgePosition,
             int indexA,
@@ -733,7 +611,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     },
                 };
                 target.Edges.Add(newEdge);
-                return new List<int> { newEdge.ID};
+                return new List<int> { newEdge.ID };
             }
             var newEdges = new List<int>();
             var pointComparer = new Vector2dEqualityComparer();
@@ -784,7 +662,9 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
             //сортируем точки и выделяем сегменты
             var sortedPoints = Geometry2DHelper.SortPointsOnEdge(pointA, pointB, uniquePointsDict);
             var previewsPointId = indexA;
-            for(int i = 0; i < sortedPoints.Count + 1; ++i)
+            var sourceEdge = left.Edges[edgePosition.SourceID];
+            var sourceMode = sourceEdge.Position?.Mode ?? ShortEdgePositionMode.Undefined;
+            for (int i = 0; i < sortedPoints.Count + 1; ++i)
             {
                 int currentPointId = -1;
                 if (i == sortedPoints.Count)
@@ -795,7 +675,7 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                 {
                     Position = new ShortEdgePosition()
                     {
-                        Mode = ShortEdgePositionMode.Undefined
+                        Mode = sourceMode
                     },
                 };
                 target.Edges.Add(newEdge);
@@ -862,8 +742,8 @@ namespace MeshSimplificationTest.SBRep.SBRepOperations
                     builder.AppendLine(point.ToString());
                 }
             }
-                
-            if(Edges.Count > 0)
+
+            if (Edges.Count > 0)
             {
                 builder.AppendLine("По граням:");
                 foreach (var edge in Edges)

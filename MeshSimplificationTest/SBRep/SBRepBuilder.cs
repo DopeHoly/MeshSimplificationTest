@@ -1,4 +1,5 @@
 ﻿using g3;
+using MeshSimplificationTest.SBRep.Utils;
 using Microsoft.SqlServer.Server;
 using System;
 using System.Collections.Generic;
@@ -14,273 +15,28 @@ using System.Windows.Controls;
 
 namespace MeshSimplificationTest.SBRep
 {
+    public class LoopEdge : IIndexed
+    {
+        public int ID { get; set; } = -1;
+        public ICollection<int> edgeIDs;
+        //набор индексов соседних граней объекта TriPlanarGroup
+        public Index2i neigbor { get; set; }
+
+        public LoopEdge()
+        {
+            edgeIDs = new List<int>();
+        }
+        public LoopEdge(ICollection<int> edgeIDs, Index2i neigbor)
+        {
+            this.neigbor = neigbor;
+            this.edgeIDs = edgeIDs;
+
+        }
+    }
+
     public static class SBRepBuilder
     {
-        public const double EPS_PointOnPlane = 1e-3;
         public const double EPS_NormalCompare = 1e-4;
-        //private const double EPS_PointOnPlane = 1e-9;
-        //private const double EPS_NormalCompare = 1e-8;
-
-        /// <summary>
-        /// Представляет функцию вида Ax + By + Cz + D = 0
-        /// </summary>
-        public struct PlaneFace
-        {
-            public double A, B, C, D;
-            public Vector3d Normal;
-
-            /// <summary>
-            /// расстояние от точки до плоскости
-            /// https://ru.onlinemschool.com/math/library/analytic_geometry/p_plane/#:~:text=Расстояние%20от%20точки%20до%20плоскости%20—%20равно%20длине%20перпендикуляра,опущенного%20из%20точки%20на%20плоскость.
-            /// </summary>
-            /// <param name="point"></param>
-            /// <returns></returns>
-            public double Distance(Vector3d point)
-            {
-                var dividend = Math.Abs(A * point.x + B * point.y + C * point.z + D);
-                var devider = Math.Sqrt(A * A + B * B + C * C);
-                return dividend / devider;
-            }
-
-            /// <summary>
-            /// Точка на плоскости
-            /// </summary>
-            /// <param name="point"></param>
-            /// <returns></returns>
-            public bool PointOnPlane(Vector3d point)
-            {
-                return Distance(point) < EPS_PointOnPlane;
-            }
-
-            public double GetZ(double x, double y)
-            {
-                return (-A * x - B * y - D) / C;
-            }
-
-            /// <summary>
-            /// Создаёт уравнение плоскости по трём точкам
-            /// http://algolist.ru/maths/geom/equation/plane.php
-            /// </summary>
-            /// <param name="p1"></param>
-            /// <param name="p2"></param>
-            /// <param name="p3"></param>
-            /// <param name="normal"></param>
-            /// <returns></returns>
-            public static PlaneFace FromPoints(
-                Vector3d p1,
-                Vector3d p2,
-                Vector3d p3,
-                Vector3d normal)
-            {
-                double a, b,c, d;
-                a = p1.y * (p2.z - p3.z) + p2.y * (p3.z - p1.z) + p3.y * (p1.z - p2.z);
-                b = p1.z * (p2.x - p3.x) + p2.z * (p3.x - p1.x) + p3.z * (p1.x - p2.x);
-                c = p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y);
-                d = (p1.x * (p2.y * p3.z - p3.y * p2.z) + p2.x * (p3.y * p1.z - p1.y * p3.z) + p3.x * (p1.y * p2.z - p2.y * p1.z)) * -1.0;
-
-                return new PlaneFace()
-                {
-                    A = a,
-                    B = b,
-                    C = c,
-                    D = d,
-                    Normal = normal
-                };
-            }
-
-            public override string ToString()
-            {
-                var signA = Math.Sign(A) >= 0 ? "" : "-";
-                var signB = Math.Sign(B) >= 0 ? "+" : "-";
-                var signC = Math.Sign(C) >= 0 ? "+" : "-";
-                var signD = Math.Sign(D) >= 0 ? "+" : "-";
-                var strA = Math.Round(Math.Abs(A), 2).ToString();
-                var strB = Math.Round(Math.Abs(B), 2).ToString();
-                var strC = Math.Round(Math.Abs(C), 2).ToString();
-                var strD = Math.Round(Math.Abs(D), 2).ToString();
-                return $"{signA} {strA}x {signB} {strB}y {signC} {strC}z {signD} {strD} = 0";
-            }
-        }
-
-        /// <summary>
-        /// Представляет собой группу треугольников из mesh
-        /// Все треугольники должны лежать в одной плоскости
-        /// </summary>
-        public class TriPlanarGroup : IIndexed
-        {
-            public int ID { get; set; } = -1;
-            public DMesh3 mesh;
-            public Vector3d Normal;
-            public int GroupId { get; set; } = -1;
-            public List<int> TriangleIDs = new List<int>();
-
-            public TriPlanarGroup(DMesh3 mesh)
-            {
-                this.mesh = mesh;
-            }
-
-            public PlaneFace GetPlane()
-            {
-                var fTID = TriangleIDs.First();
-                Vector3d v0 = Vector3d.Zero;
-                Vector3d v1 = Vector3d.Zero;
-                Vector3d v2 = Vector3d.Zero;
-                mesh.GetTriVertices(fTID, ref v0, ref v1, ref v2);
-                var plane = PlaneFace.FromPoints(v0, v1, v2, Normal);
-                return plane;
-            }
-
-            /// <summary>
-            /// Вычисляет список граничных отрезков данной плоскости
-            /// </summary>
-            /// <returns>Список индексов edge из mesh</returns>
-            public List<int> GetBoundaryEdges()
-            {
-                var bondaryEdgeIDs = new List<int>();
-                foreach (var tid in TriangleIDs)
-                {
-                    var edges = mesh.GetTriEdges(tid);
-
-                    for(int i = 0; i <= 2; ++i)
-                    {
-                        var currentEdgeID = edges[i];
-                        var tries = mesh.GetEdgeT(currentEdgeID);
-                        var neigborTri = tries.a == tid ? tries.b : tries.a;
-
-                        if (!TriangleIDs.Contains(neigborTri))
-                        {
-                            bondaryEdgeIDs.Add(currentEdgeID);
-                        }
-                    }
-                }
-
-                //var result = new List<List<int>>();
-                //result.Add(bondaryEdgeIDs);
-                return bondaryEdgeIDs;
-            }
-
-            /// <summary>
-            /// Проверяет, все ли точки данной плоскости лежат на одной плоскости
-            /// с погрешностью EPS_PointOnPlane = 1e-3
-            /// </summary>
-            /// <returns></returns>
-            public bool IsValid()
-            {
-                if (TriangleIDs == null || TriangleIDs.Count < 1) return false;
-                var plane = GetPlane();
-                Vector3d v0 = Vector3d.Zero;
-                Vector3d v1 = Vector3d.Zero;
-                Vector3d v2 = Vector3d.Zero;
-                foreach (var tid in TriangleIDs)
-                {
-                    mesh.GetTriVertices(tid, ref v0, ref v1, ref v2);
-                    var result =
-                        plane.PointOnPlane(v0) &&
-                        plane.PointOnPlane(v1) &&
-                        plane.PointOnPlane(v2);
-                    if(!result) return false;
-                }
-
-                return true;
-            }
-
-            /// <summary>
-            /// Возвращает петли
-            /// </summary>
-            /// <returns>MeshRegionBoundaryLoops - класс из g3 либы, я не совсем уверен, что он в 100 прцентах случаев делает то, что нужно</returns>
-            public IEnumerable<IEnumerable<int>> GetLoops()
-            {
-                MeshRegionBoundaryLoops loops = new MeshRegionBoundaryLoops(mesh, TriangleIDs.ToArray());
-#if DEBUG
-                var edges = GetBoundaryEdges();
-                foreach (var loop in loops)
-                {
-                    if (!loop.Edges.All(x => edges.Contains(x)))
-                        throw new Exception();
-                }
-#endif
-                var result = new List<IEnumerable<int>>();
-                foreach (var loop in loops)
-                {
-                    result.Add(loop.Edges);
-                }
-                return result;                
-            }
-
-            private int GetVertexNeigborIdByEdge(int vid, int eid)
-            {
-                var edgePoints = mesh.GetEdgeV(eid);
-                if (edgePoints.a == vid || edgePoints.b == vid)
-                    return edgePoints.a == vid ? edgePoints.b : edgePoints.a;
-                throw new Exception($"Ребро {eid} не содержит {vid}");
-            }
-            public IEnumerable<IEnumerable<int>> GetLoops2()
-            {
-                var edgesIDs = GetBoundaryEdges();
-                //проверяем критерий обходимости
-                var edges = edgesIDs.Select(eid => mesh.GetEdgeV(eid)).ToList();
-                var verticesIds = edges.SelectMany(edge =>
-                    new int[2] { edge.a, edge.b }
-                    )
-                    .Distinct()
-                    .ToList();
-                var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
-                foreach (var vid in verticesIds)
-                {
-                    var parents = mesh.VtxEdgesItr(vid).Intersect(edgesIDs);
-                    if (parents.Count() % 2 == 1)
-                        throw new Exception("Невозможно обойти граф");
-                    vertParentsDict.Add(vid, parents);
-                }
-                var bypassEdges = new List<int>(edgesIDs);
-                var loops = new List<IEnumerable<int>>();
-                var verticesQueue = new Queue<int>();
-                List<int> currentLoopEdges = null;
-                while (verticesQueue.Count > 0 ||
-                    verticesIds.Count > 0)
-                {
-                    if (verticesQueue.Count < 1)
-                    {
-                        currentLoopEdges = new List<int>();
-                        loops.Add(currentLoopEdges);
-                        var tempTID = verticesIds.First();
-                        verticesIds.RemoveAt(0);
-                        verticesQueue.Enqueue(tempTID);
-                    }
-                    var vid = verticesQueue.Dequeue();
-                    var parents = vertParentsDict[vid];
-                    if (parents.Count() == 2)
-                    {
-                        var parent0 = parents.ElementAt(0);
-                        var parent1 = parents.ElementAt(1);
-                        var vtx0 = GetVertexNeigborIdByEdge(vid, parent0);
-                        var vtx1 = GetVertexNeigborIdByEdge(vid, parent1);
-                        if (bypassEdges.Contains(parent0))
-                        {
-                            currentLoopEdges.Add(parent0);
-                            bypassEdges.Remove(parent0);
-                            if (verticesIds.Contains(vtx0))
-                            {
-                                verticesQueue.Enqueue(vtx0);
-                                verticesIds.Remove(vtx0);
-                            }
-                        }
-                        if (bypassEdges.Contains(parent1))
-                        {
-                            currentLoopEdges.Add(parent1);
-                            bypassEdges.Remove(parent1);
-                            if (verticesIds.Contains(vtx1))
-                            {
-                                verticesQueue.Enqueue(vtx1);
-                                verticesIds.Remove(vtx1);
-                            }
-                        }
-                    }
-                }
-                return loops;
-            }
-        }
-
         /// <summary>
         /// Функция проверки равнозначности векторов
         /// Проверяет с погрешностью EPS_NormalCompare
@@ -299,7 +55,7 @@ namespace MeshSimplificationTest.SBRep
 
         private static int VectorHashCodeNDigit(Vector3d vector, int digits)
         {
-            int hCode = 
+            int hCode =
                 Math.Round(vector.x, digits).GetHashCode() ^
                 Math.Round(vector.y, digits).GetHashCode() ^
                 Math.Round(vector.z, digits).GetHashCode();
@@ -339,7 +95,7 @@ namespace MeshSimplificationTest.SBRep
         /// <param name="normalGroupedTIDs"></param>
         /// <returns></returns>
         public static IEnumerable<TriPlanarGroup> SeparateByMergedTri(
-            DMesh3 mesh, 
+            DMesh3 mesh,
             Dictionary<Vector3d, List<int>> normalGroupedTIDs)
         {
             var facesTriGroup = new IndexedCollection<TriPlanarGroup>();
@@ -484,7 +240,7 @@ namespace MeshSimplificationTest.SBRep
                 while (edgeQueue.Count > 0 ||
                        edges.Count() > 0)
                 {
-                    if(edgeQueue.Count < 1)
+                    if (edgeQueue.Count < 1)
                     {
                         currentLE = new LoopEdge()
                         {
@@ -513,7 +269,7 @@ namespace MeshSimplificationTest.SBRep
                             edgeVtx.a == edgeV.b ||
                             edgeVtx.b == edgeV.b;
                     }).ToList();
-                    if(neighbours.Count > 2)
+                    if (neighbours.Count > 2)
                     {
                         continue;
                     }
@@ -605,7 +361,7 @@ namespace MeshSimplificationTest.SBRep
         {
             id = -1;
 
-            foreach(var loop in loops)
+            foreach (var loop in loops)
             {
                 if (loop.Verges.Count != newLoop.Verges.Count)
                     continue;
@@ -793,7 +549,7 @@ namespace MeshSimplificationTest.SBRep
             //Собираем петли
             var loops = BuildLoops(planarGroups, loopparts);
             //Собираем плоскости
-            var faces = BuildFaces(planarGroups,loops.Item2);
+            var faces = BuildFaces(planarGroups, loops.Item2);
 
             var sbRepObject = new SBRepObject();
 
@@ -825,7 +581,7 @@ namespace MeshSimplificationTest.SBRep
                     Verges = loop.Verges
                 });
 
-            foreach (var face in faces) 
+            foreach (var face in faces)
                 sbRepObject.Faces.Add(new SBRep_Face()
                 {
                     ID = face.ID,

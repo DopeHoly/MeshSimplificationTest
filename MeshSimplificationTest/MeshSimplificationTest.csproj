@@ -105,14 +105,18 @@
       <DependentUpon>SBRepView.xaml</DependentUpon>
     </Compile>
     <Compile Include="SBRepVM\SBRepViewModel.cs" />
-    <Compile Include="SBRep\ContourBoolean2DSolver.cs" />
-    <Compile Include="SBRep\Primitives.cs" />
+    <Compile Include="SBRep\SBRep_Primitives.cs" />
     <Compile Include="SBRep\SBRepBuilder.cs" />
     <Compile Include="SBRep\SBRepObject.cs" />
     <Compile Include="SBRep\SBRepOperations.cs" />
-    <Compile Include="SBRep\SBRepOperations\IntersectContour.cs" />
     <Compile Include="SBRep\SBRepToMeshBuilder.cs" />
-    <Compile Include="SBRep\Triangulation\TriangulationCaller.cs" />
+    <Compile Include="SBRep\Utils\Geometry2DHelper.cs" />
+    <Compile Include="SBRep\Utils\IndexedCollection.cs" />
+    <Compile Include="SBRep\Utils\IntersectContour.cs" />
+    <Compile Include="SBRep\Utils\PlaneFace.cs" />
+    <Compile Include="SBRep\Utils\PositionClasses.cs" />
+    <Compile Include="SBRep\Utils\TriangulationCaller.cs" />
+    <Compile Include="SBRep\Utils\TriPlanarGroup.cs" />
     <Compile Include="TrulyObservableCollection.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

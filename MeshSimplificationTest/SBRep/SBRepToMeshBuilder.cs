@@ -1,6 +1,6 @@
 ﻿using g3;
 using HelixToolkit.Logger;
-using MeshSimplificationTest.SBRep.Triangulation;
+using MeshSimplificationTest.SBRep.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,7 +42,7 @@ namespace MeshSimplificationTest.SBRep
                 var v2 = vertices.ElementAt(vertex.b);
                 var v3 = vertices.ElementAt(vertex.c);
                 var normalCalc = MathUtil.Normal(v, v2, v3);
-                if(Math.Sign(normal.x) != Math.Sign(normalCalc.x) ||
+                if (Math.Sign(normal.x) != Math.Sign(normalCalc.x) ||
                     Math.Sign(normal.y) != Math.Sign(normalCalc.y) ||
                     Math.Sign(normal.z) != Math.Sign(normalCalc.z))
                 {
@@ -77,7 +77,7 @@ namespace MeshSimplificationTest.SBRep
         }
 
         public static Tuple<Matrix3d, Matrix3d, Vector3d> CalculateTransform(
-            IEnumerable<Vector3d> contour, 
+            IEnumerable<Vector3d> contour,
             Vector3d normal)
         {
             var pointOnVector = contour.First();
@@ -131,7 +131,7 @@ namespace MeshSimplificationTest.SBRep
         }
 
         public static Tuple<IEnumerable<Vector2d>, IEnumerable<Index3i>> Triangulate(
-            IEnumerable<Vector2d> vertices, 
+            IEnumerable<Vector2d> vertices,
             IEnumerable<Index2i> edges)
         {
             IEnumerable<g3.Vector2d> triVertices = null;
@@ -199,7 +199,7 @@ namespace MeshSimplificationTest.SBRep
 
 
         private static Tuple<IEnumerable<Vector3d>, IEnumerable<Index2i>> GetVtxAndEdgesFromFace(
-            SBRepObject sBRepObject, 
+            SBRepObject sBRepObject,
             int faceid)
         {
             var face = sBRepObject.Faces[faceid];
@@ -219,7 +219,7 @@ namespace MeshSimplificationTest.SBRep
             //тут edge должны ссылаться на массив vertices по индексу, а тут это не так, так что тут нужна переиндексация
             var vtxIndexes = new Dictionary<int, int>();
             var index = 0;
-            foreach(var vid in vertexIds)
+            foreach (var vid in vertexIds)
             {
                 vtxIndexes.Add(vid, index);
                 ++index;
@@ -284,7 +284,7 @@ namespace MeshSimplificationTest.SBRep
 
             var indexedTriangles = resultMeshData.Item2.Select(triData => triData.vertex).ToList();
             var faces = resultMeshData.Item2.Select(triData => triData.GroupID).ToList();
-            var normals = resultMeshData.Item2.Select(triData =>new Vector3f(triData.normal)).ToList();
+            var normals = resultMeshData.Item2.Select(triData => new Vector3f(triData.normal)).ToList();
 
             var mesh = DMesh3Builder.Build<Vector3d, Index3i, Vector3f>(
                 meshVertices,

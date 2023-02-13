@@ -19,8 +19,8 @@ using System.Windows.Markup;
 using MeshSimplificationTest.SBRep;
 using static MeshSimplificationTest.SBRep.SBRepBuilder;
 using System.Collections.ObjectModel;
-using MeshSimplificationTest.SBRep.Triangulation;
 using System.Xml.Serialization;
+using MeshSimplificationTest.SBRep.Utils;
 
 namespace MeshSimplificationTest.SBRepVM
 {
@@ -59,6 +59,47 @@ namespace MeshSimplificationTest.SBRepVM
         }
     }
 
+    public class ContourVM
+    {
+        public string Name { get; set; }
+        public List<Vector2d> Value { get; set; }
+
+        public static ContourVM GetFromText(string path)
+        {
+            if (!File.Exists(path)) return null;
+            var fi = new FileInfo(path);
+            if (fi.Extension != ".cnt")
+                return null;
+
+            return new ContourVM()
+            {
+                Name = fi.Name,
+                Value = LoadContour(path)
+            };
+        }
+        private static void SaveContour(string path, List<Vector2d> contour)
+        {
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
+            var dict = new FileInfo(path);
+            if (!dict.Directory.Exists) dict.Directory.Create();
+            using (StreamWriter writer = new StreamWriter(path, false))
+            {
+                xmlSerializer.Serialize(writer, contour);
+            }
+
+        }
+        private static List<Vector2d> LoadContour(string path)
+        {
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
+            List<Vector2d> result = null;
+            using (var reader = new StreamReader(path))
+            {
+                result = xmlSerializer.Deserialize(reader) as List<Vector2d>;
+            }
+            return result;
+        }
+    }
+
     public class BaseViewModel: INotifyPropertyChanged
     {
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
@@ -86,20 +127,22 @@ namespace MeshSimplificationTest.SBRepVM
         public double YOffset { get; set; }
 
         public List<Vector2d> Contour;
+        public ObservableCollection<ContourVM> Contours { get; set; }
 
         public SBRepModel()
         {
             ModelsVM = new ObservableCollection<Model3DLayerVM>();
-            var contour = LoadContour("D:\\ContourProjection\\contour + 5d7fb584-f43b-4ece-b258-c0cb252f01e9.cnt");
-            //var contour = new List<Vector2d>();
-            ////дефолтный тестовый контур
-            //contour.Add(new Vector2d(0, 0));
-            //contour.Add(new Vector2d(0, 5));
-            //contour.Add(new Vector2d(4, 2));
-            //contour.Add(new Vector2d(4, 0));
-            //contour.Add(new Vector2d(3, -1));
-            //contour.Add(new Vector2d(2, 1));
-            //contour.Add(new Vector2d(1, 1));
+            Contours = new ObservableCollection<ContourVM>();
+            //var contour = LoadContour("D:\\ContourProjection\\contour + 5d7fb584-f43b-4ece-b258-c0cb252f01e9.cnt");
+            var contour = new List<Vector2d>();
+            //дефолтный тестовый контур
+            contour.Add(new Vector2d(0, 0));
+            contour.Add(new Vector2d(0, 5));
+            contour.Add(new Vector2d(4, 2));
+            contour.Add(new Vector2d(4, 0));
+            contour.Add(new Vector2d(3, -1));
+            contour.Add(new Vector2d(2, 1));
+            contour.Add(new Vector2d(1, 1));
 
             //болшой контур покрытия
             //contour.Add(new Vector2d(0, 0));
@@ -124,27 +167,6 @@ namespace MeshSimplificationTest.SBRepVM
 
             Contour = contour;
         }
-        private static void SaveContour(string path, List<Vector2d> contour)
-        {
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
-            var dict = new FileInfo(path);
-            if (!dict.Directory.Exists) dict.Directory.Create();
-            using (StreamWriter writer = new StreamWriter(path, false))
-            {
-                xmlSerializer.Serialize(writer, contour);
-            }
-
-        }
-        private static List<Vector2d> LoadContour(string path)
-        {
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
-            List<Vector2d> result = null;
-            using (var reader = new StreamReader(path))
-            {
-                result = xmlSerializer.Deserialize(reader) as List<Vector2d>;
-            }
-            return result;
-        }
 
         public DMesh3 SourceModel => _sourceModel;
 
@@ -167,10 +189,6 @@ namespace MeshSimplificationTest.SBRepVM
         {
             _sourceModel = model;
 
-            //var vtx = _sourceModel.GetVertex(8139);
-            //vtx.z += 0.5;
-            //SourceModel.SetVertex(8139, vtx);
-
             ModelsVM.Clear();
 
             ModelsVM.Add(new Model3DLayerVM(this)
@@ -179,23 +197,64 @@ namespace MeshSimplificationTest.SBRepVM
                 Model = ConvertToModel3D(SourceModel),
             });
 
-            var contour = Contour;
+            //var contour = Contour;
 
-            var contour1 = new List<Vector2d>();
-            contour1.Add(new Vector2d(1, 1));
-            contour1.Add(new Vector2d(1, 3));
-            contour1.Add(new Vector2d(3, 2));
+            //var contour1 = new List<Vector2d>();
+            //contour1.Add(new Vector2d(1, 1));
+            //contour1.Add(new Vector2d(1, 3));
+            //contour1.Add(new Vector2d(3, 2));
 
-            var contour2 = new List<Vector2d>();
-            contour2.Add(new Vector2d(3, 1));
-            contour2.Add(new Vector2d(3, 3));
-            contour2.Add(new Vector2d(1, 2));
+            //var contour2 = new List<Vector2d>();
+            //contour2.Add(new Vector2d(3, 1));
+            //contour2.Add(new Vector2d(3, 3));
+            //contour2.Add(new Vector2d(1, 2));
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             var sbrep = SBRepBuilder.Convert(model);
-            var projectionObject = sbrep.ContourProjection(contour1, true);
+            SBRepObject projectionObject = new SBRepObject(sbrep);
+            foreach (var contour in Contours)
+            {
+                var debugProjection = projectionObject.DebugContourProjection(contour.Value, true);
 
-            projectionObject = projectionObject.ContourProjection(contour2, true);
+                foreach (var deb in debugProjection)
+                {
+                    ModelsVM.Add(new Model3DLayerVM(this)
+                    {
+                        Name = "Грани проекции по контуру " + contour.Name,
+                        Model = GenerateModelFormSBRepObjectEdges(deb),
+                    });
+                    //try
+                    //{
+                    //    projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
+                    //    ModelsVM.Add(new Model3DLayerVM(this)
+                    //    {
+                    //        Name = "debug объект c проекцией " + contour.Name,
+                    //        Model = ConvertToModel3D(projectionObjectMesh),
+                    //    });
+                    //}
+                    //catch {; }
+                }
+
+
+                //if (contour == Contours.Last()) continue;
+                try
+                {
+
+                    projectionObject = projectionObject.ContourProjection(contour.Value, true);
+                    projectionObjectMesh = SBRepToMeshBuilder.Convert(projectionObject);
+                    ModelsVM.Add(new Model3DLayerVM(this)
+                    {
+                        Name = "Триангулированный объект c проекцией " + contour.Name,
+                        Model = ConvertToModel3D(projectionObjectMesh),
+                    });
+                }
+                catch (Exception ex)
+                {
+                    ;
+                }
+            }
+
+            //projectionObject = projectionObject.ContourProjection(contour2, true);
 
             var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
             ModelsVM.Add(new Model3DLayerVM(this)
@@ -243,17 +302,16 @@ namespace MeshSimplificationTest.SBRepVM
                 Name = "Грани проекции",
                 Model = GenerateModelFormSBRepObjectEdges(projectionObject)
             });
-            ModelsVM.Add(new Model3DLayerVM(this)
+            foreach (var contour in Contours)
             {
-                Name = "Контур проекции",
-                Model = GenerateModelFrom2dContour(contour, Colors.Green)
-            });
-            projectionObjectMesh = SBRepToMeshBuilder.Convert(projectionObject);
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Триангулированный объект c проекцией",
-                Model = ConvertToModel3D(projectionObjectMesh),
-            });
+
+                ModelsVM.Add(new Model3DLayerVM(this)
+                {
+                    Name = "Контур проекции: " + contour.Name,
+                    Model = GenerateModelFrom2dContour(contour.Value, Colors.Green)
+                });
+            }
+            
             OnPropertyChanged(nameof(MainMesh)); 
             OnPropertyChanged(nameof(ModelsVM));
             OnPropertyChanged(nameof(MeshValid));
@@ -261,6 +319,20 @@ namespace MeshSimplificationTest.SBRepVM
 
         public void LoadModel(string path)
         {
+            var fi = new FileInfo(path);
+            if (!fi.Exists) return;
+            var parentDir = fi.Directory;
+            var contoursFiles = parentDir.GetFiles("*.cnt");
+
+            Contours.Clear();
+            foreach (var file in contoursFiles)
+            {
+                var contour = ContourVM.GetFromText(file.FullName);
+                if (contour == null) continue;
+                Contours.Add(contour);
+            }
+            
+
             SetModel(StandardMeshReader.ReadMesh(path));
         }
 
@@ -592,11 +664,15 @@ namespace MeshSimplificationTest.SBRepVM
             var theta = 4;
             var rad = diameterScale * 1.3 * 0.01;
             var phi = 4;
-            var builder = new MeshBuilder(true, true);
             var points = new List<Point3D>();
-            var edges = new List<int>();
+            var edges = new List<int>(); 
+            Model3DGroup group = new Model3DGroup();
+            var edgesColorized = new Dictionary<Color, List<int>>();
             foreach (var eid in edgesIDs)
             {
+                var curentColor = mesh.Edges[eid].Color;
+                if (!edgesColorized.ContainsKey(mesh.Edges[eid].Color))
+                    edgesColorized.Add(mesh.Edges[eid].Color, new List<int>());
                 var idx = mesh.Edges[eid].Vertices;
                 var a = mesh.GetVertex(idx.a);
                 var b = mesh.GetVertex(idx.b);
@@ -610,17 +686,31 @@ namespace MeshSimplificationTest.SBRepVM
                 {
                     points.Add(bd);
                 }
-                edges.Add(points.FindIndex(x => x.Equals(ad)));
-                edges.Add(points.FindIndex(x => x.Equals(bd)));
+                edgesColorized[curentColor].Add(points.FindIndex(x => x.Equals(ad)));
+                edgesColorized[curentColor].Add(points.FindIndex(x => x.Equals(bd)));
             }
-            builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
+
+            foreach (var colorEdges in edgesColorized)
+            {
+                var builderEdges = new MeshBuilder(true, true);
+                builderEdges.AddEdges(points, colorEdges.Value, 0.01 * diameterScale, theta);
+                group.Children.Add(new GeometryModel3D()
+                {
+                    Geometry = builderEdges.ToMesh(),
+                    Material = new DiffuseMaterial(new SolidColorBrush(colorEdges.Key))
+                });
+            }
+
+            var builder = new MeshBuilder(true, true);
+            //builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
             foreach (var point in points)
                 builder.AddEllipsoid(point, rad, rad, rad, theta, phi);
-            return new GeometryModel3D()
+            group.Children.Add(new GeometryModel3D()
             {
                 Geometry = builder.ToMesh(),
                 Material = new DiffuseMaterial(new SolidColorBrush(color))
-            };
+            });
+            return group;
         }
         #endregion
 

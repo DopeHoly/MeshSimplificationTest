@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfVector2d xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Vector2d>
+    <x>1.5</x>
+    <y>1.5</y>
+  </Vector2d>
+  <Vector2d>
+    <x>1.5</x>
+    <y>2.5</y>
+  </Vector2d>
+  <Vector2d>
+    <x>2.5</x>
+    <y>2.5</y>
+  </Vector2d>
+  <Vector2d>
+    <x>2.5</x>
+    <y>1.5</y>
+  </Vector2d>
+</ArrayOfVector2d>

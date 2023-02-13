@@ -1,6 +1,6 @@
 ﻿using g3;
 using HelixToolkit.Wpf;
-using MeshSimplificationTest.SBRep.SBRepOperations;
+using MeshSimplificationTest.SBRep.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +11,6 @@ using static MeshSimplificationTest.SBRep.SBRepBuilder;
 
 namespace MeshSimplificationTest.SBRep
 {
-
     public class SBRepObject
     {
         public IndexedCollection<SBRep_Vtx> Vertices { get; private set; }
@@ -63,9 +62,28 @@ namespace MeshSimplificationTest.SBRep
             }
             //TODO
         }
+        private static bool Vector3dEqual(Vector3d a, Vector3d b, double eps = 1e-8)
+        {
+            return Math.Abs(a.x - b.x) < eps &&
+                Math.Abs(a.y - b.y) < eps &&
+                Math.Abs(a.z - b.z) < eps;
+        }
+
+        public int FindVertex(Vector3d vertex)
+        {
+            foreach (var vtx in Vertices)
+            {
+                if (Vector3dEqual(vtx.Coordinate, vertex))
+                    return vtx.ID;
+            }
+            return -1;
+        }
 
         public int AddVertex(Vector3d vertex)
         {
+            var existVertexId = FindVertex(vertex);
+            if (existVertexId != -1)
+                return existVertexId;
             var newVertex = new SBRep_Vtx()
             {
                 Coordinate = vertex,
@@ -76,7 +94,7 @@ namespace MeshSimplificationTest.SBRep
 
         public int AddEdge(int indexA, int indexB, int parentVergeID = -1)
         {
-            if(!(Vertices.ContainsKey(indexA) && Vertices.ContainsKey(indexB))) return -1;
+            if (!(Vertices.ContainsKey(indexA) && Vertices.ContainsKey(indexB))) return -1;
             var newEdge = new SBRep_Edge()
             {
                 Vertices = new Index2i(indexA, indexB),
@@ -103,10 +121,37 @@ namespace MeshSimplificationTest.SBRep
             }
             return newVerge.ID;
         }
+        private static bool LoopContains(IEnumerable<SBRep_Loop> loops, IEnumerable<int> edgeIDs, ref int id)
+        {
+            id = -1;
+
+            foreach (var loop in loops)
+            {
+                if (loop.Verges.Count != edgeIDs.Count())
+                    continue;
+                var edgesA = loop.Verges;
+                var edgesB = edgeIDs;
+                var identical = edgesA.All(x => edgesB.Contains(x));
+                if (identical)
+                {
+                    id = loop.ID;
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         public int AddLoop(IEnumerable<int> vergesIds)
         {
             if (!vergesIds.All(vergeid => Verges.ContainsKey(vergeid))) return -1;
+
+            var lid = -1;
+            if (LoopContains(Loops, vergesIds, ref lid))
+            {
+                return lid;
+            }
+
             var newLoop = new SBRep_Loop()
             {
                 Verges = new List<int>(vergesIds),
@@ -121,13 +166,13 @@ namespace MeshSimplificationTest.SBRep
 
         public int AddFace(int groupID, PlaneFace plane, Vector3d normal, int outsideLoopId, IEnumerable<int> insideLoopsIds = null)
         {
-            if(!Loops.ContainsKey(outsideLoopId)) return -1;
-            if(insideLoopsIds != null)
+            if (!Loops.ContainsKey(outsideLoopId)) return -1;
+            if (insideLoopsIds != null)
             {
                 if (!insideLoopsIds.All(lid => Loops.ContainsKey(lid))) return -1;
             }
             List<int> insideLoops = new List<int>();
-            if(insideLoopsIds != null)
+            if (insideLoopsIds != null)
                 insideLoops = new List<int>(insideLoopsIds);
 
             var newFace = new SBRep_Face()
@@ -162,7 +207,7 @@ namespace MeshSimplificationTest.SBRep
             var parentVerge = Verges[parent];
             parentVerge.Edges.Remove(edge.ID);
             //if (parentVerge.Edges.Count == 0)//TODO
-                //RemoveVerge(parent);
+            //RemoveVerge(parent);
             Edges.Remove(edge);
         }
 
@@ -177,7 +222,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 Loops[lid].Verges.Remove(vergeId);
                 //if (Loops[lid].Verges.Count == 0)//TODO
-                    //RemoveLoops(lid);
+                //RemoveLoops(lid);
             }
             Verges.Remove(verge);
         }
@@ -199,9 +244,9 @@ namespace MeshSimplificationTest.SBRep
         /// <param name="eid">индекс грани</param>
         /// <param name="vertices">список точек с индексами</param>
         /// <returns>словарь (старый индекс вершины, новый индекс вершины)</returns>
-        public Tuple<Dictionary<int,int>, IEnumerable<int>> AddPointsOnEdge(int eid, IEnumerable<IIndexedVector3d> vertices)
+        public Tuple<Dictionary<int, int>, IEnumerable<int>> AddPointsOnEdge(int eid, IEnumerable<IIndexedVector3d> vertices)
         {
-            if(!Edges.ContainsKey(eid)) return null;
+            if (!Edges.ContainsKey(eid)) return null;
             var edge = Edges[eid];
             var parent = edge.Parent;
             var parentVerge = Verges[parent];
@@ -237,7 +282,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 parentVerge.Edges.Add(addedEdge);
             }
-            return new Tuple<Dictionary<int, int>, IEnumerable<int>> (pointsIndexesDictionary, edges);
+            return new Tuple<Dictionary<int, int>, IEnumerable<int>>(pointsIndexesDictionary, edges);
         }
 
         /// <summary>
@@ -263,7 +308,7 @@ namespace MeshSimplificationTest.SBRep
                     foreach (var lid in face.InsideLoops)
                     {
                         var area = GetLoopArea(lid);
-                        if(area > maxArea)
+                        if (area > maxArea)
                         {
                             maxArea = area;
                             maxIndex = lid;
@@ -271,7 +316,7 @@ namespace MeshSimplificationTest.SBRep
                     }
                     face.OutsideLoop = maxIndex;
                     face.InsideLoops.Remove(maxIndex);
-                }                   
+                }
             }
         }
 
@@ -416,7 +461,7 @@ namespace MeshSimplificationTest.SBRep
         public IEnumerable<int> GetEdgesFromFaces(IEnumerable<int> faces)
         {
             return faces.SelectMany(faceID => GetEdgesFromFaceId(faceID))
-                .Distinct() 
+                .Distinct()
                 .ToList();
         }
 
@@ -445,10 +490,10 @@ namespace MeshSimplificationTest.SBRep
         /// <exception cref="Exception"></exception>
         public int GetVertexNeigborIdByEdge(int vid, int eid)
         {
-            if(!Edges.ContainsKey(eid))
+            if (!Edges.ContainsKey(eid))
                 throw new Exception($"Нет ребра с ID {eid}");
             var edgePoints = Edges[eid].Vertices;
-            if(edgePoints.a == vid || edgePoints.b == vid)
+            if (edgePoints.a == vid || edgePoints.b == vid)
                 return edgePoints.a == vid ? edgePoints.b : edgePoints.a;
             throw new Exception($"Ребро {eid} не содержит {vid}");
         }
@@ -457,8 +502,8 @@ namespace MeshSimplificationTest.SBRep
         {
             //проверяем критерий обходимости
             var edges = edgesIDs.Select(eid => obj.Edges[eid]).ToList();
-            var verticesIds = edges.SelectMany(edge => 
-                new int [2]{ edge.Vertices.a,edge.Vertices.b}
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
                 )
                 .Distinct()
                 .ToList();
@@ -475,7 +520,7 @@ namespace MeshSimplificationTest.SBRep
             var loops = new List<IEnumerable<int>>();
             var verticesQueue = new Queue<int>();
             List<int> currentLoopEdges = null;
-            while(verticesQueue.Count > 0 ||
+            while (verticesQueue.Count > 0 ||
                 verticesIds.Count > 0)
             {
                 if (verticesQueue.Count < 1)
@@ -672,7 +717,7 @@ namespace MeshSimplificationTest.SBRep
             rotateMtx.Children.Add(new RotateTransform3D(
                 new AxisAngleRotation3D(new Vector3D(0, 1, 0), angleX)));
 
-            var point3D = contourZero.Select(x => 
+            var point3D = contourZero.Select(x =>
             {
                 var vtx = rotateMtx.Transform(
                     new Vector3D(x.x, x.y, x.z)
