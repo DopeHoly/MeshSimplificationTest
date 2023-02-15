@@ -1,8 +1,8 @@
 ﻿using g3;
-using HelixToolkit.Wpf;
 using MeshSimplificationTest.SBRep.Utils;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -562,6 +562,108 @@ namespace MeshSimplificationTest.SBRep
                 }
             }
 
+            return loops;
+        }
+
+        public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdgesByAngle(SBRepObject obj, Dictionary<int, bool> edgesIDs)
+        {
+            //проверяем критерий обходимости
+            var edges = edgesIDs.Select(eid => obj.Edges[eid.Key]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => obj.Vertices[vid]).ToList();
+            var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
+            foreach (var vtx in vertices)
+            {
+                var parents = vtx.Parents.Intersect(edgesIDs.Keys);
+                if (parents.Count() % 2 == 1)
+                    throw new Exception("Невозможно обойти граф");
+                vertParentsDict.Add(vtx.ID, parents);
+            }
+            var bypassEdges = new List<int>(edgesIDs.Keys);
+            var loops = new List<IEnumerable<int>>();
+            //var verticesQueue = new Queue<int>();
+            int loopBeginVid = -1;
+            int currentVid = -1;
+            int nextVid = -1;
+            int lastEid = -1;
+            List<int> currentLoopEdges = null;
+            while (bypassEdges.Count != 0)
+            {
+                if (nextVid == -1)
+                {
+                    currentLoopEdges = new List<int>();
+                    loops.Add(currentLoopEdges);
+                    loopBeginVid = verticesIds.Where(
+                        vid => vertParentsDict[vid]
+                        .Where(x => bypassEdges.Contains(x))
+                        .Count() <= 2).First();
+
+                    verticesIds.Remove(loopBeginVid);
+                    currentVid = loopBeginVid;
+                }
+                else
+                    currentVid = nextVid;
+                var parents = vertParentsDict[currentVid]
+                    .Where(x => bypassEdges.Contains(x))
+                    .ToList();
+                if (parents.Count() > 2)
+                {
+                    var currentVtxCoord = obj.Vertices[currentVid].Coordinate;
+                    var currentEdgeSecondVtxId = obj.GetVertexNeigborIdByEdge(currentVid, lastEid);
+                    var mainEdgeVtxCoord = obj.Vertices[currentEdgeSecondVtxId].Coordinate;
+                    var lastVector = mainEdgeVtxCoord - currentVtxCoord;
+                    var parentsEid = parents.Where(x => edgesIDs[x] != edgesIDs[lastEid]).ToList();
+
+                    if(parentsEid.Count == 0)
+                    {
+                        parentsEid = parents;
+                    }
+                    Debug.Assert(parentsEid.Count() > 0);
+
+                    var parentsNextPoints = new Dictionary<int, Vector3d>();
+                    foreach (var eid in parentsEid)
+                    {
+                        var curentEdgeSecondCoord = obj.Vertices[obj.GetVertexNeigborIdByEdge(currentVid, eid)].Coordinate;
+                        parentsNextPoints.Add(eid, curentEdgeSecondCoord - currentVtxCoord);
+                    }
+                    var minAngle = double.MaxValue;
+                    var minEid = -1;
+                    foreach (var eidVector in parentsNextPoints)
+                    {
+                        //var angle = eidVector.Value.AngleD(lastVector);
+                        var eVector = eidVector.Value;
+                        var dot = eVector.Dot(lastVector) / (lastVector.Length * eVector.Length);
+                        var angle = Math.Acos(MathUtil.Clamp(dot, -1.0, 1.0)) * (180.0 / Math.PI);
+                        //if (lastVector.Cross(eVector).z < 0 )
+                        //{
+                        //    angle += 180;
+                        //}
+                        //TODO пересмотреть срочно
+                        if (minAngle > angle)
+                        {
+                            minAngle = angle;
+                            minEid = eidVector.Key;
+                        }
+                    }
+                    Debug.Assert(minEid != -1);
+                    Debug.Assert(minAngle != double.MaxValue);
+                    parents = new List<int>() { minEid };
+                }
+                if (parents.Count() <= 2)
+                {
+                    var parent = parents.First();
+                    nextVid = obj.GetVertexNeigborIdByEdge(currentVid, parent);
+                    currentLoopEdges.Add(parent);
+                    bypassEdges.Remove(parent);
+                    lastEid = parent;
+                }
+                if (nextVid == loopBeginVid)
+                    nextVid = -1;
+            }
             return loops;
         }
 

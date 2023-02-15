@@ -240,7 +240,8 @@ namespace MeshSimplificationTest.SBRep
             var newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
             //Собираем петли для старых граней
             var oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
-
+            Debug.Assert(newFacesLoops.All(x => x.Count() > 3));
+            Debug.Assert(oldFacesLoops.All(x => x.Count() > 3));
             //objString = sbrep.ToString();
             //Тут вычисляем, какие части петли нужно разделять на N частей
             //и составляем словарь какое ребро какой части петли соответствует
@@ -377,16 +378,14 @@ namespace MeshSimplificationTest.SBRep
             }
 
             //Обработка случая, когда попали проекцией полностью на контур, и ничего не задели
-            //если все грани внутри, но больше 1 точки касаются грани, то скипаем, иначе юзаем упрощённый алгоритм
-            //if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-            //    contour.Points.Where(
-            //        point => point.Position.Mode == PointPositionMode.OnEdge ||
-            //        point.Position.Mode == PointPositionMode.OnVertex)
-            //    .Count() < 2)
-            //{
-            //    AddContourOnFace(sbrep, faceID, contour, groupIDsDict, ref maxGroidID);
-            //    return;
-            //}
+            //если все грани внутри и все точки внутри, то юзаем упрощённый алгоритм
+            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
+                contour.Points.All(
+                    point => point.Position.Mode == PointPositionMode.InPlane))
+            {
+                AddContourOnFace(sbrep, faceID, contour, groupIDsDict, ref maxGroidID);
+                return;
+            }
 
             //если дошёл до этого места, то контур пересекается либо с внешней петлёй, либо со внутренними
 
@@ -431,12 +430,47 @@ namespace MeshSimplificationTest.SBRep
                 .Select(idPos => idPos.Key));
 
 
+            var oldFacesEdgesPriority = new Dictionary<int, bool>();
+
+            foreach (var edge in faceEdgesPosition
+                .Where(idPos => idPos.Value == false)
+                .Select(idPos => idPos.Key))
+            {
+                oldFacesEdgesPriority.Add(edge, false);
+            }
+            foreach (var edge in addedEdges
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key))
+            {
+                oldFacesEdgesPriority.Add(edge, true);
+            }
+
+            IEnumerable<IEnumerable<int>> newFacesLoops = null;
+            IEnumerable<IEnumerable<int>> oldFacesLoops = null;
 
             //Собираем петли для новых граней
-            var newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
-            //Собираем петли для старых граней
-            var oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
+            newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
 
+            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
+                contour.Points.Where(
+                    point => point.Position.Mode == PointPositionMode.OnEdge ||
+                    point.Position.Mode == PointPositionMode.OnVertex)
+                .Count() > 1)
+            {
+                //Собираем петли для старых граней
+                oldFacesLoops = SBRepObject.BuildLoopsFromEdgesByAngle(sbrep, oldFacesEdgesPriority);
+            }
+            else
+            {
+                
+                //Собираем петли для старых граней
+                oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
+            }
+
+               
+
+            Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
+            Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
             //objString = sbrep.ToString();
             //Тут вычисляем, какие части петли нужно разделять на N частей
             //и составляем словарь какое ребро какой части петли соответствует

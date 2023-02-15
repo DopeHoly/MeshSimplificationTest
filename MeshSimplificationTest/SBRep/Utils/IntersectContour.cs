@@ -5,11 +5,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static g3.DPolyLine2f;
 
 namespace MeshSimplificationTest.SBRep.Utils
 {
     public class Point : IIndexed
     {
+        public int SourceID { get; set; } = -1;
         public int ID { get; set; } = -1;
         public ICollection<int> Parents { get; set; }
 
@@ -49,6 +51,7 @@ namespace MeshSimplificationTest.SBRep.Utils
 
     public class Edge : IIndexed
     {
+        public int SourceID { get; set; } = -1;
         public int ID { get; set; } = -1;
         public Index2i Points { get; set; }
         public ShortEdgePosition Position;
@@ -262,6 +265,7 @@ namespace MeshSimplificationTest.SBRep.Utils
                 var newPoint = new Point(point.Coord)
                 {
                     Position = position,
+                    SourceID = point.ID,
                 };
                 intersect.Points.Add(newPoint);
                 var originalIndex = point.ID;
@@ -304,7 +308,39 @@ namespace MeshSimplificationTest.SBRep.Utils
 
         public static IntersectContour Difference(IntersectContour left, IntersectContour right)
         {
-            return Intersect(left, right, true);
+            var intersect = Intersect(left, right, false);
+            foreach (var point in intersect.Points)
+            {
+                if (point.Position.Mode == PointPositionMode.InPlane)
+                    point.Position.Mode = PointPositionMode.OutPlane;
+                else
+                {
+                    Debug.Assert(point.Position.Mode != PointPositionMode.Undefined);
+                    if(point.Position.Mode == PointPositionMode.OutPlane)
+                    {
+                        Debug.Assert(point.SourceID != -1);
+                        point.Position = new PointPosition(left.Points[point.SourceID].Position);
+                    }
+                }
+                    
+            }
+            foreach (var edge in intersect.Edges)
+            {
+                if(edge.Position.Mode == ShortEdgePositionMode.InPlane)
+                    edge.Position.Mode = ShortEdgePositionMode.OutPlane;
+                else
+                {
+                    Debug.Assert(edge.Position.Mode != ShortEdgePositionMode.Undefined);
+                    if(edge.Position.Mode == ShortEdgePositionMode.OutPlane)
+                    {
+                        Debug.Assert(edge.SourceID != -1);
+                        edge.Position = new ShortEdgePosition(left.Edges[edge.SourceID].Position);
+                    }
+                }
+            }
+
+            //return Intersect(left, right, true);
+            return intersect;
         }
 
         public static void ClassifyEdgePosition(IntersectContour intersect, IntersectContour right, IEnumerable<int> edges, double eps, bool revert = false)
@@ -605,6 +641,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             {
                 var newEdge = new Edge(indexA, indexB)
                 {
+                    SourceID = edgePosition.SourceID,
                     Position = new ShortEdgePosition()
                     {
                         Mode = ShortEdgePositionMode.Undefined
@@ -673,9 +710,10 @@ namespace MeshSimplificationTest.SBRep.Utils
                     currentPointId = pointsIndexesDictionary[sortedPoints.ElementAt(i).Key];
                 var newEdge = new Edge(previewsPointId, currentPointId)
                 {
+                    SourceID = edgePosition.SourceID,
                     Position = new ShortEdgePosition()
                     {
-                        Mode = sourceMode
+                        Mode = sourceMode,
                     },
                 };
                 target.Edges.Add(newEdge);
@@ -721,7 +759,15 @@ namespace MeshSimplificationTest.SBRep.Utils
                 var edgeB = edgesPoints.Item2.Coord;
                 var cross = Geometry2DHelper.EdgesInterposition(edgeA, edgeB, a, b, eps);
                 if (cross.Intersection != IntersectionVariants.NoIntersection)
+                {
+                    if(cross.IntersectionType == EdgeIntersectionType.Point)
+                    {
+                        if (Geometry2DHelper.EqualPoints(edgeA, cross.Point0) ||
+                            Geometry2DHelper.EqualPoints(edgeB, cross.Point0))
+                            continue;
+                    }
                     return null;
+                }
             }
             var center = (a + b) / 2.0;
             var centerPosition = CalcPointPosition(this, center, eps);

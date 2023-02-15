@@ -223,16 +223,16 @@ namespace MeshSimplificationTest.SBRepVM
                         Name = "Грани проекции по контуру " + contour.Name,
                         Model = GenerateModelFormSBRepObjectEdges(deb),
                     });
-                    //try
-                    //{
-                    //    projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
-                    //    ModelsVM.Add(new Model3DLayerVM(this)
-                    //    {
-                    //        Name = "debug объект c проекцией " + contour.Name,
-                    //        Model = ConvertToModel3D(projectionObjectMesh),
-                    //    });
-                    //}
-                    //catch {; }
+                    try
+                    {
+                        projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
+                        ModelsVM.Add(new Model3DLayerVM(this)
+                        {
+                            Name = "debug объект c проекцией " + contour.Name,
+                            Model = ConvertToModel3D(projectionObjectMesh),
+                        });
+                    }
+                    catch {; }
                 }
 
 

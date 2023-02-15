@@ -1,6 +1,7 @@
 ﻿using g3;
 using MeshSimplificationTest.SBRep;
-using MeshSimplificationTest.SBRep.SBRepOperations;
+using MeshSimplificationTest.SBRep.Utils;
+using MeshSimplificationTest.SBRepVM;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 
 namespace Tests
 {
@@ -150,7 +152,7 @@ namespace Tests
             contour.Add(new Vector2d(4, 4));
             contour.Add(new Vector2d(4, 0));
             var intersectContour = IntersectContour.FromPoints(contour);
-            var cross = IntersectContour.CalcEdgePositions(new Vector2d(3, 5), new Vector2d(5, 3), intersectContour, 1e-6);
+            var cross = IntersectContour.CalcEdgePositions(new Vector2d(3, 5), new Vector2d(5, 3), -1, intersectContour, 1e-6);
 
             Assert.AreEqual(EdgePositionMode.Cross, cross.Mode);
             Assert.AreEqual(1, cross.Crosses.Count());
@@ -274,6 +276,73 @@ namespace Tests
             var mesh = StandardMeshReader.ReadMesh(Sample_CubeImplicitOnSidePath);
             var sbRep = SBRepBuilder.Convert(mesh);
             sbRep.ContourProjection(contour, true);
+        }
+        private static List<Vector2d> LoadContour(string path)
+        {
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Vector2d>));
+            List<Vector2d> result = null;
+            using (var reader = new StreamReader(path))
+            {
+                result = xmlSerializer.Deserialize(reader) as List<Vector2d>;
+            }
+            return result;
+        }
+
+        private IEnumerable<List<Vector2d>> GetContours(string dir)
+        {
+            var contours = new List<List<Vector2d>>();
+
+            var dirInfo = new DirectoryInfo(dir);
+            var contoursFiles = dirInfo.GetFiles("*.cnt");
+            foreach (var file in contoursFiles)
+            {
+                var contour = LoadContour(file.FullName);
+                if (contour == null) continue;
+                contours.Add(contour);
+            }
+            return contours;
+        }
+
+        private DMesh3 GetMeshInDir(string dir)
+        {
+            var dirInfo = new DirectoryInfo(dir);
+            var files = dirInfo.GetFiles("*.obj");
+            return StandardMeshReader.ReadMesh(files.First().FullName);
+        }
+
+        [TestMethod]
+        public void ContourProjectionDDT()
+        {
+            var samplePath = SamplesPath + "ForUnitTests";
+            var sampleDir = new DirectoryInfo(samplePath);
+            var samplesPaths = sampleDir.GetDirectories().Select(x => x.FullName);
+            var failedTests = new List<string>();
+            foreach (var currentTestPath in samplesPaths)
+            {                
+                try
+                {
+                    var mesh = GetMeshInDir(currentTestPath);
+                    var sbRep = SBRepBuilder.Convert(mesh);
+                    foreach (var contour in GetContours(currentTestPath))
+                    {
+                        sbRep = sbRep.ContourProjection(contour, true);
+                    }
+                }
+                catch
+                {
+                    failedTests.Add(currentTestPath);
+                }
+            }
+           
+            if(failedTests.Count > 0)
+            {
+                Console.WriteLine("Завалившиеся тесты:");
+                foreach (var item in failedTests)
+                {
+                    Console.WriteLine($" - {item}");
+                }
+            }
+            Assert.IsTrue(failedTests.Count == 0);
         }
 
     }

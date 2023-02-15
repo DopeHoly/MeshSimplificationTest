@@ -5,6 +5,7 @@ using System.IO;
 using MeshSimplificationTest.SBRep;
 using System.Linq;
 using System.Collections.Generic;
+using MeshSimplificationTest.SBRep.Utils;
 
 namespace Tests
 {
@@ -45,7 +46,7 @@ namespace Tests
             Vector3d v0 = new Vector3d(1, -2, 0);
             Vector3d v1 = new Vector3d(2, 0, -1);
             Vector3d v2 = new Vector3d(0, -1, 2);
-            var plane = SBRepBuilder.PlaneFace.FromPoints(v0, v1, v2, Vector3d.Zero);
+            var plane = PlaneFace.FromPoints(v0, v1, v2, Vector3d.Zero);
             Assert.AreEqual(5, plane.A);
             Assert.AreEqual(-1, plane.B);
             Assert.AreEqual(3, plane.C);
