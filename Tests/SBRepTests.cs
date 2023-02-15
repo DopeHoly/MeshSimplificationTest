@@ -83,7 +83,7 @@ namespace Tests
             points.Add(new Vector2d(12,8));
             points.Add(new Vector2d(9,5));
             points.Add(new Vector2d(5,6));
-            var area = SBRepObject.GetArea(points);
+            var area = Geometry2DHelper.GetArea(points);
             Assert.AreEqual(30.0, area);
         }
 

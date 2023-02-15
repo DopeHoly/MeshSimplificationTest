@@ -255,5 +255,28 @@ namespace MeshSimplificationTest.SBRep.Utils
             }
             return result;
         }
+
+        /// <summary>
+        /// Вычисляет площадь внутри двухмерного контура points
+        /// </summary>
+        /// <param name="points"></param>
+        /// <returns></returns>
+        public static double GetArea(List<Vector2d> points)
+        {
+            var points2D = new List<Vector2d>();
+            var first = points.First();
+            points2D.Add(points.Last());
+            points2D.AddRange(points);
+            points2D.Add(first);
+
+            var cnt = points2D.Count - 2;
+            decimal sum = 0.0M;
+            for (int i = 1; i <= cnt; ++i)
+            {
+                sum += (decimal)points2D[i].x * ((decimal)points2D[i + 1].y - (decimal)points2D[i - 1].y);
+            }
+            var area = Math.Abs((double)sum) / 2.0;
+            return area;
+        }
     }
 }

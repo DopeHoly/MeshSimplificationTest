@@ -394,7 +394,15 @@ namespace MeshSimplificationTest.SBRep.Utils
                             currentEdge.Position.Mode = ShortEdgePositionMode.OutPlane;
                         }
                         else
-                            throw new Exception($"Невозможно определить расположение ребра: {currentEdge}");
+                        if (centerPosition.Mode == PointPositionMode.OnEdge)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
+                            currentEdge.Position.EdgeId = centerPosition.EdgeID;
+                        }
+                        else
+                        {
+                            throw new Exception();//TODO
+                        }
                     }
                 }
                 else //если зашли сюда, значит одна из вершин висит на точке                
@@ -448,7 +456,7 @@ namespace MeshSimplificationTest.SBRep.Utils
                         pointB.Position.Mode == PointPositionMode.OnVertex)
                     {
                         var center = (pointA.Coord + pointB.Coord) / 2.0;
-                        var centerPosition = CalcPointPosition(right, center, eps);
+                        var centerPosition = CalcPointPosition(right, center, 1e-8);
                         if (revert)
                         {
                             if(centerPosition.Mode == PointPositionMode.OutPlane)

@@ -40,6 +40,8 @@ namespace MeshSimplificationTest.SBRep
             Verges.Clear();
             Loops.Clear();
             Faces.Clear();
+            if(other == null)
+                return;
             foreach (var v in other.Vertices)
             {
                 Vertices.Add(new SBRep_Vtx(v));
@@ -511,7 +513,7 @@ namespace MeshSimplificationTest.SBRep
             var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var vtx in vertices)
             {
-                var parents = vtx.Parents.Intersect(edgesIDs);
+                var parents = vtx.Parents.Intersect(edgesIDs).ToList();
                 if (parents.Count() % 2 == 1)
                     throw new Exception("Невозможно обойти граф");
                 vertParentsDict.Add(vtx.ID, parents);
@@ -562,6 +564,7 @@ namespace MeshSimplificationTest.SBRep
                 }
             }
 
+            //loops = loops.Where(x => x.Count() > 0).ToList();
             return loops;
         }
 
@@ -618,7 +621,7 @@ namespace MeshSimplificationTest.SBRep
                     var lastVector = mainEdgeVtxCoord - currentVtxCoord;
                     var parentsEid = parents.Where(x => edgesIDs[x] != edgesIDs[lastEid]).ToList();
 
-                    if(parentsEid.Count == 0)
+                    if (parentsEid.Count == 0)
                     {
                         parentsEid = parents;
                     }
@@ -632,21 +635,31 @@ namespace MeshSimplificationTest.SBRep
                     }
                     var minAngle = double.MaxValue;
                     var minEid = -1;
+
+                    var parentsNoCross = vertParentsDict[currentVid]
+                        .Where(x => edgesIDs[x] == edgesIDs[lastEid] && x!= lastEid)
+                        .Select(eid =>
+                        {
+                            var points = obj.GetEdgeCoordinates(eid);
+                            return (points.Item2 - points.Item1).xy;
+                        }).ToList();
+
+
                     foreach (var eidVector in parentsNextPoints)
                     {
-                        //var angle = eidVector.Value.AngleD(lastVector);
                         var eVector = eidVector.Value;
                         var dot = eVector.Dot(lastVector) / (lastVector.Length * eVector.Length);
                         var angle = Math.Acos(MathUtil.Clamp(dot, -1.0, 1.0)) * (180.0 / Math.PI);
-                        //if (lastVector.Cross(eVector).z < 0 )
-                        //{
-                        //    angle += 180;
-                        //}
-                        //TODO пересмотреть срочно
                         if (minAngle > angle)
                         {
-                            minAngle = angle;
-                            minEid = eidVector.Key;
+                            //проверка, что мы подобным переходом не пересекаем грани, которую по другую сторону
+                            var result = parentsNoCross
+                                .All(edge => Geometry2DHelper.EdgesInterposition(Vector2d.Zero, edge, lastVector.xy, eVector.xy, 1e-6).Intersection == IntersectionVariants.NoIntersection);
+                            if (result)
+                            {
+                                minAngle = angle;
+                                minEid = eidVector.Key;
+                            }
                         }
                     }
                     Debug.Assert(minEid != -1);
@@ -664,6 +677,7 @@ namespace MeshSimplificationTest.SBRep
                 if (nextVid == loopBeginVid)
                     nextVid = -1;
             }
+            //loops = loops.Where(x=> x.Count() > 0).ToList();
             return loops;
         }
 
@@ -792,7 +806,7 @@ namespace MeshSimplificationTest.SBRep
             var parentid = loop.Parents.FirstOrDefault();
             var face = Faces[parentid];
             var contour2d = ConvertPlaneContourTo2D(contour, face.Normal);
-            return GetArea(contour2d);
+            return Geometry2DHelper.GetArea(contour2d);
         }
 
         /// <summary>
@@ -829,29 +843,6 @@ namespace MeshSimplificationTest.SBRep
             ).ToList();
             var points2d = point3D.Select(x => new Vector2d(x.x, x.y)).ToList();
             return points2d;
-        }
-
-        /// <summary>
-        /// Вычисляет площадь внутри двухмерного контура points
-        /// </summary>
-        /// <param name="points"></param>
-        /// <returns></returns>
-        public static double GetArea(List<Vector2d> points)
-        {
-            var points2D = new List<Vector2d>();
-            var first = points.First();
-            points2D.Add(points.Last());
-            points2D.AddRange(points);
-            points2D.Add(first);
-
-            var cnt = points2D.Count - 2;
-            decimal sum = 0.0M;
-            for (int i = 1; i <= cnt; ++i)
-            {
-                sum += (decimal)points2D[i].x * ((decimal)points2D[i + 1].y - (decimal)points2D[i - 1].y);
-            }
-            var area = Math.Abs((double)sum) / 2.0;
-            return area;
         }
 
         public override string ToString()

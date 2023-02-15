@@ -533,7 +533,7 @@ namespace MeshSimplificationTest.SBRep
         public static SBRepObject Convert(DMesh3 mesh)
         {
             if (mesh == null)
-                return null;
+                return new SBRepObject();
 
             ///Выделяем из исходного объекта группы связанных треугольников
             ///лежащих на одной плоскости и имеющие одинаковый GroupID

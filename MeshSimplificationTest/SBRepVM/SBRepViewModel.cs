@@ -223,16 +223,16 @@ namespace MeshSimplificationTest.SBRepVM
                         Name = "Грани проекции по контуру " + contour.Name,
                         Model = GenerateModelFormSBRepObjectEdges(deb),
                     });
-                    try
-                    {
-                        projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
-                        ModelsVM.Add(new Model3DLayerVM(this)
-                        {
-                            Name = "debug объект c проекцией " + contour.Name,
-                            Model = ConvertToModel3D(projectionObjectMesh),
-                        });
-                    }
-                    catch {; }
+                    //try
+                    //{
+                    //    projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
+                    //    ModelsVM.Add(new Model3DLayerVM(this)
+                    //    {
+                    //        Name = "debug объект c проекцией " + contour.Name,
+                    //        Model = ConvertToModel3D(projectionObjectMesh),
+                    //    });
+                    //}
+                    //catch {; }
                 }
 
 
@@ -256,30 +256,30 @@ namespace MeshSimplificationTest.SBRepVM
 
             //projectionObject = projectionObject.ContourProjection(contour2, true);
 
-            var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Грани объекта",
-                Model = boundaryEdgesModel,
-            });
+            //var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Грани объекта",
+            //    Model = boundaryEdgesModel,
+            //});
 
-            var triPlanarGroupModel = GenerateModelFromTriPlanarGroup(triPlanarGroup);
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Петли",
-                Model = triPlanarGroupModel,
-            });
+            //var triPlanarGroupModel = GenerateModelFromTriPlanarGroup(triPlanarGroup);
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Петли",
+            //    Model = triPlanarGroupModel,
+            //});
 
-            var loopEdgeModel = GenerateModelFromLoopEdge(
-                model,
-                SBRepBuilder.BuildVerges(
-                    model,
-                    triPlanarGroup));
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Грани петель",
-                Model = loopEdgeModel,
-            });
+            //var loopEdgeModel = GenerateModelFromLoopEdge(
+            //    model,
+            //    SBRepBuilder.BuildVerges(
+            //        model,
+            //        triPlanarGroup));
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Грани петель",
+            //    Model = loopEdgeModel,
+            //});
 
             var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
             ModelsVM.Add(new Model3DLayerVM(this)
@@ -657,6 +657,8 @@ namespace MeshSimplificationTest.SBRepVM
                 Material = new DiffuseMaterial(new SolidColorBrush(color))
             };
         }
+
+
         public Model3D ModelFromEdge(SBRepObject mesh,
             IEnumerable<int> edgesIDs,
             Color color, double diameterScale = 1)
@@ -670,9 +672,12 @@ namespace MeshSimplificationTest.SBRepVM
             var edgesColorized = new Dictionary<Color, List<int>>();
             foreach (var eid in edgesIDs)
             {
-                var curentColor = mesh.Edges[eid].Color;
-                if (!edgesColorized.ContainsKey(mesh.Edges[eid].Color))
-                    edgesColorized.Add(mesh.Edges[eid].Color, new List<int>());
+                var curentColor = Colors.Gray;
+#if DEBUG
+                curentColor = mesh.Edges[eid].Color;
+#endif
+                if (!edgesColorized.ContainsKey(curentColor))
+                    edgesColorized.Add(curentColor, new List<int>());
                 var idx = mesh.Edges[eid].Vertices;
                 var a = mesh.GetVertex(idx.a);
                 var b = mesh.GetVertex(idx.b);
@@ -712,9 +717,10 @@ namespace MeshSimplificationTest.SBRepVM
             });
             return group;
         }
-        #endregion
 
-        public void LayerVisibilityChanged()
+#endregion
+
+                public void LayerVisibilityChanged()
         {
             OnPropertyChanged(nameof(MainMesh));
         }
