@@ -199,10 +199,15 @@ namespace MeshSimplificationTest.SBRepVM
 
             //var contour = Contour;
 
-            //var contour1 = new List<Vector2d>();
-            //contour1.Add(new Vector2d(1, 1));
-            //contour1.Add(new Vector2d(1, 3));
-            //contour1.Add(new Vector2d(3, 2));
+            var contour1 = new List<Vector2d>();
+            contour1.Add(new Vector2d(-5, -5));
+            contour1.Add(new Vector2d(-5, 100));
+            contour1.Add(new Vector2d(100, -5));
+            Contours.Add(new ContourVM()
+            {
+                Name = "TestContour",
+                Value = contour1,
+            });
 
             //var contour2 = new List<Vector2d>();
             //contour2.Add(new Vector2d(3, 1));
@@ -214,44 +219,44 @@ namespace MeshSimplificationTest.SBRepVM
             SBRepObject projectionObject = new SBRepObject(sbrep);
             foreach (var contour in Contours)
             {
-                var debugProjection = projectionObject.DebugContourProjection(contour.Value, true);
+                //var debugProjection = projectionObject.DebugContourProjection(contour.Value, true);
 
-                foreach (var deb in debugProjection)
-                {
-                    ModelsVM.Add(new Model3DLayerVM(this)
-                    {
-                        Name = "Грани проекции по контуру " + contour.Name,
-                        Model = GenerateModelFormSBRepObjectEdges(deb),
-                    });
-                    //try
-                    //{
-                    //    projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
-                    //    ModelsVM.Add(new Model3DLayerVM(this)
-                    //    {
-                    //        Name = "debug объект c проекцией " + contour.Name,
-                    //        Model = ConvertToModel3D(projectionObjectMesh),
-                    //    });
-                    //}
-                    //catch {; }
-                }
+                //foreach (var deb in debugProjection)
+                //{
+                //    ModelsVM.Add(new Model3DLayerVM(this)
+                //    {
+                //        Name = "Грани проекции по контуру " + contour.Name,
+                //        Model = GenerateModelFormSBRepObjectEdges(deb),
+                //    });
+                //    //try
+                //    //{
+                //    //    projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
+                //    //    ModelsVM.Add(new Model3DLayerVM(this)
+                //    //    {
+                //    //        Name = "debug объект c проекцией " + contour.Name,
+                //    //        Model = ConvertToModel3D(projectionObjectMesh),
+                //    //    });
+                //    //}
+                //    //catch {; }
+                //}
 
 
                 //if (contour == Contours.Last()) continue;
-                try
-                {
+                //try
+                //{
 
-                    projectionObject = projectionObject.ContourProjection(contour.Value, true);
-                    projectionObjectMesh = SBRepToMeshBuilder.Convert(projectionObject);
+                    projectionObject = projectionObject.ContourProjectionParallel(contour.Value, true);
+                    projectionObjectMesh = SBRepToMeshBuilder.ConvertParallel(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
                     {
                         Name = "Триангулированный объект c проекцией " + contour.Name,
                         Model = ConvertToModel3D(projectionObjectMesh),
                     });
-                }
-                catch (Exception ex)
-                {
-                    ;
-                }
+                //}
+                //catch (Exception ex)
+                //{
+                //    ;
+                //}
             }
 
             //projectionObject = projectionObject.ContourProjection(contour2, true);
@@ -281,27 +286,27 @@ namespace MeshSimplificationTest.SBRepVM
             //    Model = loopEdgeModel,
             //});
 
-            var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Петли из sbrep",
-                Model = sbrep_loops,
-            });
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Триангулированный объект",
-                Model = ConvertToModel3D(SBRepToMeshBuilder.Convert(sbrep)),
-            });
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Точки проекции",
-                Model = GenerateModelFromModelsVerices(projectionObject)
-            });
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Грани проекции",
-                Model = GenerateModelFormSBRepObjectEdges(projectionObject)
-            });
+            //var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Петли из sbrep",
+            //    Model = sbrep_loops,
+            //});
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Триангулированный объект",
+            //    Model = ConvertToModel3D(SBRepToMeshBuilder.ConvertParallel(sbrep)),
+            //});
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Точки проекции",
+            //    Model = GenerateModelFromModelsVerices(projectionObject)
+            //});
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Грани проекции",
+            //    Model = GenerateModelFormSBRepObjectEdges(projectionObject)
+            //});
             foreach (var contour in Contours)
             {
 

@@ -102,6 +102,14 @@ namespace MeshSimplificationTest.SBRep.Utils
         }
     }
 
+    public enum ContoursIntersectType
+    {
+        None,
+        Inside,
+        Outside,
+        Cross
+    }
+
     public class IntersectContour
     {
         public const double EPS = 1e-6;
@@ -245,6 +253,63 @@ namespace MeshSimplificationTest.SBRep.Utils
             return result;
         }
 
+        public static ContoursIntersectType CheckCrosses(IntersectContour left, IntersectContour right)
+        {
+            var eps = EPS;
+            if (left == null || right == null) return ContoursIntersectType.None;
+            var pointPositionMode = PointPositionMode.Undefined;
+
+            foreach (var point in left.GetContour())
+            {
+                var position = CalcPointPosition(right, point.Coord, eps);
+                Debug.Assert(position.Mode != PointPositionMode.Undefined);
+
+                switch (position.Mode)
+                {
+                    case PointPositionMode.OutPlane:
+                    case PointPositionMode.InPlane:
+                        if (pointPositionMode != PointPositionMode.Undefined)
+                        {
+                            if (pointPositionMode != position.Mode)
+                                return ContoursIntersectType.Cross;
+                        }
+                        else
+                        {
+                            pointPositionMode = position.Mode;
+                        }
+                        break;
+                    case PointPositionMode.OnEdge:
+                    case PointPositionMode.OnVertex:
+                        return ContoursIntersectType.Cross;
+                    default:
+                        return ContoursIntersectType.None;
+                }
+            }
+
+            foreach (var edge in left.GetEdges())
+            {
+                var edgesPoints = left.GetEdgePoints(edge);
+                var edgeA = edgesPoints.Item1.Coord;
+                var edgeB = edgesPoints.Item2.Coord;
+                var edgePosition = CalcEdgePositions(edgeA, edgeB, edge.ID, right, eps);
+
+                switch (edgePosition.Mode)
+                {
+                    case EdgePositionMode.Cross:
+                        return ContoursIntersectType.Cross;
+                    default:
+                        break;
+                }
+            }
+
+            if (pointPositionMode == PointPositionMode.InPlane)
+                return ContoursIntersectType.Inside;
+            if (pointPositionMode == PointPositionMode.OutPlane)
+                return ContoursIntersectType.Outside;
+
+            return ContoursIntersectType.None;
+        }
+
         public static IntersectContour Intersect(IntersectContour left, IntersectContour right, bool isDifference = false)
         {
             var eps = EPS;
@@ -285,7 +350,7 @@ namespace MeshSimplificationTest.SBRep.Utils
                     edgePosition,
                     pointsIndexesDictionary[edge.Points.a],
                     pointsIndexesDictionary[edge.Points.b]);
-                ClassifyEdgePosition(intersect, right, edges, eps, isDifference);
+                ClassifyEdgePosition(intersect, right, edges, 1e-10, isDifference);
             }
 
             Debug.Assert(intersect.Edges.Count == intersect.Points.Count);
@@ -316,22 +381,22 @@ namespace MeshSimplificationTest.SBRep.Utils
                 else
                 {
                     Debug.Assert(point.Position.Mode != PointPositionMode.Undefined);
-                    if(point.Position.Mode == PointPositionMode.OutPlane)
+                    if (point.Position.Mode == PointPositionMode.OutPlane)
                     {
                         Debug.Assert(point.SourceID != -1);
                         point.Position = new PointPosition(left.Points[point.SourceID].Position);
                     }
                 }
-                    
+
             }
             foreach (var edge in intersect.Edges)
             {
-                if(edge.Position.Mode == ShortEdgePositionMode.InPlane)
+                if (edge.Position.Mode == ShortEdgePositionMode.InPlane)
                     edge.Position.Mode = ShortEdgePositionMode.OutPlane;
                 else
                 {
                     Debug.Assert(edge.Position.Mode != ShortEdgePositionMode.Undefined);
-                    if(edge.Position.Mode == ShortEdgePositionMode.OutPlane)
+                    if (edge.Position.Mode == ShortEdgePositionMode.OutPlane)
                     {
                         Debug.Assert(edge.SourceID != -1);
                         edge.Position = new ShortEdgePosition(left.Edges[edge.SourceID].Position);
@@ -455,11 +520,20 @@ namespace MeshSimplificationTest.SBRep.Utils
                     if (pointA.Position.Mode == PointPositionMode.OnVertex ||
                         pointB.Position.Mode == PointPositionMode.OnVertex)
                     {
+                        var pointOnEdge = pointA.Position.Mode == PointPositionMode.OnEdge ? pointA : pointB;
+                        var pointOnVtx = pointA.Position.Mode == PointPositionMode.OnVertex ? pointA : pointB;
+                        var edgePoints = right.Edges[pointOnEdge.Position.EdgeID].Points;
+                        if (edgePoints.a == pointOnVtx.Position.VtxID || edgePoints.b == pointOnVtx.Position.VtxID)
+                        {
+                            currentEdge.Position.Mode = ShortEdgePositionMode.EdgeSegment;
+                            currentEdge.Position.EdgeId = pointOnEdge.Position.EdgeID;
+                            continue;
+                        }
                         var center = (pointA.Coord + pointB.Coord) / 2.0;
-                        var centerPosition = CalcPointPosition(right, center, 1e-8);
+                        var centerPosition = CalcPointPosition(right, center, eps);
                         if (revert)
                         {
-                            if(centerPosition.Mode == PointPositionMode.OutPlane)
+                            if (centerPosition.Mode == PointPositionMode.OutPlane)
                             {
                                 continue;
                             }
@@ -768,7 +842,7 @@ namespace MeshSimplificationTest.SBRep.Utils
                 var cross = Geometry2DHelper.EdgesInterposition(edgeA, edgeB, a, b, eps);
                 if (cross.Intersection != IntersectionVariants.NoIntersection)
                 {
-                    if(cross.IntersectionType == EdgeIntersectionType.Point)
+                    if (cross.IntersectionType == EdgeIntersectionType.Point)
                     {
                         if (Geometry2DHelper.EqualPoints(edgeA, cross.Point0) ||
                             Geometry2DHelper.EqualPoints(edgeB, cross.Point0))

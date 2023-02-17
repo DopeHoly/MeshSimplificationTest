@@ -42,7 +42,6 @@ namespace MeshSimplificationTest.SBRep
             return projectionContour;
         }
 
-
         public static SBRepObject ContourProjection(this SBRepObject sbrep, List<Vector2d> contour, bool topDirection)
         {
             var obj = new SBRepObject(sbrep);
@@ -50,9 +49,9 @@ namespace MeshSimplificationTest.SBRep
                 return obj;
             if (contour == null || contour.Count < 3)
                 return obj;
-            
+
             //валидация контура по площади, если нулевая, то ничего не делаем
-            if(Geometry2DHelper.GetArea(contour) < 1e-6)
+            if (Geometry2DHelper.GetArea(contour) < 1e-6)
                 return obj;
 
             //выбираем только нужные грани
@@ -91,10 +90,90 @@ namespace MeshSimplificationTest.SBRep
                 {
                     resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
-                ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID);
+                ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID, true);
                 ++count;
             }
 
+            return obj;
+        }
+
+        public static SBRepObject ContourProjectionParallel(this SBRepObject sbrep, List<Vector2d> contour, bool topDirection)
+        {
+            var obj = new SBRepObject(sbrep);
+            if (obj.Faces.Count == 0)
+                return obj;
+            if (contour == null || contour.Count < 3)
+                return obj;
+
+            //валидация контура по площади, если нулевая, то ничего не делаем
+            if (Geometry2DHelper.GetArea(contour) < 1e-6)
+                return obj;
+
+            //выбираем только нужные грани
+            Func<double, bool> comparer = null;
+            if (topDirection)
+                comparer = (x) => x > 0;
+            else
+                comparer = (x) => x < 0;
+
+            int maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
+            var replaceIntdex = maxGroidID + 2;
+            foreach (var face in obj.Faces)
+            {
+                face.GroupID = face.GroupID != -1 ? face.GroupID : replaceIntdex;
+            }
+
+            maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
+            var groupIDsDict = new Dictionary<int, int>();
+
+            var filteredFaces = obj.Faces.Where(face => comparer(face.Normal.z)).ToList();
+            if (filteredFaces.Count == 0)
+                return obj;
+            //TODO тут нужно разделить конутр на N контуров без самопересечений, т.к. в исходном контуре они могут быть
+            var projectionContour = GetProjectionContourFromPoint(contour);
+            projectionContour = IntersectContour.Intersect(projectionContour, projectionContour);
+            var facesCrossedContor = new List<int>();
+            //foreach (var face in filteredFaces)
+            object mutex = new object();
+
+            Parallel.ForEach(filteredFaces,
+                (face) =>
+                {
+                    var projContour = new IntersectContour(projectionContour);
+                    var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
+                    var resultIntersect = IntersectContour.CheckCrosses(outsideLoop, projContour);
+
+                    switch (resultIntersect)
+                    {
+                        case ContoursIntersectType.Inside:
+                            lock (mutex)
+                                face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
+                            break;
+                        case ContoursIntersectType.Outside:
+                            break;
+                        case ContoursIntersectType.Cross:
+                            lock (mutex)
+                                facesCrossedContor.Add(face.ID);
+                            break;
+                        default:
+                            break;
+                    }
+                });
+            foreach (var faceID in facesCrossedContor)
+            {
+                var face = sbrep.Faces[faceID];
+                var projContour = new IntersectContour(projectionContour);
+                var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
+                var insideLoops = face.InsideLoops.Select(lid =>
+                 new IntersectContour(GetContourFromLoop(obj, lid)))
+                    .ToList();
+                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
+                foreach (var insideLoop in insideLoops)
+                {
+                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
+                }
+                ApplyIntersectContourToFace(obj, faceID, resultIntersect, groupIDsDict, ref maxGroidID, false);
+            }
             return obj;
         }
 
@@ -415,17 +494,21 @@ namespace MeshSimplificationTest.SBRep
         }
 
 
-        public static void ApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID)
+        public static void ApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID, bool useShortAlgorithm = false)
         {
             var face = sbrep.Faces[faceID];
             //Обработка случаев, когда полностью грань попадает в проекцию или не попадает
-            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.OutPlane))
+            if (useShortAlgorithm)
             {
-                var faceEdgesPos = GetEdgesInsideOutside(sbrep, faceID, contour);
-                if (faceEdgesPos.All(ePos => ePos.Value == true))
-                    face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
-                return;
+                if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.OutPlane))
+                {
+                    var faceEdgesPos = GetEdgesInsideOutside(sbrep, faceID, contour);
+                    if (faceEdgesPos.All(ePos => ePos.Value == true))
+                        face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
+                    return;
+                }
             }
+
 
             //Обработка случая, когда попали проекцией полностью на контур, и ничего не задели
             //если все грани внутри и все точки внутри, то юзаем упрощённый алгоритм
@@ -515,7 +598,7 @@ namespace MeshSimplificationTest.SBRep
                 oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
             }
 
-               
+
 
             Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
             Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
@@ -651,7 +734,6 @@ namespace MeshSimplificationTest.SBRep
             ////////////////////
 
         }
-
         public static IEnumerable<int> GetInsideLoops(SBRepObject sbrep, SBRep_Loop mainLoop, IEnumerable<SBRep_Loop> checkedLoop)
         {
             var resultCollection = new List<int>();

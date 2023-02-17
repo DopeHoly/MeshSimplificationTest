@@ -16,6 +16,9 @@ namespace Tests
     [TestClass]
     public class SBRepToMeshBuilderTests
     {
+        private static string SamplesPath = "../../../../samples/";
+        private static string Sample_Cube4x4Path = SamplesPath + "Кубик4Fix.obj";
+
         public void CheckDoubleEqualsWithEPS(double a, double b, double eps = 1e-5)
         {
             var dif = Math.Abs(a - b);
@@ -101,6 +104,19 @@ namespace Tests
             {
                 CheckVector3dEqualsWithEps(points[i], vertice3D.ElementAt(i));
             }
+        }
+
+        [TestMethod]
+        public void CheckSlowAndFastConvertToMesh()
+        {
+            var mesh = StandardMeshReader.ReadMesh(Sample_Cube4x4Path);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            var resultSlow = SBRepToMeshBuilder.Convert(sbRep);
+            var resultFast = SBRepToMeshBuilder.ConvertParallel(sbRep);
+
+            Assert.AreEqual(resultSlow.VertexCount, resultFast.VertexCount);
+            Assert.AreEqual(resultSlow.EdgeCount, resultFast.EdgeCount);
+            
         }
     }
 }

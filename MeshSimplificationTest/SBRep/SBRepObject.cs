@@ -40,7 +40,7 @@ namespace MeshSimplificationTest.SBRep
             Verges.Clear();
             Loops.Clear();
             Faces.Clear();
-            if(other == null)
+            if (other == null)
                 return;
             foreach (var v in other.Vertices)
             {
@@ -429,9 +429,7 @@ namespace MeshSimplificationTest.SBRep
 
         public IEnumerable<int> GetEdgesFromFaceId(int faceId)
         {
-            var loops = new List<int>();
-            loops.Add(Faces[faceId].OutsideLoop);
-            loops.AddRange(Faces[faceId].InsideLoops);
+            var loops = GetFacesLoops(faceId);
             var edgesIds = new List<int>();
             foreach (var lid in loops)
             {
@@ -481,6 +479,29 @@ namespace MeshSimplificationTest.SBRep
             return new Tuple<Vector3d, Vector3d>(Vertices[edge.Vertices.a].Coordinate, Vertices[edge.Vertices.b].Coordinate);
         }
 
+        public IEnumerable<int> GetFacesLoops(int faceID)
+        {
+            var face = GetFace(faceID);
+            var loops = new List<int>();
+            loops.Add(face.OutsideLoop);
+            loops.AddRange(face.InsideLoops);
+            return loops;
+        }
+
+        public IEnumerable<int> GetFaceNeighborsIndexes(int faceID)
+        {
+            var face = GetFace(faceID);
+            var neighbors = GetFacesLoops(faceID)
+                .SelectMany(lid => Loops[lid].Verges)
+                .Distinct()
+                .SelectMany(vergeID => Verges[vergeID].Parents)
+                .Distinct()
+                .SelectMany(lid => Loops[lid].Parents)
+                .Distinct()
+                .ToList();
+            neighbors.Remove(faceID);
+            return neighbors;
+        }
         #endregion
 
         /// <summary>
@@ -500,7 +521,7 @@ namespace MeshSimplificationTest.SBRep
             throw new Exception($"Ребро {eid} не содержит {vid}");
         }
 
-        public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, IEnumerable<int> edgesIDs)
+        public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, IEnumerable<int> edgesIDs, bool recursiveFix = true)
         {
             //проверяем критерий обходимости
             var edges = edgesIDs.Select(eid => obj.Edges[eid]).ToList();
@@ -520,52 +541,84 @@ namespace MeshSimplificationTest.SBRep
             }
             var bypassEdges = new List<int>(edgesIDs);
             var loops = new List<IEnumerable<int>>();
-            var verticesQueue = new Queue<int>();
+
+            var edgeQueue = new Queue<int>();
             List<int> currentLoopEdges = null;
-            while (verticesQueue.Count > 0 ||
-                verticesIds.Count > 0)
+            var currentEdge = -1;
+            SBRep_Edge current = null;
+            while (bypassEdges.Count > 0 ||
+                edgeQueue.Count > 0)
             {
-                if (verticesQueue.Count < 1)
+                if (edgeQueue.Count == 0)
                 {
                     currentLoopEdges = new List<int>();
                     loops.Add(currentLoopEdges);
-                    var tempTID = verticesIds.First();
-                    verticesIds.RemoveAt(0);
-                    verticesQueue.Enqueue(tempTID);
+                    currentEdge = bypassEdges.First();
+                    currentLoopEdges.Add(currentEdge);
+                    bypassEdges.Remove(currentEdge);
                 }
-                var vid = verticesQueue.Dequeue();
-                var parents = vertParentsDict[vid];
-                if (parents.Count() == 2)
+                else
+                    currentEdge = edgeQueue.Dequeue();
+                var edgesNeighbors = new List<int>();
+                current = obj.Edges[currentEdge];
+                var vtxANeighbor = vertParentsDict[current.Vertices.a];
+                var vtxBNeighbor = vertParentsDict[current.Vertices.b];
+
+                if (vtxANeighbor.Count() <= 2)
+                    edgesNeighbors.AddRange(vtxANeighbor);
+                if (vtxBNeighbor.Count() <= 2)
+                    edgesNeighbors.AddRange(vtxBNeighbor);
+                edgesNeighbors = edgesNeighbors
+                    .Where(x => bypassEdges.Contains(x))
+                    .Distinct()
+                    .ToList();
+                foreach (var item in edgesNeighbors)
                 {
-                    var parent0 = parents.ElementAt(0);
-                    var parent1 = parents.ElementAt(1);
-                    var vtx0 = obj.GetVertexNeigborIdByEdge(vid, parent0);
-                    var vtx1 = obj.GetVertexNeigborIdByEdge(vid, parent1);
-                    if (bypassEdges.Contains(parent0))
-                    {
-                        currentLoopEdges.Add(parent0);
-                        bypassEdges.Remove(parent0);
-                        if (verticesIds.Contains(vtx0))
-                        {
-                            verticesQueue.Enqueue(vtx0);
-                            verticesIds.Remove(vtx0);
-                        }
-                    }
-                    if (bypassEdges.Contains(parent1))
-                    {
-                        currentLoopEdges.Add(parent1);
-                        bypassEdges.Remove(parent1);
-                        if (verticesIds.Contains(vtx1))
-                        {
-                            verticesQueue.Enqueue(vtx1);
-                            verticesIds.Remove(vtx1);
-                        }
-                    }
+                    currentLoopEdges.Add(item);
+                    bypassEdges.Remove(item);
+                    edgeQueue.Enqueue(item);
                 }
             }
 
-            //loops = loops.Where(x => x.Count() > 0).ToList();
+            if (recursiveFix)
+            {
+                var unLoops = loops.Where(loop => !IsLoopEdges(obj, loop)).ToList();
+
+                var correctLoops = loops.Where(loop => IsLoopEdges(obj, loop)).ToList();
+                loops.Clear();
+                loops.AddRange(correctLoops);
+                while (unLoops.Count() > 0)
+                {
+                    var unLoopsEdges = unLoops.SelectMany(loop => loop).ToList();
+                    var tryFixLoops = BuildLoopsFromEdges(obj, unLoopsEdges, false);
+                    var unLoopsAfterFix = tryFixLoops.Where(loop => !IsLoopEdges(obj, loop)).ToList();
+                    var correctLoopsAfterFix = tryFixLoops.Where(loop => IsLoopEdges(obj, loop)).ToList();
+                    loops.AddRange(correctLoopsAfterFix);
+                    if (unLoopsAfterFix.Count() == unLoops.Count)
+                        break;
+                    unLoops = unLoopsAfterFix;
+                }
+            }
+            loops = loops.Where(x => x.Count() > 0).ToList();
             return loops;
+        }
+
+        private static bool IsLoopEdges(SBRepObject obj, IEnumerable<int> edgesIds)
+        {
+            var edges = edgesIds.Select(eid => obj.Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => obj.Vertices[vid]).ToList();
+            foreach (var vtx in vertices)
+            {
+                var parents = vtx.Parents.Intersect(edgesIds).ToList();
+                if (parents.Count() != 2)
+                    return false;
+            }
+            return true;
         }
 
         public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdgesByAngle(SBRepObject obj, Dictionary<int, bool> edgesIDs)
@@ -637,7 +690,7 @@ namespace MeshSimplificationTest.SBRep
                     var minEid = -1;
 
                     var parentsNoCross = vertParentsDict[currentVid]
-                        .Where(x => edgesIDs[x] == edgesIDs[lastEid] && x!= lastEid)
+                        .Where(x => edgesIDs[x] == edgesIDs[lastEid] && x != lastEid)
                         .Select(eid =>
                         {
                             var points = obj.GetEdgeCoordinates(eid);

@@ -30,6 +30,12 @@ namespace MeshSimplificationTest.SBRep
                 Math.Abs(a.z - b.z) < EPS_PointCompare;
         }
 
+        public class IndexedVertex : IIndexed
+        {
+            public int ID { get; set; } = -1;
+            public Vector3d Coord { get; set; }
+        }
+
         public struct FacedTriangle
         {
             public Index3i vertex;
@@ -51,10 +57,15 @@ namespace MeshSimplificationTest.SBRep
             }
         }
 
-        public class FacedTriangulateData
+        public class FacedTriangulateData : IIndexed
         {
+            public int ID { get; set; } = -1;
+
+            public IEnumerable<int> Neighbors { get; set; }
+
             public IEnumerable<FacedTriangle> triangles;
             public IEnumerable<Vector3d> vertices;
+
 
             public IEnumerable<FacedTriangle> ReindexTrianglesVertices(Dictionary<int, int> verticeIndexes)
             {
@@ -197,6 +208,91 @@ namespace MeshSimplificationTest.SBRep
             return new Tuple<IEnumerable<Vector3d>, IEnumerable<FacedTriangle>>(vertices, triangles);
         }
 
+        public static Tuple<IEnumerable<Vector3d>, IEnumerable<FacedTriangle>> ReindexTriangulateDatasFast(
+           IndexedCollection<FacedTriangulateData> triangulateDatas)
+        {
+            var vertices = new List<Vector3d>();
+            var triangles = new List<FacedTriangle>();
+
+            var faceTriIndexedVertex = new Dictionary<int, List<int>>();
+            var indexedVertices = new IndexedCollection<IndexedVertex>();
+
+            var faceReplaceDictVtx = new Dictionary<int, Dictionary<int, int>>();
+
+            //добавляем все точки по всем плоскостям в один контейнер и индексируем словари замены индексов
+            foreach (var triData in triangulateDatas)
+            {
+                var triVtxIds = new List<int>();
+                int counter = 0;
+                var vtxReplaceDict = new Dictionary<int, int>();
+                foreach (var vertice in triData.vertices)
+                {
+                    var newVtx = new IndexedVertex()
+                    {
+                        Coord = vertice
+                    };
+                    indexedVertices.Add(newVtx);
+                    triVtxIds.Add(newVtx.ID);
+                    vtxReplaceDict.Add(counter, newVtx.ID);
+                    ++counter;
+                }
+                faceReplaceDictVtx.Add(triData.ID, vtxReplaceDict);
+                faceTriIndexedVertex.Add(triData.ID, triVtxIds);
+            }
+            //вычисляем одинаковые точки, сносим их и инициализируем словарь с заменой
+            var countVtx = indexedVertices.Count;
+            var compaqVertices = new IndexedCollection<IndexedVertex>();
+            var compaqVerticesIndexDict = new Dictionary<int, int>();
+            var vtxReplaceIndexDict = new Dictionary<int, int>();
+            foreach (var faceVertices in faceTriIndexedVertex)
+            {
+                var neigbors = triangulateDatas[faceVertices.Key].Neighbors;
+                var neighborsVtxIds = neigbors.SelectMany(x => faceTriIndexedVertex[x]).ToList();
+                var neighborsVtxs = neighborsVtxIds.Where(vid => compaqVerticesIndexDict.ContainsKey(vid)).Select(vid => compaqVertices[compaqVerticesIndexDict[vid]]).ToList();
+                foreach (var vid in faceVertices.Value)
+                {
+                    var currentVertice = indexedVertices[vid];
+                    var existingVtx = neighborsVtxs.FirstOrDefault(vtx => Vector3dEqual(vtx.Coord, currentVertice.Coord));
+                    if (existingVtx != null)
+                    {
+                        compaqVerticesIndexDict.Add(currentVertice.ID, existingVtx.ID);
+                    }
+                    else
+                    {
+                        var newIndex = new IndexedVertex()
+                        {
+                            Coord = currentVertice.Coord,
+                        };
+                        compaqVertices.Add(newIndex);
+                        compaqVerticesIndexDict.Add(currentVertice.ID, newIndex.ID);
+                    }
+                }
+            }
+
+            //реиндексируем точки у каждой грани на уникальные точки
+            var faceTriIndexedReindexVertex = new Dictionary<int, Dictionary<int, int>>();
+            foreach (var faceVertices in faceReplaceDictVtx)
+            {
+                var faceReplaceDict = new Dictionary<int, int>();
+
+                foreach (var oldReplace in faceVertices.Value)
+                {
+                    faceReplaceDict.Add(oldReplace.Key, compaqVerticesIndexDict[oldReplace.Value]);
+                }
+                faceTriIndexedReindexVertex.Add(faceVertices.Key, faceReplaceDict);
+            }
+
+            foreach (var faceVertices in faceTriIndexedReindexVertex)
+            {
+                triangles.AddRange(triangulateDatas[faceVertices.Key].ReindexTrianglesVertices(faceVertices.Value));
+            }
+
+            vertices = compaqVertices.Select(x => x.Coord).ToList();
+
+            return new Tuple<IEnumerable<Vector3d>, IEnumerable<FacedTriangle>>(vertices, triangles);
+        }
+
+
 
         private static Tuple<IEnumerable<Vector3d>, IEnumerable<Index2i>> GetVtxAndEdgesFromFace(
             SBRepObject sBRepObject,
@@ -245,9 +341,9 @@ namespace MeshSimplificationTest.SBRep
             ///дальше реиндексируем точки и треугольники, присваиваем треугольникам id группы
             ///дальше пихаем это всё в билдер мэша
 
-            var facedTriangulateData = new List<FacedTriangulateData>();
-
-            foreach (var face in sBRepObject.Faces)
+            var facedTriangulateData = new IndexedCollection<FacedTriangulateData>();
+            object mutex = new object();
+            foreach (var face in sBRepObject.Faces) 
             {
                 var faceData = GetVtxAndEdgesFromFace(sBRepObject, face.ID);
                 var vertices = faceData.Item1;
@@ -259,21 +355,84 @@ namespace MeshSimplificationTest.SBRep
                 var vertice3D = RevertTo3D(triangulateData.Item1, transformMtxs.Item2, transformMtxs.Item3);
                 var triangles = triangulateData.Item2;
 
-                facedTriangulateData.Add(
-                    new FacedTriangulateData()
-                    {
-                        vertices = vertice3D,
-                        triangles = triangles.Select(
+                var newFaceData = new FacedTriangulateData()
+                {
+                    ID = face.ID,
+                    Neighbors = sBRepObject.GetFaceNeighborsIndexes(face.ID),
+                    vertices = vertice3D,
+                    triangles = triangles.Select(
                             triangle => new FacedTriangle()
                             {
                                 vertex = triangle,
                                 GroupID = face.GroupID,
                                 normal = face.Normal
                             })
-                    });
+                };
+                facedTriangulateData.Add(newFaceData);
             }
 
             var resultMeshData = ReindexTriangulateDatas(facedTriangulateData);
+
+            var meshVertices = resultMeshData.Item1;
+
+            foreach (var tri in resultMeshData.Item2)
+            {
+                tri.FixNormal(meshVertices);
+            }
+
+            var indexedTriangles = resultMeshData.Item2.Select(triData => triData.vertex).ToList();
+            var faces = resultMeshData.Item2.Select(triData => triData.GroupID).ToList();
+            var normals = resultMeshData.Item2.Select(triData => new Vector3f(triData.normal)).ToList();
+
+            var mesh = DMesh3Builder.Build<Vector3d, Index3i, Vector3f>(
+                meshVertices,
+                indexedTriangles,
+                TriGroups: faces
+                );
+            return mesh;
+        }
+        public static DMesh3 ConvertParallel(SBRepObject sBRepObject)
+        {
+            ///по каждой плоскости: 
+            ///     разворчиваем параллельно плоскости XOY и смещаем в z = 0,
+            ///     проводим триангуляцию и получаем список точек и треугольники
+            ///     обратно преобразуем точки до прежнего состояния
+            ///дальше реиндексируем точки и треугольники, присваиваем треугольникам id группы
+            ///дальше пихаем это всё в билдер мэша
+
+            var facedTriangulateData = new IndexedCollection<FacedTriangulateData>();
+            object mutex = new object();
+            //foreach (var face in sBRepObject.Faces)
+            Parallel.ForEach<SBRep_Face>(sBRepObject.Faces,
+            (face) => {
+                var faceData = GetVtxAndEdgesFromFace(sBRepObject, face.ID);
+                var vertices = faceData.Item1;
+                var edges = faceData.Item2;
+
+                var transformMtxs = CalculateTransform(vertices, face.Normal);
+                var vertice2D = ConvertTo2D(vertices, transformMtxs.Item1, transformMtxs.Item3);
+                var triangulateData = Triangulate(vertice2D, edges);
+                var vertice3D = RevertTo3D(triangulateData.Item1, transformMtxs.Item2, transformMtxs.Item3);
+                var triangles = triangulateData.Item2;
+
+                var newFaceData = new FacedTriangulateData()
+                {
+                    ID = face.ID,
+                    Neighbors = sBRepObject.GetFaceNeighborsIndexes(face.ID),
+                    vertices = vertice3D,
+                    triangles = triangles.Select(
+                            triangle => new FacedTriangle()
+                            {
+                                vertex = triangle,
+                                GroupID = face.GroupID,
+                                normal = face.Normal
+                            })
+                };
+                lock (mutex)
+                    facedTriangulateData.Add(newFaceData);
+            });
+
+            var resultMeshData = ReindexTriangulateDatasFast(facedTriangulateData);
 
             var meshVertices = resultMeshData.Item1;
 
