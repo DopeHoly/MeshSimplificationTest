@@ -107,7 +107,8 @@ namespace MeshSimplificationTest.SBRep.Utils
         None,
         Inside,
         Outside,
-        Cross
+        Cross,
+        PartlyInside
     }
 
     public class IntersectContour
@@ -305,7 +306,12 @@ namespace MeshSimplificationTest.SBRep.Utils
             if (pointPositionMode == PointPositionMode.InPlane)
                 return ContoursIntersectType.Inside;
             if (pointPositionMode == PointPositionMode.OutPlane)
+            {
+                var position = CalcPointPosition(left, right.Points.First().Coord, eps);
+                if (position.Mode == PointPositionMode.InPlane)
+                    return ContoursIntersectType.PartlyInside;
                 return ContoursIntersectType.Outside;
+            }
 
             return ContoursIntersectType.None;
         }

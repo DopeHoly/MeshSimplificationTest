@@ -21,6 +21,7 @@ using static MeshSimplificationTest.SBRep.SBRepBuilder;
 using System.Collections.ObjectModel;
 using System.Xml.Serialization;
 using MeshSimplificationTest.SBRep.Utils;
+using System.Security.Cryptography;
 
 namespace MeshSimplificationTest.SBRepVM
 {
@@ -214,9 +215,17 @@ namespace MeshSimplificationTest.SBRepVM
             //contour2.Add(new Vector2d(3, 3));
             //contour2.Add(new Vector2d(1, 2));
 
-            var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
-            var sbrep = SBRepBuilder.Convert(model);
-            SBRepObject projectionObject = new SBRepObject(sbrep);
+            //var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
+            SBRepObject projectionObject = null;
+            //try
+            //{
+                var sbrep = SBRepBuilder.Convert(model);
+                projectionObject = new SBRepObject(sbrep);
+            //}
+            //catch (Exception ex)
+            //{
+            //    ;
+            //}
             foreach (var contour in Contours)
             {
                 //var debugProjection = projectionObject.DebugContourProjection(contour.Value, true);
@@ -242,21 +251,21 @@ namespace MeshSimplificationTest.SBRepVM
 
 
                 //if (contour == Contours.Last()) continue;
-                //try
-                //{
+                try
+                {
 
-                    projectionObject = projectionObject.ContourProjectionParallel(contour.Value, true);
-                    projectionObjectMesh = SBRepToMeshBuilder.ConvertParallel(projectionObject);
+                    projectionObject = projectionObject?.ContourProjectionParallel(contour.Value, true);
+                    projectionObjectMesh = SBRepToMeshBuilder.Convert(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
                     {
                         Name = "Триангулированный объект c проекцией " + contour.Name,
                         Model = ConvertToModel3D(projectionObjectMesh),
                     });
-                //}
-                //catch (Exception ex)
-                //{
-                //    ;
-                //}
+                }
+                catch (Exception ex)
+                {
+                    ;
+                }
             }
 
             //projectionObject = projectionObject.ContourProjection(contour2, true);
@@ -313,7 +322,7 @@ namespace MeshSimplificationTest.SBRepVM
                 ModelsVM.Add(new Model3DLayerVM(this)
                 {
                     Name = "Контур проекции: " + contour.Name,
-                    Model = GenerateModelFrom2dContour(contour.Value, Colors.Green)
+                    Model = GenerateModelFrom2dContour(contour.Value, Colors.Green, diameterScale: 4)
                 });
             }
             
@@ -382,6 +391,8 @@ namespace MeshSimplificationTest.SBRepVM
                     {
                         SaveTriangleMeshByIdInFile(model, tri_list, bufer_group_PATH, writeOptions);
                         resultmodels.Children.Add(LoadTriangleMesh(bufer_group_PATH, cnt));
+                        resultmodels.Children.Add(DMesh3ColorTriangleWithoutNeighbor(model, Colors.Yellow));
+                        resultmodels.Children.Add(DMesh3ColorTriangleZeroNormal(model, Colors.GreenYellow));
                         ++cnt;
                     }
                 }
@@ -392,6 +403,8 @@ namespace MeshSimplificationTest.SBRepVM
                         new List<WriteMesh>() { new WriteMesh(model) },
                         writeOptions);
                     resultmodels = LoadTriangleMesh(bufer_PATH);
+                    resultmodels.Children.Add(DMesh3ColorTriangleWithoutNeighbor(model, Colors.CadetBlue));
+                    resultmodels.Children.Add(DMesh3ColorTriangleZeroNormal(model, Colors.GreenYellow));
                 }
 
                 //Import 3D model file
@@ -522,6 +535,78 @@ namespace MeshSimplificationTest.SBRepVM
             return resultmodels;
         }
         #endregion
+
+
+        public Model3D DMesh3ColorTriangleWithoutNeighbor(DMesh3 mesh, Color color, double diameterScale = 15)
+        {
+            var theta = 4;
+            var rad = diameterScale * 1.3 * 0.01;
+            var phi = 4;
+            var builder = new MeshBuilder(true, true);
+            var points = new List<Point3D>();
+            var edges = new List<int>();
+            foreach (var eid in mesh.EdgeIndices())
+            {
+                if (eid == 27674)
+                    ;
+                var edgeTri = mesh.GetEdgeT(eid);
+
+                if (edgeTri.a == -1 || edgeTri.b == -1)
+                {
+                    var edgePointIndeces = mesh.GetEdgeV(eid);
+                    var a = mesh.GetVertex(edgePointIndeces.a);
+                    var b = mesh.GetVertex(edgePointIndeces.b);
+                    var pointA = new Point3D(a.x, a.y, a.z);
+                    var pointB = new Point3D(b.x, b.y, b.z);
+                    points.Add(pointA);
+                    points.Add(pointB);
+                }
+            }
+            //builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
+            foreach (var point in points)
+                builder.AddEllipsoid(point, rad, rad, rad, theta, phi);
+            return new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(color))
+            };
+        }
+        public Model3D DMesh3ColorTriangleZeroNormal(DMesh3 mesh, Color color, double diameterScale = 1)
+        {
+            var theta = 4;
+            var rad = diameterScale * 1.3 * 0.01;
+            var phi = 4;
+            var builder = new MeshBuilder(true, true);
+            var points = new List<Point3D>();
+            var edges = new List<int>();
+            foreach (var tid in mesh.TriangleIndices())
+            {
+                var normal = mesh.GetTriNormal(tid);
+
+                if (SBRepBuilder.Vector3dEqual(normal, Vector3d.Zero))
+                {
+                    var a = Vector3d.Zero;
+                    var b = Vector3d.Zero;
+                    var c = Vector3d.Zero;
+                    mesh.GetTriVertices(tid, ref a, ref b, ref c);
+
+                    var pointA = new Point3D(a.x, a.y, a.z);
+                    var pointB = new Point3D(b.x, b.y, b.z);
+                    var pointC = new Point3D(c.x, c.y, c.z);
+                    points.Add(pointA);
+                    points.Add(pointB);
+                    points.Add(pointC);
+                }
+            }
+            //builder.AddEdges(points, edges, 0.01 * diameterScale, theta);
+            foreach (var point in points)
+                builder.AddEllipsoid(point, rad, rad, rad, theta, phi);
+            return new GeometryModel3D()
+            {
+                Geometry = builder.ToMesh(),
+                Material = new DiffuseMaterial(new SolidColorBrush(color))
+            };
+        }
 
         public Model3D GenerateModelFromLoopEdge(DMesh3 mesh, IEnumerable<LoopEdge> edges)
         {

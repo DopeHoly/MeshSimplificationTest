@@ -44,7 +44,7 @@ namespace MeshSimplificationTest.SBRep
         /// <param name="a">Вектор первый</param>
         /// <param name="b">Вектор второй</param>
         /// <returns></returns>
-        private static bool Vector3dEqual(Vector3d a, Vector3d b)
+        public static bool Vector3dEqual(Vector3d a, Vector3d b)
         {
             return Math.Abs(a.x - b.x) < EPS_NormalCompare &&
                 Math.Abs(a.y - b.y) < EPS_NormalCompare &&
@@ -309,10 +309,16 @@ namespace MeshSimplificationTest.SBRep
             foreach (var eid in meshEdges)
             {
                 var edgeTri = mesh.GetEdgeT(eid);
-                if (edgeTri.a == -1 || edgeTri.b == -1)
+                //if (edgeTri.a == -1 || edgeTri.b == -1)
+                //    throw new Exception("Объект не замкнут");
+                if (edgeTri.a == -1 && edgeTri.b == -1)
                     throw new Exception("Объект не замкнут");
-                var t1Index = triMarks[edgeTri.a];
-                var t2Index = triMarks[edgeTri.b];
+                int t1Index = -1;
+                int t2Index = -1;
+                if(triMarks.ContainsKey(edgeTri.a))
+                    t1Index = triMarks[edgeTri.a];
+                if (triMarks.ContainsKey(edgeTri.b))
+                    t2Index = triMarks[edgeTri.b];
                 if (t1Index == t2Index)
                     throw new Exception("Нарушение целостности групп");
                 //создаём пару с индексами соседних граней ребра
@@ -471,6 +477,8 @@ namespace MeshSimplificationTest.SBRep
             var faces = new IndexedCollection<SBRep_Face>();
             foreach (var face in planarGroups)
             {
+                if (face.Normal == Vector3d.Zero)
+                    continue;
                 var allLoopsIDs = planarsLoops[face.ID];
                 faces.Add(new SBRep_Face()
                 {

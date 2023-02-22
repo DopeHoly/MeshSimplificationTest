@@ -94,6 +94,7 @@ namespace MeshSimplificationTest.SBRep
                 ++count;
             }
 
+            obj.RebuildVerges();
             return obj;
         }
 
@@ -151,6 +152,7 @@ namespace MeshSimplificationTest.SBRep
                             break;
                         case ContoursIntersectType.Outside:
                             break;
+                        case ContoursIntersectType.PartlyInside:
                         case ContoursIntersectType.Cross:
                             lock (mutex)
                                 facesCrossedContor.Add(face.ID);
@@ -174,6 +176,7 @@ namespace MeshSimplificationTest.SBRep
                 }
                 ApplyIntersectContourToFace(obj, faceID, resultIntersect, groupIDsDict, ref maxGroidID, false);
             }
+            obj.RebuildVerges();
             return obj;
         }
 
@@ -248,24 +251,24 @@ namespace MeshSimplificationTest.SBRep
                 obj = new SBRepObject(sbrep);
                 var projContour = new IntersectContour(projectionContour);
                 var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
-                if (face.ID == 9)
-                    AddToSBrep(obj, outsideLoop, face.Plane, Colors.GreenYellow);
-                else
-                    AddToSBrep(obj, outsideLoop, face.Plane, Colors.AliceBlue);
+                //if (face.ID == 9)
+                //    AddToSBrep(obj, outsideLoop, face.Plane, Colors.GreenYellow);
+                //else
+                //    AddToSBrep(obj, outsideLoop, face.Plane, Colors.AliceBlue);
                 var insideLoops = face.InsideLoops.Select(lid =>
                  new IntersectContour(GetContourFromLoop(obj, lid)))
                     .ToList();
                 var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
                 foreach (var insideLoop in insideLoops)
                 {
-                    AddToSBrep(obj, insideLoop, face.Plane, Colors.BlueViolet);
+                    //AddToSBrep(obj, insideLoop, face.Plane, Colors.BlueViolet);
                     resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
                 try
                 {
 
-                    AddToSBrep(obj, resultIntersect, face.Plane, Colors.Chocolate);
-                    //DebugApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID);
+                    //AddToSBrep(obj, resultIntersect, face.Plane, Colors.Chocolate);
+                    DebugApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID);
                 }
                 catch
                 {
@@ -279,25 +282,27 @@ namespace MeshSimplificationTest.SBRep
             return results;
         }
 
-        public static void DebugApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID)
+        public static void DebugApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID, bool useShortAlgorithm = false)
         {
             var face = sbrep.Faces[faceID];
             //Обработка случаев, когда полностью грань попадает в проекцию или не попадает
-            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.OutPlane))
+            if (useShortAlgorithm)
             {
-                var faceEdgesPos = GetEdgesInsideOutside(sbrep, faceID, contour);
-                if (faceEdgesPos.All(ePos => ePos.Value == true))
-                    face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
-                return;
+                if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.OutPlane))
+                {
+                    var faceEdgesPos = GetEdgesInsideOutside(sbrep, faceID, contour);
+                    if (faceEdgesPos.All(ePos => ePos.Value == true))
+                        face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
+                    return;
+                }
             }
 
+
             //Обработка случая, когда попали проекцией полностью на контур, и ничего не задели
-            //если все грани внутри, но больше 1 точки касаются грани, то скипаем, иначе юзаем упрощённый алгоритм
+            //если все грани внутри и все точки внутри, то юзаем упрощённый алгоритм
             //if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-            //    contour.Points.Where(
-            //        point => point.Position.Mode == PointPositionMode.OnEdge ||
-            //        point.Position.Mode == PointPositionMode.OnVertex)
-            //    .Count() < 2)
+            //    contour.Points.All(
+            //        point => point.Position.Mode == PointPositionMode.InPlane))
             //{
             //    AddContourOnFace(sbrep, faceID, contour, groupIDsDict, ref maxGroidID);
             //    return;
@@ -331,6 +336,12 @@ namespace MeshSimplificationTest.SBRep
 
             //вычисляем, какие рёбра внутри, какие снаружи
             var faceEdgesPosition = GetEdgesInsideOutside(sbrep, faceID, contour);
+
+            //Если нет новых рёбер, лежащих внутри данной грани и нет рёбер грани, лежащих внутри, то ничего больше с гранью не делаем
+            if (addedEdges.Where(x => x.Value == true).Count() == 0 && faceEdgesPosition
+                .Where(idPos => idPos.Value == true).Count() == 0)
+                return;
+
             //вычисляем множества рёбер для новых и старых граней
             var newFaceEdges = new List<int>();
             newFaceEdges.AddRange(
@@ -339,38 +350,80 @@ namespace MeshSimplificationTest.SBRep
                 .Select(idPos => idPos.Key));
             newFaceEdges.AddRange(addedEdges.Keys.ToList());
 
-            var oldFacesEdges = new List<int>();
-            oldFacesEdges.AddRange(
-                faceEdgesPosition
-                .Where(idPos => idPos.Value == false)
-                .Select(idPos => idPos.Key));
-            oldFacesEdges.AddRange(
-                addedEdges
-                .Where(idPos => idPos.Value == true)
-                .Select(idPos => idPos.Key));
-            #if DEBUG
+            IEnumerable<IEnumerable<int>> newFacesLoops = null;
+            IEnumerable<IEnumerable<int>> oldFacesLoops = null;
+
+            //Собираем петли для новых граней
+            newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
+
+#if DEBUG
             foreach (var eid in newFaceEdges)
             {
                 sbrep.Edges[eid].Color = Colors.HotPink;
             }
-            foreach (var eid in oldFacesEdges)
+            //foreach (var eid in oldFacesEdges)
+            //{
+            //    //Debug.Assert(sbrep.Edges[eid].Color != Colors.Gray);
+            //    if (sbrep.Edges[eid].Color != Colors.Gray)
+            //        sbrep.Edges[eid].Color = Colors.Yellow;
+            //    else
+            //        sbrep.Edges[eid].Color = Colors.Red;
+            //}
+#endif
+            //Собираем петли для старых граней
+            //случай, когда контур разделяет точками на грани на n петель
+            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
+                contour.Points.Where(
+                    point => point.Position.Mode == PointPositionMode.OnEdge ||
+                    point.Position.Mode == PointPositionMode.OnVertex)
+                .Count() > 1)
             {
-                //Debug.Assert(sbrep.Edges[eid].Color != Colors.Gray);
-                if (sbrep.Edges[eid].Color != Colors.Gray)
-                    sbrep.Edges[eid].Color = Colors.Yellow;
-                else
-                    sbrep.Edges[eid].Color = Colors.Red;
+                var oldFacesEdgesPriority = new Dictionary<int, bool>();
+
+                foreach (var edge in faceEdgesPosition
+                    .Where(idPos => idPos.Value == false)
+                    .Select(idPos => idPos.Key))
+                {
+                    oldFacesEdgesPriority.Add(edge, false);
+                }
+                foreach (var edge in addedEdges
+                    .Where(idPos => idPos.Value == true)
+                    .Select(idPos => idPos.Key))
+                {
+                    oldFacesEdgesPriority.Add(edge, true);
+                }
+                oldFacesLoops = SBRepObject.BuildLoopsFromEdgesByAngle(sbrep, oldFacesEdgesPriority);
             }
-            #endif
+            else
+            {
+                var oldFacesEdges = new List<int>();
+                oldFacesEdges.AddRange(
+                    faceEdgesPosition
+                    .Where(idPos => idPos.Value == false)
+                    .Select(idPos => idPos.Key));
+                oldFacesEdges.AddRange(
+                    addedEdges
+                    .Where(idPos => idPos.Value == true)
+                    .Select(idPos => idPos.Key));
+#if DEBUG
+                foreach (var eid in oldFacesEdges)
+                {
+                    //Debug.Assert(sbrep.Edges[eid].Color != Colors.Gray);
+                    if (sbrep.Edges[eid].Color != Colors.Gray)
+                        sbrep.Edges[eid].Color = Colors.Yellow;
+                    else
+                        sbrep.Edges[eid].Color = Colors.Red;
+                }
+#endif
+                //Собираем петли для старых граней
+                oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
+            }
 
             return;
 
-            //Собираем петли для новых граней
-            var newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
-            //Собираем петли для старых граней
-            var oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
-            Debug.Assert(newFacesLoops.All(x => x.Count() > 3));
-            Debug.Assert(oldFacesLoops.All(x => x.Count() > 3));
+
+            Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
+            Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
             //objString = sbrep.ToString();
             //Тут вычисляем, какие части петли нужно разделять на N частей
             //и составляем словарь какое ребро какой части петли соответствует
@@ -441,13 +494,17 @@ namespace MeshSimplificationTest.SBRep
             {
                 if (loop.Count() == 0) continue;
                 var loopId = sbrep.AddLoop(loop.Select(eid => dictEdgeNewVerge[eid]).ToList());
+                Debug.Assert(loopId != -1);
                 loopsByNewFaces.Add(sbrep.Loops[loopId]);
             }
             var loopsByOldFaces = new IndexedCollection<SBRep_Loop>();
             foreach (var loop in oldFacesLoops)
             {
                 if (loop.Count() == 0) continue;
-                var loopId = sbrep.AddLoop(loop.Select(eid => dictEdgeNewVerge[eid]).ToList());
+                int loopId = -1;
+                var loopVerges = loop.Select(eid => dictEdgeNewVerge[eid]).ToList();
+                loopId = sbrep.AddLoop(loopVerges);
+                Debug.Assert(loopId != -1);
                 loopsByOldFaces.Add(sbrep.Loops[loopId]);
             }
 
@@ -455,6 +512,7 @@ namespace MeshSimplificationTest.SBRep
             //дальше создаём по петлям все заготовки данных для грани (какие петли внутренние, какие внешние)
 
             var blackList = new List<int>();
+            var blackListNew = new List<int>();
             var facesLoopsColectionOld = new Dictionary<int, IEnumerable<int>>();
             foreach (var loop in loopsByOldFaces)
             {
@@ -464,10 +522,14 @@ namespace MeshSimplificationTest.SBRep
                 blackList.AddRange(insideLoopsIds);
                 facesLoopsColectionOld.Add(loop.ID, insideLoopsIds);
             }
-            var facesLoopsColectionNew = new Dictionary<int, List<int>>();
+            var facesLoopsColectionNew = new Dictionary<int, IEnumerable<int>>();
             foreach (var loop in loopsByNewFaces)
             {
-                facesLoopsColectionNew.Add(loop.ID, new List<int>());
+                IEnumerable<int> insideLoopsIds = new List<int>();
+                var checkedLoops = loopsByNewFaces.Where(checkedLoop => checkedLoop != loop).ToList();
+                insideLoopsIds = GetInsideLoops(sbrep, loop, checkedLoops);
+                blackListNew.AddRange(insideLoopsIds);
+                facesLoopsColectionNew.Add(loop.ID, insideLoopsIds);
             }
 
             //сносим старую грань
@@ -483,6 +545,8 @@ namespace MeshSimplificationTest.SBRep
             ++maxGroidID;
             foreach (var facedLoops in facesLoopsColectionNew)
             {
+                if (blackListNew.Contains(facedLoops.Key))
+                    continue;
                 var newGroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
                 sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
             }
@@ -492,7 +556,6 @@ namespace MeshSimplificationTest.SBRep
             ////////////////////
 
         }
-
 
         public static void ApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID, bool useShortAlgorithm = false)
         {
@@ -539,11 +602,15 @@ namespace MeshSimplificationTest.SBRep
             //добавляем новые рёбра
             var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict, edgesReplaceDict);
 
-            //Если нет новых рёбер, лежащих внутри данной грани, то ничего больше с гранью не делаем
-            if (addedEdges.Where(x => x.Value == true).Count() == 0) return;
 
             //вычисляем, какие рёбра внутри, какие снаружи
             var faceEdgesPosition = GetEdgesInsideOutside(sbrep, faceID, contour);
+
+            //Если нет новых рёбер, лежащих внутри данной грани и нет рёбер грани, лежащих внутри, то ничего больше с гранью не делаем
+            if (addedEdges.Where(x => x.Value == true).Count() == 0 && faceEdgesPosition
+                .Where(idPos => idPos.Value == true).Count() == 0)
+                return;
+
             //вычисляем множества рёбер для новых и старых граней
             var newFaceEdges = new List<int>();
             newFaceEdges.AddRange(
@@ -728,11 +795,6 @@ namespace MeshSimplificationTest.SBRep
                 var newGroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
                 sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
             }
-
-            //пересобираем verges по принадлежности одинаковым граням и по зонам связанности
-            sbrep.RebuildVerges();//TODO а надо ли
-            ////////////////////
-
         }
         public static IEnumerable<int> GetInsideLoops(SBRepObject sbrep, SBRep_Loop mainLoop, IEnumerable<SBRep_Loop> checkedLoop)
         {

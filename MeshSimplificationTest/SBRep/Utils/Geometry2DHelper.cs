@@ -65,6 +65,14 @@ namespace MeshSimplificationTest.SBRep.Utils
                     break;
             }
 
+            if(answer.IntersectionType == EdgeIntersectionType.Segment)
+            {
+                if(EqualPoints(answer.Point0, answer.Point1, eps))
+                {
+                    answer.IntersectionType = EdgeIntersectionType.Point;
+                }
+            }
+
             return answer;
         }
         public static int orientation3Points(Vector2d p1, Vector2d p2, Vector2d p3)

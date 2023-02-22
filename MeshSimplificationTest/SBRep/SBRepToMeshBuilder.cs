@@ -3,6 +3,7 @@ using HelixToolkit.Logger;
 using MeshSimplificationTest.SBRep.Utils;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +15,7 @@ namespace MeshSimplificationTest.SBRep
 {
     public static class SBRepToMeshBuilder
     {
-        public const double EPS_PointCompare = 1e-8;
+        public const double EPS_PointCompare = 0.1e-4;
 
         /// <summary>
         /// Функция проверки равнозначности векторов
@@ -25,9 +26,11 @@ namespace MeshSimplificationTest.SBRep
         /// <returns></returns>
         private static bool Vector3dEqual(Vector3d a, Vector3d b)
         {
-            return Math.Abs(a.x - b.x) < EPS_PointCompare &&
-                Math.Abs(a.y - b.y) < EPS_PointCompare &&
-                Math.Abs(a.z - b.z) < EPS_PointCompare;
+            //return Math.Abs(a.x - b.x) < EPS_PointCompare &&
+            //    Math.Abs(a.y - b.y) < EPS_PointCompare &&
+            //    Math.Abs(a.z - b.z) < EPS_PointCompare;
+            var ba = Math.Abs((b - a).LengthSquared);
+            return ba < EPS_PointCompare;
         }
 
         public class IndexedVertex : IIndexed
@@ -208,9 +211,18 @@ namespace MeshSimplificationTest.SBRep
             return new Tuple<IEnumerable<Vector3d>, IEnumerable<FacedTriangle>>(vertices, triangles);
         }
 
+        private static Vector3d VectorNDigit(Vector3d vector, int digits)
+        {
+            return new Vector3d(
+                Math.Round(vector.x, digits),
+                Math.Round(vector.y, digits),
+                Math.Round(vector.z, digits));
+        }
+
         public static Tuple<IEnumerable<Vector3d>, IEnumerable<FacedTriangle>> ReindexTriangulateDatasFast(
            IndexedCollection<FacedTriangulateData> triangulateDatas)
         {
+            int digits = 6;
             var vertices = new List<Vector3d>();
             var triangles = new List<FacedTriangle>();
 
@@ -229,7 +241,7 @@ namespace MeshSimplificationTest.SBRep
                 {
                     var newVtx = new IndexedVertex()
                     {
-                        Coord = vertice
+                        Coord = VectorNDigit(vertice, digits)
                     };
                     indexedVertices.Add(newVtx);
                     triVtxIds.Add(newVtx.ID);
@@ -351,6 +363,7 @@ namespace MeshSimplificationTest.SBRep
 
                 var transformMtxs = CalculateTransform(vertices, face.Normal);
                 var vertice2D = ConvertTo2D(vertices, transformMtxs.Item1, transformMtxs.Item3);
+                Debug.Assert(vertice2D.Any(x => x != Vector2d.Zero));
                 var triangulateData = Triangulate(vertice2D, edges);
                 var vertice3D = RevertTo3D(triangulateData.Item1, transformMtxs.Item2, transformMtxs.Item3);
                 var triangles = triangulateData.Item2;
@@ -393,6 +406,8 @@ namespace MeshSimplificationTest.SBRep
         }
         public static DMesh3 ConvertParallel(SBRepObject sBRepObject)
         {
+            if(sBRepObject == null)
+                return null;
             ///по каждой плоскости: 
             ///     разворчиваем параллельно плоскости XOY и смещаем в z = 0,
             ///     проводим триангуляцию и получаем список точек и треугольники
