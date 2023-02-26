@@ -108,7 +108,6 @@ namespace MeshSimplificationTest.SBRep.Utils
                 Marshal.DestroyStructure(current, typeof(T));
                 current = (IntPtr)((long)current + Marshal.SizeOf(resultArray[i]));
             }
-
             return resultArray;
         }
     }

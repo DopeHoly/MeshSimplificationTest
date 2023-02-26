@@ -105,6 +105,7 @@
       <DependentUpon>SBRepView.xaml</DependentUpon>
     </Compile>
     <Compile Include="SBRepVM\SBRepViewModel.cs" />
+    <Compile Include="SBRep\SBRepToMeshBuilderV2.cs" />
     <Compile Include="SBRep\SBRep_Primitives.cs" />
     <Compile Include="SBRep\SBRepBuilder.cs" />
     <Compile Include="SBRep\SBRepObject.cs" />

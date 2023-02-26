@@ -78,6 +78,8 @@ bool Triangulate(
 
     *triangleVertices = triV;
     *triangles = tri;
+    sourceEdges.clear();
+    sourceEdges.clear();
 
     return true;
 }

@@ -736,7 +736,7 @@ namespace MeshSimplificationTest.SBRep
 
         public void RebuildVerges()
         {
-            //TODO срочное
+            
         }
 
         /// <summary>

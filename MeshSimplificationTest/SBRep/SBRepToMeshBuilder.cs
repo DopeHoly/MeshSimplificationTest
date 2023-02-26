@@ -354,7 +354,6 @@ namespace MeshSimplificationTest.SBRep
             ///дальше пихаем это всё в билдер мэша
 
             var facedTriangulateData = new IndexedCollection<FacedTriangulateData>();
-            object mutex = new object();
             foreach (var face in sBRepObject.Faces) 
             {
                 var faceData = GetVtxAndEdgesFromFace(sBRepObject, face.ID);
@@ -379,7 +378,7 @@ namespace MeshSimplificationTest.SBRep
                                 vertex = triangle,
                                 GroupID = face.GroupID,
                                 normal = face.Normal
-                            })
+                            }).ToList()
                 };
                 facedTriangulateData.Add(newFaceData);
             }
@@ -441,7 +440,7 @@ namespace MeshSimplificationTest.SBRep
                                 vertex = triangle,
                                 GroupID = face.GroupID,
                                 normal = face.Normal
-                            })
+                            }).ToList()
                 };
                 lock (mutex)
                     facedTriangulateData.Add(newFaceData);

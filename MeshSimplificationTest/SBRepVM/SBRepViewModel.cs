@@ -255,7 +255,7 @@ namespace MeshSimplificationTest.SBRepVM
                 {
 
                     projectionObject = projectionObject?.ContourProjectionParallel(contour.Value, true);
-                    projectionObjectMesh = SBRepToMeshBuilder.Convert(projectionObject);
+                    projectionObjectMesh = SBRepToMeshBuilderV2.Convert(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
                     {
                         Name = "Триангулированный объект c проекцией " + contour.Name,
