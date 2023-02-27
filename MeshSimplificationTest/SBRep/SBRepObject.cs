@@ -1,11 +1,13 @@
 ﻿using g3;
 using MeshSimplificationTest.SBRep.Utils;
+using MeshSimplificationTest.SBRepVM;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using static MeshSimplificationTest.SBRep.SBRepBuilder;
 
@@ -521,8 +523,22 @@ namespace MeshSimplificationTest.SBRep
             throw new Exception($"Ребро {eid} не содержит {vid}");
         }
 
+        private static void Show(SBRepObject obj, IEnumerable<int> edgesIDs)
+        {
+            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            keyValuePairs.Add(Colors.Red, edgesIDs);
+
+            SbrepVizualizer.ShowEdge(obj, keyValuePairs);
+           
+        }
+
         public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, IEnumerable<int> edgesIDs, bool recursiveFix = true)
         {
+            if (edgesIDs.Count() < 3)
+            {
+                Show(obj, edgesIDs);
+                throw new Exception("Недостаточно граней для графа");
+            }
             //проверяем критерий обходимости
             var edges = edgesIDs.Select(eid => obj.Edges[eid]).ToList();
             var verticesIds = edges.SelectMany(edge =>
@@ -530,13 +546,17 @@ namespace MeshSimplificationTest.SBRep
                 )
                 .Distinct()
                 .ToList();
+
             var vertices = verticesIds.Select(vid => obj.Vertices[vid]).ToList();
             var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var vtx in vertices)
             {
                 var parents = vtx.Parents.Intersect(edgesIDs).ToList();
                 if (parents.Count() % 2 == 1)
+                {
+                    Show(obj, edgesIDs);
                     throw new Exception("Невозможно обойти граф");
+                }
                 vertParentsDict.Add(vtx.ID, parents);
             }
             var bypassEdges = new List<int>(edgesIDs);
@@ -792,8 +812,8 @@ namespace MeshSimplificationTest.SBRep
 
                 if (nextEdge.Count == 0)
                     throw new Exception("Нет пути");
-                if (nextEdge.Count != 1)
-                    throw new Exception("У петли почему то появилась развилка");
+                //if (nextEdge.Count != 1)
+                //    throw new Exception("У петли почему то появилась развилка");
                 currentEdge = nextEdge.First();
             }
 

@@ -215,7 +215,7 @@ namespace MeshSimplificationTest.SBRepVM
             //contour2.Add(new Vector2d(3, 3));
             //contour2.Add(new Vector2d(1, 2));
 
-            //var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
+            var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             SBRepObject projectionObject = null;
             //try
             //{
@@ -255,7 +255,7 @@ namespace MeshSimplificationTest.SBRepVM
                 {
 
                     projectionObject = projectionObject?.ContourProjectionParallel(contour.Value, true);
-                    projectionObjectMesh = SBRepToMeshBuilderV2.Convert(projectionObject);
+                    projectionObjectMesh = SBRepToMeshBuilderV2.ConvertParallel(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
                     {
                         Name = "Триангулированный объект c проекцией " + contour.Name,
@@ -284,16 +284,16 @@ namespace MeshSimplificationTest.SBRepVM
             //    Model = triPlanarGroupModel,
             //});
 
-            //var loopEdgeModel = GenerateModelFromLoopEdge(
-            //    model,
-            //    SBRepBuilder.BuildVerges(
-            //        model,
-            //        triPlanarGroup));
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Грани петель",
-            //    Model = loopEdgeModel,
-            //});
+            var loopEdgeModel = GenerateModelFromLoopEdge(
+                model,
+                SBRepBuilder.BuildVerges(
+                    model,
+                    triPlanarGroup));
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани петель",
+                Model = loopEdgeModel,
+            });
 
             //var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
             //ModelsVM.Add(new Model3DLayerVM(this)
@@ -537,7 +537,7 @@ namespace MeshSimplificationTest.SBRepVM
         #endregion
 
 
-        public Model3D DMesh3ColorTriangleWithoutNeighbor(DMesh3 mesh, Color color, double diameterScale = 15)
+        public Model3D DMesh3ColorTriangleWithoutNeighbor(DMesh3 mesh, Color color, double diameterScale = 1)
         {
             var theta = 4;
             var rad = diameterScale * 1.3 * 0.01;

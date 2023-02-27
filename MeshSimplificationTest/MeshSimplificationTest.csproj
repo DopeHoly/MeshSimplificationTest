@@ -105,6 +105,10 @@
       <DependentUpon>SBRepView.xaml</DependentUpon>
     </Compile>
     <Compile Include="SBRepVM\SBRepViewModel.cs" />
+    <Compile Include="SBRepVM\SbrepVisualizer.xaml.cs">
+      <DependentUpon>SbrepVisualizer.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SBRepVM\SbrepVizualizer.cs" />
     <Compile Include="SBRep\SBRepToMeshBuilderV2.cs" />
     <Compile Include="SBRep\SBRep_Primitives.cs" />
     <Compile Include="SBRep\SBRepBuilder.cs" />
@@ -145,6 +149,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="SBRepVM\SBRepView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SBRepVM\SbrepVisualizer.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

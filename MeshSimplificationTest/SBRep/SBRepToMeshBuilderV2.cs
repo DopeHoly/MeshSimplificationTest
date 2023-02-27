@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using static g3.DPolyLine2f;
 using static MeshSimplificationTest.SBRep.SBRepToMeshBuilder;
@@ -115,7 +116,9 @@ namespace MeshSimplificationTest.SBRep
             IndexedCollection<IndexedPoint> vertices,
             IEnumerable<Index2i> edges,
             IndexedCollection<IndexedVertex> allVertices,
-            Func<IndexedPoint, IndexedVertex> To3d)
+            Func<IndexedPoint, IndexedVertex> To3d,
+            object mutex = null
+            )
         {
             IEnumerable<g3.Vector2d> triVertices = null;
             IEnumerable<g3.Index3i> triangles = null;
@@ -159,7 +162,9 @@ namespace MeshSimplificationTest.SBRep
                         Coord = point
                     };
                     var vertex3d = To3d(newVertice);
-                    allVertices.Add(vertex3d);
+
+                    lock (mutex)
+                        allVertices.Add(vertex3d);
                     index = vertex3d.ID;
                 }
                 else
@@ -281,6 +286,71 @@ namespace MeshSimplificationTest.SBRep
                                 normal = face.Normal
                             }).ToList());
             }
+
+            var resultMeshData = CompaqTriangleData(meshVertices, triangles);
+            var meshVerticesReindex = resultMeshData.Item1;
+            var meshTriReindex = resultMeshData.Item2;
+
+            foreach (var tri in meshTriReindex)
+            {
+                tri.FixNormal(meshVerticesReindex);
+            }
+
+            var indexedTriangles = meshTriReindex.Select(triData => triData.vertex).ToList();
+            var faces = meshTriReindex.Select(triData => triData.GroupID).ToList();
+            var normals = meshTriReindex.Select(triData => new Vector3f(triData.normal)).ToList();
+
+            var mesh = DMesh3Builder.Build<Vector3d, Index3i, Vector3f>(
+                meshVerticesReindex,
+                indexedTriangles,
+                TriGroups: faces
+                );
+            return mesh;
+        }
+
+        public static DMesh3 ConvertParallel(SBRepObject sBRepObject)
+        {
+            //сначала индексируем существующие точки в объекте
+            var meshVertices = new IndexedCollection<IndexedVertex>();
+            var triangles = new List<FacedTriangle>();
+
+            foreach (var vertex in sBRepObject.Vertices)
+            {
+                meshVertices.Add(new IndexedVertex()
+                {
+                    ID = vertex.ID,
+                    Coord = vertex.Coordinate
+                });
+            }
+
+            object mutex = new object();
+
+            Parallel.ForEach<SBRep_Face>(sBRepObject.Faces,
+            (face) =>
+            {
+                var faceData = GetVtxAndEdgesFromFace(sBRepObject, face.ID, meshVertices);
+                var vertices = faceData.Item1;
+                var edges = faceData.Item2;
+
+                var transformMtxs = CalculateTransform(vertices, face.Normal);
+                var vertice2D = ConvertTo2D(vertices, transformMtxs.Item1, transformMtxs.Item3);
+                var faceTriangles = Triangulate(
+                    vertice2D, 
+                    edges, 
+                    meshVertices,  
+                    x => To3D(x, transformMtxs.Item2, transformMtxs.Item3),
+                    mutex
+                    );
+
+                lock (mutex)
+                    triangles.AddRange(faceTriangles.Select(
+                            triangle => new FacedTriangle()
+                            {
+                                vertex = triangle,
+                                GroupID = face.GroupID,
+                                normal = face.Normal
+                            }).ToList());
+            });
 
             var resultMeshData = CompaqTriangleData(meshVertices, triangles);
             var meshVerticesReindex = resultMeshData.Item1;

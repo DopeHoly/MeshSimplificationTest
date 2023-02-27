@@ -1,5 +1,6 @@
 ﻿using g3;
 using MeshSimplificationTest.SBRep.Utils;
+using MeshSimplificationTest.SBRepVM;
 using System;
 using System.CodeDom;
 using System.Collections;
@@ -623,7 +624,25 @@ namespace MeshSimplificationTest.SBRep
             IEnumerable<IEnumerable<int>> oldFacesLoops = null;
 
             //Собираем петли для новых граней
-            newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
+            try
+            {
+                if (newFaceEdges.Count < 3)
+                {
+                    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+                    var oldFacesEdgesIds = faceEdgesPosition.Select(x => x.Key).ToList();
+                    keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
+                    keyValuePairs.Add(Colors.Red, addedEdges.Keys);
+
+                    SbrepVizualizer.ShowEdge(sbrep, keyValuePairs);
+                }
+                newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);            
+            }
+            catch
+            {
+                return;
+            }
+
+            Debug.Assert(newFaceEdges.Count == newFacesLoops.Sum(x => x.Count()));
 
             //Собираем петли для старых граней
             //случай, когда контур разделяет точками на грани на n петель
@@ -663,6 +682,8 @@ namespace MeshSimplificationTest.SBRep
 
                 //Собираем петли для старых граней
                 oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
+
+                Debug.Assert(oldFacesEdges.Count == oldFacesLoops.Sum(x => x.Count()));
             }
 
 
