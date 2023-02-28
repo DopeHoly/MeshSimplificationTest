@@ -113,7 +113,7 @@ namespace MeshSimplificationTest.SBRep.Utils
 
     public class IntersectContour
     {
-        public const double EPS = 1e-6;
+        public const double EPS = 1e-8;
         public IndexedCollection<Point> Points { get; set; }
         public IndexedCollection<Edge> Edges { get; set; }
 
@@ -162,6 +162,11 @@ namespace MeshSimplificationTest.SBRep.Utils
                 currentEdgeId = nextEdgeID;
                 currentPointId = currentEdge.GetNext(currentPointId);
             }
+        }
+
+        public IEnumerable<Vector2d> GetContourPoints()
+        {
+            return GetContour().Select(x=>x.Coord).ToList();
         }
 
         public IEnumerable<Edge> GetEdges()
@@ -355,7 +360,8 @@ namespace MeshSimplificationTest.SBRep.Utils
                     right,
                     edgePosition,
                     pointsIndexesDictionary[edge.Points.a],
-                    pointsIndexesDictionary[edge.Points.b]);
+                    pointsIndexesDictionary[edge.Points.b],
+                    eps);
                 ClassifyEdgePosition(intersect, right, edges, 1e-10, isDifference);
             }
 
@@ -845,6 +851,13 @@ namespace MeshSimplificationTest.SBRep.Utils
                 var edgesPoints = GetEdgePoints(edge);
                 var edgeA = edgesPoints.Item1.Coord;
                 var edgeB = edgesPoints.Item2.Coord;
+
+                if (Geometry2DHelper.EqualPoints(edgeA, a) && Geometry2DHelper.EqualPoints(edgeB, b))
+                    return null;
+
+                if (Geometry2DHelper.EqualPoints(edgeA, b) && Geometry2DHelper.EqualPoints(edgeB, a))
+                    return null;
+
                 var cross = Geometry2DHelper.EdgesInterposition(edgeA, edgeB, a, b, eps);
                 if (cross.Intersection != IntersectionVariants.NoIntersection)
                 {

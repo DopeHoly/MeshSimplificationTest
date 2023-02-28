@@ -603,7 +603,6 @@ namespace MeshSimplificationTest.SBRep
             //добавляем новые рёбра
             var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict, edgesReplaceDict);
 
-
             //вычисляем, какие рёбра внутри, какие снаружи
             var faceEdgesPosition = GetEdgesInsideOutside(sbrep, faceID, contour);
 
@@ -633,7 +632,8 @@ namespace MeshSimplificationTest.SBRep
                     keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
                     keyValuePairs.Add(Colors.Red, addedEdges.Keys);
 
-                    SbrepVizualizer.ShowEdge(sbrep, keyValuePairs);
+                    SbrepVizualizer.ShowEdge(sbrep, keyValuePairs, contour);
+                    return;
                 }
                 newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);            
             }
@@ -886,7 +886,7 @@ namespace MeshSimplificationTest.SBRep
                 var points = sbrep.GetEdgePoints(edge);
                 var a = points.Item1.xy;
                 var b = points.Item2.xy;
-                faceEdgesPosition.Add(edge, contour.EdgeInside(a, b, 1e-12));
+                faceEdgesPosition.Add(edge, contour.EdgeInsideDeep(a, b, 1e-12));
             }
             return faceEdgesPosition;
         }
