@@ -113,7 +113,7 @@ namespace MeshSimplificationTest.SBRep.Utils
 
     public class IntersectContour
     {
-        public const double EPS = 1e-8;
+        public const double EPS = 1e-10;
         public IndexedCollection<Point> Points { get; set; }
         public IndexedCollection<Edge> Edges { get; set; }
 

@@ -632,8 +632,8 @@ namespace MeshSimplificationTest.SBRep
                     keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
                     keyValuePairs.Add(Colors.Red, addedEdges.Keys);
 
-                    SbrepVizualizer.ShowEdge(sbrep, keyValuePairs, contour);
-                    return;
+                    SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs, contour);
+                    //return;
                 }
                 newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);            
             }

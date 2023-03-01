@@ -528,7 +528,7 @@ namespace MeshSimplificationTest.SBRep
             var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
             keyValuePairs.Add(Colors.Red, edgesIDs);
 
-            SbrepVizualizer.ShowEdge(obj, keyValuePairs);
+            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
            
         }
 

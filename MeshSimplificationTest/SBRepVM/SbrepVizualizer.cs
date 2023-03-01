@@ -2,6 +2,8 @@
 using HelixToolkit.Wpf;
 using MeshSimplificationTest.SBRep;
 using MeshSimplificationTest.SBRep.Utils;
+using OxyPlot;
+using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Xml.Linq;
 
 namespace MeshSimplificationTest.SBRepVM
 {
@@ -125,8 +128,49 @@ namespace MeshSimplificationTest.SBRepVM
             var sbrepVisualizer = new SbrepVisualizerViewer();
             sbrepVisualizer.Model = resultmodels;
             _ = sbrepVisualizer.ShowDialog();
+        }
 
+        public static void ShowEdgePlot(SBRepObject sbrep, Dictionary<Color, IEnumerable<int>> colorsToEdge, IntersectContour contour = null)
+        {
 
+            var plotModel = new PlotModel();
+
+            foreach (var ctoedges in colorsToEdge)
+            {
+                var color = ctoedges.Key;
+                foreach (var eid in ctoedges.Value)
+                {
+                    var plotSeries = new LineSeries()
+                    {
+                        MarkerType = OxyPlot.MarkerType.Circle,
+                        LineStyle = OxyPlot.LineStyle.Solid,
+                        //Color = OxyColor.Parse(color.ToString())
+                    };
+                    var coords = sbrep.GetEdgeCoordinates(eid);
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(coords.Item1.x, coords.Item1.y));
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(coords.Item2.x, coords.Item2.y));
+                    plotModel.Series.Add(plotSeries);
+                }
+            }
+
+            if (contour != null)
+            {
+                var plotSeries = new LineSeries()
+                {
+                    MarkerType = OxyPlot.MarkerType.Circle,
+                    LineStyle = OxyPlot.LineStyle.Solid,
+                };
+                foreach (var item in contour.GetContourPoints())
+                {
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(item.x, item.y));
+                }
+                plotModel.Series.Add(plotSeries);
+            }
+
+            var vizualizer = new OxyplotVizualizer();
+            vizualizer.Model = plotModel;
+            vizualizer.OnPropertyChanged("Model");
+            _ = vizualizer.ShowDialog();
         }
 
     }
