@@ -538,7 +538,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 //Show(obj, edgesIDs);
                 //throw new Exception("Недостаточно граней для графа");
-                return new[] { Enumerable.Empty<int>() };
+                return new List<IEnumerable<int>>();
             }
             //проверяем критерий обходимости
             var edges = edgesIDs.Select(eid => obj.Edges[eid]).ToList();
@@ -553,11 +553,11 @@ namespace MeshSimplificationTest.SBRep
             foreach (var vtx in vertices)
             {
                 var parents = vtx.Parents.Intersect(edgesIDs).ToList();
-                //if (parents.Count() % 2 == 1)
-                //{
-                //    Show(obj, edgesIDs);
-                //    throw new Exception("Невозможно обойти граф");
-                //}
+                if (parents.Count() % 2 == 1)
+                {
+                    //Show(obj, edgesIDs);
+                    throw new Exception("Невозможно обойти граф");
+                }
                 vertParentsDict.Add(vtx.ID, parents);
             }
             var bypassEdges = new List<int>(edgesIDs);

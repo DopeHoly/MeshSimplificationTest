@@ -89,9 +89,10 @@ namespace MeshSimplificationTest.SBRep.Utils
 
     public class Vector2dEqualityComparer : IEqualityComparer<Vector2d>
     {
+        public const double EPS = 1e-10;
         public bool Equals(Vector2d x, Vector2d y)
         {
-            return Geometry2DHelper.EqualPoints(x, y);
+            return Geometry2DHelper.EqualPoints(x, y, EPS);
         }
 
         public int GetHashCode(Vector2d obj)

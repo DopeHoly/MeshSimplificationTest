@@ -183,19 +183,12 @@ namespace MeshSimplificationTest.SBRep.Utils
         {
             if (IsPointOnLine(pt, l1, l2, eps))
             {
-                double minx = Math.Min(l1.x, l2.x);
-                double maxx = Math.Max(l1.x, l2.x);
-                double dx = maxx - minx;
-                if (dx == 0)
-                {
-                    double miny = Math.Min(l1.y, l2.y);
-                    double maxy = Math.Max(l1.y, l2.y);
-                    return (pt.y <= maxy && pt.y >= miny);
-                }
-                else
-                {
-                    return (pt.x <= maxx && pt.x >= minx);
-                }
+                var segmentLenght = (l2- l1).Length;
+                var pL1Lenght = (l1- pt).Length;
+                var pL2Lenght = (l2- pt).Length;
+                var sum = pL1Lenght + pL2Lenght;
+                var dif = Math.Abs(segmentLenght - sum);
+                return dif < eps;
             }
             return false;
         }

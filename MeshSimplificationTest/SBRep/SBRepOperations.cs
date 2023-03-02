@@ -81,6 +81,10 @@ namespace MeshSimplificationTest.SBRep
             var count = 0;
             foreach (var face in filteredFaces)
             {
+                if(face.ID == 128)
+                {
+                    ;
+                }
                 var projContour = new IntersectContour(projectionContour);
                 var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
                 var insideLoops = face.InsideLoops.Select(lid =>
@@ -573,6 +577,12 @@ namespace MeshSimplificationTest.SBRep
                 }
             }
 
+            //if(faceID == 128)
+            //{
+            //    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+            //    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
+            //    ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
+            //}
 
             //Обработка случая, когда попали проекцией полностью на контур, и ничего не задели
             //если все грани внутри и все точки внутри, то юзаем упрощённый алгоритм
@@ -625,25 +635,29 @@ namespace MeshSimplificationTest.SBRep
             //Собираем петли для новых граней
             try
             {
-                if (newFaceEdges.Count < 3)
-                {
-                    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
-                    var oldFacesEdgesIds = faceEdgesPosition.Select(x => x.Key).ToList();
-                    keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
-                    keyValuePairs.Add(Colors.Red, addedEdges.Keys);
+                //if (newFaceEdges.Count < 3)
+                //{
+                //    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+                //    var oldFacesEdgesIds = faceEdgesPosition.Select(x => x.Key).ToList();
+                //    keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
+                //    keyValuePairs.Add(Colors.Red, addedEdges.Keys);
 
-                    SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs, contour);
-                    //return;
-                }
-                newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);            
+                //    SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs, contour);
+                //    return;
+                //}
+                newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
             }
             catch
             {
-                return;
+                var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+                SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
+                ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
+                throw;
             }
 
             Debug.Assert(newFaceEdges.Count == newFacesLoops.Sum(x => x.Count()));
 
+            var oldFacesEdges = new List<int>();
             //Собираем петли для старых граней
             //случай, когда контур разделяет точками на грани на n петель
             if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
@@ -670,7 +684,7 @@ namespace MeshSimplificationTest.SBRep
             }
             else
             {
-                var oldFacesEdges = new List<int>();
+                oldFacesEdges = new List<int>();
                 oldFacesEdges.AddRange(
                     faceEdgesPosition
                     .Where(idPos => idPos.Value == false)
@@ -681,15 +695,33 @@ namespace MeshSimplificationTest.SBRep
                     .Select(idPos => idPos.Key));
 
                 //Собираем петли для старых граней
+                try
+                {
                 oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
+                }
+                catch
+                {
+                    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+                    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
+                    ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
+                    throw;
+                }
 
-                Debug.Assert(oldFacesEdges.Count == oldFacesLoops.Sum(x => x.Count()));
+                //Debug.Assert(oldFacesEdges.Count == oldFacesLoops.Sum(x => x.Count()));
             }
 
+            if(!newFacesLoops.All(x => x.Count() >= 3) || !oldFacesLoops.All(x => x.Count() >= 3))
+            {
+                var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+                SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop , contour});
+
+                throw new Exception();
+            }
 
 
             Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
             Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
+
             //objString = sbrep.ToString();
             //Тут вычисляем, какие части петли нужно разделять на N частей
             //и составляем словарь какое ребро какой части петли соответствует
@@ -816,6 +848,38 @@ namespace MeshSimplificationTest.SBRep
                 var newGroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
                 sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
             }
+        }
+
+        private static void ShowOldNewEdgesPlot(SBRepObject sbrep, Dictionary<int, bool?> faceEdgesPosition, Dictionary<int, bool> addedEdges)
+        {
+            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+
+            var oldEdgesOutside = faceEdgesPosition
+                .Where(idPos => idPos.Value == false)
+                .Select(idPos => idPos.Key);
+            var oldEdgesOnEdge = faceEdgesPosition
+                .Where(idPos => idPos.Value == null)
+                .Select(idPos => idPos.Key);
+            var oldEdgesIndide = faceEdgesPosition
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key);
+
+            var newEdgesIndide = addedEdges
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key);
+            var newEdgesOutside = addedEdges
+                .Where(idPos => idPos.Value == false)
+                .Select(idPos => idPos.Key);
+
+            keyValuePairs.Add(Colors.Red, oldEdgesOutside);
+            keyValuePairs.Add(Colors.Green, oldEdgesOnEdge);
+            keyValuePairs.Add(Colors.Blue, oldEdgesIndide);
+
+            keyValuePairs.Add(Colors.Black, newEdgesIndide);
+            keyValuePairs.Add(Colors.Yellow, newEdgesOutside);
+
+
+            SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs);
         }
         public static IEnumerable<int> GetInsideLoops(SBRepObject sbrep, SBRep_Loop mainLoop, IEnumerable<SBRep_Loop> checkedLoop)
         {

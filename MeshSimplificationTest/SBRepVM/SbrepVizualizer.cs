@@ -135,36 +135,77 @@ namespace MeshSimplificationTest.SBRepVM
 
             var plotModel = new PlotModel();
 
-            foreach (var ctoedges in colorsToEdge)
+            try
             {
-                var color = ctoedges.Key;
-                foreach (var eid in ctoedges.Value)
+                foreach (var ctoedges in colorsToEdge)
+                {
+                    var color = ctoedges.Key;
+                    foreach (var eid in ctoedges.Value)
+                    {
+                        var plotSeries = new LineSeries()
+                        {
+                            MarkerType = OxyPlot.MarkerType.Circle,
+                            LineStyle = OxyPlot.LineStyle.Solid,
+                            Color = OxyColor.FromArgb(color.A, color.R, color.G, color.B)
+                        };
+                        var coords = sbrep.GetEdgeCoordinates(eid);
+                        plotSeries.Points.Add(new OxyPlot.DataPoint(coords.Item1.x, coords.Item1.y));
+                        plotSeries.Points.Add(new OxyPlot.DataPoint(coords.Item2.x, coords.Item2.y));
+                        plotModel.Series.Add(plotSeries);
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                ;
+            }
+            
+
+            if (contour != null)
+            {
+                var color = Colors.Blue;
+                var plotSeries = new LineSeries()
+                {
+                    MarkerType = OxyPlot.MarkerType.Circle,
+                    LineStyle = OxyPlot.LineStyle.Solid,
+                    Color = OxyColor.FromArgb(color.A, color.R, color.G, color.B)
+                };
+                var points = contour.GetContourPoints();
+                foreach (var item in points)
+                {
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(item.x, item.y));
+                }
+                plotSeries.Points.Add(new OxyPlot.DataPoint(points.First().x, points.First().y));
+                plotModel.Series.Add(plotSeries);
+            }
+
+            var vizualizer = new OxyplotVizualizer();
+            vizualizer.Model = plotModel;
+            vizualizer.OnPropertyChanged("Model");
+            _ = vizualizer.ShowDialog();
+        }
+
+        public static void ShowContours(SBRepObject sbrep, IEnumerable<IntersectContour> contours)
+        {
+            var plotModel = new PlotModel();
+
+            foreach (var contour in contours)
+            {
+                if (contour != null)
                 {
                     var plotSeries = new LineSeries()
                     {
                         MarkerType = OxyPlot.MarkerType.Circle,
                         LineStyle = OxyPlot.LineStyle.Solid,
-                        //Color = OxyColor.Parse(color.ToString())
                     };
-                    var coords = sbrep.GetEdgeCoordinates(eid);
-                    plotSeries.Points.Add(new OxyPlot.DataPoint(coords.Item1.x, coords.Item1.y));
-                    plotSeries.Points.Add(new OxyPlot.DataPoint(coords.Item2.x, coords.Item2.y));
+                    var points = contour.GetContourPoints();
+                    foreach (var item in points)
+                    {
+                        plotSeries.Points.Add(new OxyPlot.DataPoint(item.x, item.y));
+                    }
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(points.First().x, points.First().y));
                     plotModel.Series.Add(plotSeries);
                 }
-            }
-
-            if (contour != null)
-            {
-                var plotSeries = new LineSeries()
-                {
-                    MarkerType = OxyPlot.MarkerType.Circle,
-                    LineStyle = OxyPlot.LineStyle.Solid,
-                };
-                foreach (var item in contour.GetContourPoints())
-                {
-                    plotSeries.Points.Add(new OxyPlot.DataPoint(item.x, item.y));
-                }
-                plotModel.Series.Add(plotSeries);
             }
 
             var vizualizer = new OxyplotVizualizer();

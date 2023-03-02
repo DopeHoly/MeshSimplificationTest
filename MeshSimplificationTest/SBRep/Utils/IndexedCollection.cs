@@ -32,6 +32,8 @@ namespace MeshSimplificationTest.SBRep.Utils
         {
             get
             {
+                if (!map.ContainsKey(i))
+                    throw new Exception("Нет элемента с таким индексом");
                 return map[i];
             }
             set

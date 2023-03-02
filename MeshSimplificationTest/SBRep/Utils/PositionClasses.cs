@@ -163,6 +163,8 @@ namespace MeshSimplificationTest.SBRep.Utils
             {
                 case EdgeIntersectionType.Point:
                     return $"Пересекает ребро {EdgeID} в точке {Point0}";
+                case EdgeIntersectionType.ExistingPoint:
+                    return $"Пересекает ребро {EdgeID} в существующей точке {VtxID}";
                 case EdgeIntersectionType.Segment:
                     return $"Лежит на ребре {EdgeID} в сегменте [{Point0}; {Point1}]";
                 case EdgeIntersectionType.AllEdge:
