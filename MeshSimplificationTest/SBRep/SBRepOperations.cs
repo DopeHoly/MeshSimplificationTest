@@ -633,111 +633,110 @@ namespace MeshSimplificationTest.SBRep
             IEnumerable<IEnumerable<int>> oldFacesLoops = null;
 
             //Собираем петли для новых граней
-            try
+            //try
+            //{
+            //    //if (newFaceEdges.Count < 3)
+            //    //{
+            //    //    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            //    //    var oldFacesEdgesIds = faceEdgesPosition.Select(x => x.Key).ToList();
+            //    //    keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
+            //    //    keyValuePairs.Add(Colors.Red, addedEdges.Keys);
+
+            //    //    SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs, contour);
+            //    //    return;
+            //    //}
+            //    newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
+            //}
+            //catch
+            //{
+            //    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+            //    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
+            //    ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
+            //    throw;
+            //}
+
+            //Debug.Assert(newFaceEdges.Count == newFacesLoops.Sum(x => x.Count()));
+
+            //var oldFacesEdges = new List<int>();
+            ////Собираем петли для старых граней
+            ////случай, когда контур разделяет точками на грани на n петель
+            //if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
+            //    contour.Points.Where(
+            //        point => point.Position.Mode == PointPositionMode.OnEdge ||
+            //        point.Position.Mode == PointPositionMode.OnVertex)
+            //    .Count() > 1)
+            //{
+            //    var oldFacesEdgesPriority = new Dictionary<int, bool>();
+
+            //    foreach (var edge in faceEdgesPosition
+            //        .Where(idPos => idPos.Value == false)
+            //        .Select(idPos => idPos.Key))
+            //    {
+            //        oldFacesEdgesPriority.Add(edge, false);
+            //    }
+            //    foreach (var edge in addedEdges
+            //        .Where(idPos => idPos.Value == true)
+            //        .Select(idPos => idPos.Key))
+            //    {
+            //        oldFacesEdgesPriority.Add(edge, true);
+            //    }
+            //    oldFacesLoops = SBRepObject.BuildLoopsFromEdgesByAngle(sbrep, oldFacesEdgesPriority);
+            //}
+            //else
+            //{
+            //    oldFacesEdges = new List<int>();
+            //    oldFacesEdges.AddRange(
+            //        faceEdgesPosition
+            //        .Where(idPos => idPos.Value == false)
+            //        .Select(idPos => idPos.Key));
+            //    oldFacesEdges.AddRange(
+            //        addedEdges
+            //        .Where(idPos => idPos.Value == true)
+            //        .Select(idPos => idPos.Key));
+
+            //    //Собираем петли для старых граней
+            //    try
+            //    {
+            //    oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
+            //    }
+            //    catch
+            //    {
+            //        var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+            //        SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
+            //        ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
+            //        throw;
+            //    }
+
+            //    //Debug.Assert(oldFacesEdges.Count == oldFacesLoops.Sum(x => x.Count()));
+            //}
+
+            //if(!newFacesLoops.All(x => x.Count() >= 3) || !oldFacesLoops.All(x => x.Count() >= 3))
+            //{
+            //    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
+            //    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop , contour});
+
+            //    throw new Exception();
+            //}
+
+
+            //Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
+            //Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
+
+            //словарь, где ключ - номер ребра, значение - является ли ребро внутренним к внешнему контуру
+            var edgesDict = new Dictionary<int, bool>();
+            foreach (var contourEdge in addedEdges)
             {
-                //if (newFaceEdges.Count < 3)
-                //{
-                //    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
-                //    var oldFacesEdgesIds = faceEdgesPosition.Select(x => x.Key).ToList();
-                //    keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
-                //    keyValuePairs.Add(Colors.Red, addedEdges.Keys);
-
-                //    SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs, contour);
-                //    return;
-                //}
-                newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
+                if (contourEdge.Value == false)
+                    continue;
+                edgesDict.Add(contourEdge.Key, true);
             }
-            catch
+            var facesEdges = sbrep.GetEdgesFromFaceId(faceID);
+            foreach (var eid in facesEdges)
             {
-                var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
-                SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
-                ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
-                throw;
+                edgesDict.Add(eid, false);
             }
 
-            Debug.Assert(newFaceEdges.Count == newFacesLoops.Sum(x => x.Count()));
-
-            var oldFacesEdges = new List<int>();
-            //Собираем петли для старых граней
-            //случай, когда контур разделяет точками на грани на n петель
-            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-                contour.Points.Where(
-                    point => point.Position.Mode == PointPositionMode.OnEdge ||
-                    point.Position.Mode == PointPositionMode.OnVertex)
-                .Count() > 1)
-            {
-                var oldFacesEdgesPriority = new Dictionary<int, bool>();
-
-                foreach (var edge in faceEdgesPosition
-                    .Where(idPos => idPos.Value == false)
-                    .Select(idPos => idPos.Key))
-                {
-                    oldFacesEdgesPriority.Add(edge, false);
-                }
-                foreach (var edge in addedEdges
-                    .Where(idPos => idPos.Value == true)
-                    .Select(idPos => idPos.Key))
-                {
-                    oldFacesEdgesPriority.Add(edge, true);
-                }
-                oldFacesLoops = SBRepObject.BuildLoopsFromEdgesByAngle(sbrep, oldFacesEdgesPriority);
-            }
-            else
-            {
-                oldFacesEdges = new List<int>();
-                oldFacesEdges.AddRange(
-                    faceEdgesPosition
-                    .Where(idPos => idPos.Value == false)
-                    .Select(idPos => idPos.Key));
-                oldFacesEdges.AddRange(
-                    addedEdges
-                    .Where(idPos => idPos.Value == true)
-                    .Select(idPos => idPos.Key));
-
-                //Собираем петли для старых граней
-                try
-                {
-                oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
-                }
-                catch
-                {
-                    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
-                    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
-                    ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
-                    throw;
-                }
-
-                //Debug.Assert(oldFacesEdges.Count == oldFacesLoops.Sum(x => x.Count()));
-            }
-
-            if(!newFacesLoops.All(x => x.Count() >= 3) || !oldFacesLoops.All(x => x.Count() >= 3))
-            {
-                var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
-                SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop , contour});
-
-                throw new Exception();
-            }
-
-
-            Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
-            Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
-
-            //objString = sbrep.ToString();
-            //Тут вычисляем, какие части петли нужно разделять на N частей
-            //и составляем словарь какое ребро какой части петли соответствует
-
-
-            //удаляем уже не нужные петли грани
-
-            //Добавляем новые петли
-
-            //sbrep.RebuildVerges();
-
-            //пересобираем грани
-
-            //применяем изменения к sbrep
-
-            /////////////////////Зона эксперементов
+            var allLoops = BuildLoopsFromEdges(sbrep, edgesDict);
 
             //тут получаем все рассматриваемые рёбра
             var edges = new List<int>();
@@ -1098,6 +1097,119 @@ namespace MeshSimplificationTest.SBRep
                 addedEdgesIDs.Add(id, false);
             }
             return addedEdgesIDs;
+        }
+
+        private static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, Dictionary<int, bool> edgesIDs, bool recursiveFix = true)
+        {
+            //проверяем критерий обходимости
+            var edges = edgesIDs.Select(eid => obj.Edges[eid.Key]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => obj.Vertices[vid]).ToList();
+            var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
+            foreach (var vtx in vertices)
+            {
+                var parents = vtx.Parents.Intersect(edgesIDs.Keys);
+                if (parents.Count() % 2 == 1)
+                    throw new Exception("Невозможно обойти граф");
+                vertParentsDict.Add(vtx.ID, parents);
+            }
+            var bypassEdges = new List<int>(edgesIDs.Keys);
+            var loops = new List<IEnumerable<int>>();
+            //var verticesQueue = new Queue<int>();
+            int loopBeginVid = -1;
+            int currentVid = -1;
+            int nextVid = -1;
+            int lastEid = -1;
+            List<int> currentLoopEdges = null;
+            while (bypassEdges.Count != 0)
+            {
+                if (nextVid == -1)
+                {
+                    currentLoopEdges = new List<int>();
+                    loops.Add(currentLoopEdges);
+                    loopBeginVid = verticesIds.Where(
+                        vid => vertParentsDict[vid]
+                        .Where(x => bypassEdges.Contains(x))
+                        .Count() <= 2).First();
+
+                    verticesIds.Remove(loopBeginVid);
+                    currentVid = loopBeginVid;
+                }
+                else
+                    currentVid = nextVid;
+                var parents = vertParentsDict[currentVid]
+                    .Where(x => bypassEdges.Contains(x))
+                    .ToList();
+                if (parents.Count() > 2)
+                {
+                    var currentVtxCoord = obj.Vertices[currentVid].Coordinate;
+                    var currentEdgeSecondVtxId = obj.GetVertexNeigborIdByEdge(currentVid, lastEid);
+                    var mainEdgeVtxCoord = obj.Vertices[currentEdgeSecondVtxId].Coordinate;
+                    var lastVector = mainEdgeVtxCoord - currentVtxCoord;
+                    var parentsEid = parents.Where(x => edgesIDs[x] != edgesIDs[lastEid]).ToList();
+
+                    if (parentsEid.Count == 0)
+                    {
+                        parentsEid = parents;
+                    }
+                    Debug.Assert(parentsEid.Count() > 0);
+
+                    var parentsNextPoints = new Dictionary<int, Vector3d>();
+                    foreach (var eid in parentsEid)
+                    {
+                        var curentEdgeSecondCoord = obj.Vertices[obj.GetVertexNeigborIdByEdge(currentVid, eid)].Coordinate;
+                        parentsNextPoints.Add(eid, curentEdgeSecondCoord - currentVtxCoord);
+                    }
+                    var minAngle = double.MaxValue;
+                    var minEid = -1;
+
+                    var parentsNoCross = vertParentsDict[currentVid]
+                        .Where(x => edgesIDs[x] == edgesIDs[lastEid] && x != lastEid)
+                        .Select(eid =>
+                        {
+                            var points = obj.GetEdgeCoordinates(eid);
+                            return (points.Item2 - points.Item1).xy;
+                        }).ToList();
+
+
+                    foreach (var eidVector in parentsNextPoints)
+                    {
+                        var eVector = eidVector.Value;
+                        var dot = eVector.Dot(lastVector) / (lastVector.Length * eVector.Length);
+                        var angle = Math.Acos(MathUtil.Clamp(dot, -1.0, 1.0)) * (180.0 / Math.PI);
+                        if (minAngle > angle)
+                        {
+                            //проверка, что мы подобным переходом не пересекаем грани, которую по другую сторону
+                            var result = parentsNoCross
+                                .All(edge => Geometry2DHelper.EdgesInterposition(Vector2d.Zero, edge, lastVector.xy, eVector.xy, 1e-6).Intersection == IntersectionVariants.NoIntersection);
+                            if (result)
+                            {
+                                minAngle = angle;
+                                minEid = eidVector.Key;
+                            }
+                        }
+                    }
+                    Debug.Assert(minEid != -1);
+                    Debug.Assert(minAngle != double.MaxValue);
+                    parents = new List<int>() { minEid };
+                }
+                if (parents.Count() <= 2)
+                {
+                    var parent = parents.First();
+                    nextVid = obj.GetVertexNeigborIdByEdge(currentVid, parent);
+                    currentLoopEdges.Add(parent);
+                    bypassEdges.Remove(parent);
+                    lastEid = parent;
+                }
+                if (nextVid == loopBeginVid)
+                    nextVid = -1;
+            }
+            //loops = loops.Where(x=> x.Count() > 0).ToList();
+            return loops;
         }
     }
 }
