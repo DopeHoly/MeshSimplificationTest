@@ -1,6 +1,7 @@
 ﻿using g3;
 using HelixToolkit.Wpf;
 using MeshSimplificationTest.SBRep.Utils;
+using MeshSimplificationTest.SBRepVM;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -47,31 +48,6 @@ namespace MeshSimplificationTest.SBRep
                     vertex = new Index3i(vertex.b, vertex.a, vertex.c);
                 }
             }
-        }
-
-        public static Tuple<Matrix3d, Matrix3d, Vector3d> CalculateTransform(
-            IndexedCollection<IndexedVertex> contour,
-            Vector3d normal)
-        {
-            var pointOnVector = contour.First().Coord;
-
-            normal = normal.Normalized;
-            Vector3d vectorM = Vector3d.Zero;
-            if (Math.Abs(normal.x) > Math.Max(normal.y, normal.z))
-            {
-                vectorM = new Vector3d(normal.y, -normal.x, 0.0);
-            }
-            else
-            {
-                vectorM = new Vector3d(0, normal.z, -normal.y);
-            }
-
-            vectorM = vectorM.Normalized;
-            var vectorP = vectorM.Cross(normal);
-
-            var mtx = new Matrix3d(vectorP, vectorM, normal, true);
-            var inverseMtx = new Matrix3d(vectorP, vectorM, normal, false);
-            return new Tuple<Matrix3d, Matrix3d, Vector3d>(mtx, inverseMtx, pointOnVector);
         }
 
         public static IndexedVertex To3D(
@@ -274,7 +250,7 @@ namespace MeshSimplificationTest.SBRep
                 var vertices = faceData.Item1;
                 var edges = faceData.Item2;
 
-                var transformMtxs = CalculateTransform(vertices, face.Normal);
+                var transformMtxs = Geometry2DHelper.CalculateTransform(vertices.First().Coord, face.Normal);
                 var vertice2D = ConvertTo2D(vertices, transformMtxs.Item1, transformMtxs.Item3);
                 var faceTriangles = Triangulate(vertice2D, edges, meshVertices, x => To3D(x, transformMtxs.Item2, transformMtxs.Item3));
 
@@ -332,7 +308,7 @@ namespace MeshSimplificationTest.SBRep
                 var vertices = faceData.Item1;
                 var edges = faceData.Item2;
 
-                var transformMtxs = CalculateTransform(vertices, face.Normal);
+                var transformMtxs = Geometry2DHelper.CalculateTransform(vertices.First().Coord, face.Normal);
                 var vertice2D = ConvertTo2D(vertices, transformMtxs.Item1, transformMtxs.Item3);
                 var faceTriangles = Triangulate(
                     vertice2D, 

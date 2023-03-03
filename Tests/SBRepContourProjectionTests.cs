@@ -345,5 +345,26 @@ namespace Tests
             Assert.IsTrue(failedTests.Count == 0);
         }
 
+        [TestMethod]
+        public void SortByPolarTest()
+        {
+            var beginPoint = Vector2d.Zero;
+            var edgeLastPoint = new Vector2d(1,1);
+
+            var pointsForSort = new List<Vector2d>()
+            {
+                new Vector2d(1, 0),
+                new Vector2d(1, -1),
+                new Vector2d(-1, -1),
+                new Vector2d(-1, 1),
+                new Vector2d(0, 1),
+            };
+
+            var result = SBRepOperationsExtension.SortByPolarT(
+                pointsForSort,
+                beginPoint,
+                edgeLastPoint);
+        }
+
     }
 }

@@ -919,6 +919,25 @@ namespace MeshSimplificationTest.SBRep
             return points2d;
         }
 
+        public Dictionary<int, Vector2d> GetPointsFromVtxOnPlane(IEnumerable<int> vtxIds, PlaneFace plane)
+        {
+            var firstVtx = Vertices[vtxIds.First()];
+            var transforms = Geometry2DHelper.CalculateTransform(firstVtx.Coordinate, plane.Normal);
+            var mtx = transforms.Item1;
+            var offset = transforms.Item3;
+            var result = new Dictionary<int, Vector2d>();
+            foreach (var vid in vtxIds)
+            {
+                var vertice = Vertices[vid];
+                //смещение в 0
+                var point = new Vector3d(vertice.Coordinate.x - offset.x, vertice.Coordinate.y - offset.y, vertice.Coordinate.z - offset.z);
+                //применение матрицы преобразования в плоскость XOY
+                var point2D = mtx * point;
+                result.Add(vid, new Vector2d(point2D.x, point2D.y));
+            }
+            return result;
+        }
+
         public override string ToString()
         {
             var builder = new StringBuilder();

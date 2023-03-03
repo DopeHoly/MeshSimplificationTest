@@ -16,6 +16,10 @@ namespace MeshSimplificationTest.SBRep.Utils
             if (!(Math.Abs(p1.y - p2.y) <= eps)) return false;//по Y не близко
             return true;
         }
+        public static bool EqualZero(Vector2d p1, double eps = 1e-6)
+        {
+            return EqualPoints(p1, Vector2d.Zero, eps);
+        }
 
         public static EdgeCrossPosition EdgesInterposition(Vector2d e1v1, Vector2d e1v2, Vector2d e2v1, Vector2d e2v2, double eps)
         {
@@ -278,6 +282,31 @@ namespace MeshSimplificationTest.SBRep.Utils
             }
             var area = Math.Abs((double)sum) / 2.0;
             return area;
+        }
+
+        public static Tuple<Matrix3d, Matrix3d, Vector3d> CalculateTransform(
+            Vector3d pointOnContour,
+            Vector3d normal)
+        {
+            var pointOnVector = pointOnContour;
+
+            normal = normal.Normalized;
+            Vector3d vectorM = Vector3d.Zero;
+            if (Math.Abs(normal.x) > Math.Max(normal.y, normal.z))
+            {
+                vectorM = new Vector3d(normal.y, -normal.x, 0.0);
+            }
+            else
+            {
+                vectorM = new Vector3d(0, normal.z, -normal.y);
+            }
+
+            vectorM = vectorM.Normalized;
+            var vectorP = vectorM.Cross(normal);
+
+            var mtx = new Matrix3d(vectorP, vectorM, normal, true);
+            var inverseMtx = new Matrix3d(vectorP, vectorM, normal, false);
+            return new Tuple<Matrix3d, Matrix3d, Vector3d>(mtx, inverseMtx, pointOnVector);
         }
     }
 }
