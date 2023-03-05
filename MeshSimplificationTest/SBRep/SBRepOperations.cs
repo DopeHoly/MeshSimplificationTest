@@ -739,7 +739,7 @@ namespace MeshSimplificationTest.SBRep
 
             var allLoops = BuildLoopsFromEdges(sbrep, faceID, edgesDict);
 
-            var oldAndNewLoops = ClassifyLoops(sbrep, allLoops);
+            var oldAndNewLoops = ClassifyLoops(sbrep, allLoops, contour);
             oldFacesLoops = oldAndNewLoops.Item1;
             newFacesLoops = oldAndNewLoops.Item2;
 
@@ -1112,57 +1112,86 @@ namespace MeshSimplificationTest.SBRep
         /// <param name="plane">плоскость, в которой лежат вершины</param>
         /// <param name="clockwise">сортировка по часовой/против часовой стрелки</param>
         /// <returns>сортированный список точек</returns>
-        private static IEnumerable<int> SortByPolar(SBRepObject obj, IEnumerable<int> vtxIds, PlaneFace plane, bool clockwise/*, int curentVtx, int prevVtx*/)
+        private static IEnumerable<int> SortByPolar(SBRepObject obj, IEnumerable<int> vtxIds, PlaneFace plane, bool clockwise, int curentVtx = -1, int prevVtx = -1)
         {
-            //var lastEdgesPoint = obj.GetPointsFromVtxOnPlane(new List<int>() { curentVtx, prevVtx}, plane);
-            //var edgeCurentPoint = lastEdgesPoint.First().Value;
-            //var edgePrevPoint = lastEdgesPoint.Last().Value;
+            Vector3d edgeCurentPoint = Vector3d.Zero;
+            Vector3d edgePrevPoint = Vector3d.One;
+            if(curentVtx != -1)
+            {
+                var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx, prevVtx });
+                edgeCurentPoint = lastEdgesPoint.First().Value;
+                edgePrevPoint = lastEdgesPoint.Last().Value;
+            }
+            else
+            {
+                edgePrevPoint = new Vector3d(0, 1, plane.GetZ(0, 1));
+            }
 
-            //var points = obj.GetPointsFromVtxOnPlane(vtxIds, plane);
+            var points = obj.GetCoordinatesWithId(vtxIds);
 
-            //var currentEdgeVector = edgeCurentPoint - edgePrevPoint;
+            var currentEdgeVector = edgeCurentPoint - edgePrevPoint;
 
-            //Func<Vector2d, double> calcAngle = (p1) =>
-            //{
-            //    return currentEdgeVector.AngleD(p1 - edgePrevPoint);
-            //};
+            Func<Vector3d, double> calcAngle = (p1) =>
+            {
+                return signedAngle(currentEdgeVector, p1 - edgePrevPoint, plane.Normal);
+            };
 
-            //var vtxAngleDict = new Dictionary<int, double>();
-            //foreach (var item in points)
-            //{
-            //    vtxAngleDict.Add(item.Key, calcAngle(item.Value));
-            //}
+            var vtxAngleDict = new Dictionary<int, double>();
+            foreach (var item in points)
+            {
+                vtxAngleDict.Add(item.Key, calcAngle(item.Value));
+            }
 
-            //Func<double, double, int> sortFunc = (p1, p2) =>
-            //{
-            //    return (clockwise ? 1 : -1) * p1.CompareTo(p2);
-            //};
+            Func<double, double, int> sortFunc = (p1, p2) =>
+            {
+                return (clockwise ? -1 : 1) * p1.CompareTo(p2);
+            };
             var vertices = new List<int>(vtxIds);
-            //vertices.Sort(delegate (int a, int b)
-            //{
-            //    var p1 = vtxAngleDict[a]; 
-            //    var p2 = vtxAngleDict[b];
-            //    return sortFunc(p1, p2);
-            //});
+            vertices.Sort(delegate (int a, int b)
+            {
+                var p1 = vtxAngleDict[a];
+                var p2 = vtxAngleDict[b];
+                return sortFunc(p1, p2);
+            });
             return vertices;
         }
 
-        public static IEnumerable<Vector2d> SortByPolarT (IEnumerable<Vector2d> points, Vector2d zeroP, Vector2d lastP)
-        {
-            var currentEdgeVector = lastP - zeroP;
-            Func<Vector2d, double> calcAngle = (p1) =>
-            {
-                return currentEdgeVector.AngleD(p1 - zeroP);
-            };
+        //public static double GetAngle(Vector2d v1, Vector2d v2)
+        //{
+        //    return Math.Acos(v1.Dot(v2)/(v1.Length * v2.Length)) * (180.0 / Math.PI);
+        //}
 
-            var dict = new Dictionary<Vector2d, double>();
-            foreach (var item in points)
-            {
-                dict.Add(item, calcAngle(item));
-            }
-            ;
-            return null;
+        /// <summary>
+        /// Функция получает угол со знаком между указанными векторами,
+        /// относительно плоскости заданной нормалью
+        /// </summary>
+        public static double signedAngle(Vector3d v1, Vector3d v2, Vector3d norm)
+        {
+            Vector3d v3 = v1.Cross(v2);
+            double angle = Math.Acos(v1.Normalized.Dot(v2.Normalized));
+            return angle * Math.Sign(v3.Dot(norm));
         }
+
+        //public static IEnumerable<Vector2d> SortByPolarT (IEnumerable<Vector2d> points, Vector2d zeroP, Vector2d lastP)
+        //{
+        //    var currentEdgeVector = lastP - zeroP;
+        //    var current3d = new Vector3d(currentEdgeVector.x, currentEdgeVector.y, 0);
+        //    var norm = new Vector3d(0, 0, 1);
+        //    Func<Vector2d, double> calcAngle = (p1) =>
+        //    {
+        //        var p = p1 - zeroP;
+        //        var p3d = new Vector3d(p.x, p.y, 0);
+        //        return signedAngle(current3d, p3d, norm);
+        //    };
+
+        //    var dict = new Dictionary<Vector2d, double>();
+        //    foreach (var item in points)
+        //    {
+        //        dict.Add(item, calcAngle(item) * (180.0 / Math.PI));
+        //    }
+        //    ;
+        //    return null;
+        //}
 
         private static Dictionary<int, IEnumerable<int>> GetVtxParentsDict(SBRepObject obj, IEnumerable<int> edgesIds)
         {
@@ -1232,6 +1261,7 @@ namespace MeshSimplificationTest.SBRep
             var nextEdgeId = -1;
             var beginVtxId = -1;
             int currentVtxID = -1;
+            int prevVtxID = -1;
             List<int> currentLoopEdges = null;
             var currentEdgePositionDict = new Dictionary<int, bool>(edgesIDsWithPosition);
             //пока есть непройденные рёбра
@@ -1278,11 +1308,13 @@ namespace MeshSimplificationTest.SBRep
 
                     //первую точку ребра по полярному углу устанавливаем, как начальную для петли
                     beginVtxId = sortedEdgeVtxIds.First();
+                    prevVtxID = beginVtxId;
                     //вторую точку ребра устанавливаем, как текущую
                     currentVtxID = sortedEdgeVtxIds.Last();
                 }
                 else
                 {
+                    prevVtxID = currentVtxID;
                     //получаем новую точку обхода от предыдущей по новому ребру
                     currentVtxID = obj.GetVertexNeigborIdByEdge(currentVtxID, nextEdgeId);
                     currentEdgeId = nextEdgeId;
@@ -1290,7 +1322,6 @@ namespace MeshSimplificationTest.SBRep
                 //удаляем из списка непройденных рёбер текущее
                 edgesIds.Remove(currentEdgeId);
                 currentLoopEdges.Add(currentEdgeId);
-
                 //удаляем граничные, маркеруем бывшие не граничные, как граничные
                 if (currentEdgePositionDict[currentEdgeId])
                     currentEdgePositionDict.Remove(currentEdgeId);
@@ -1298,6 +1329,15 @@ namespace MeshSimplificationTest.SBRep
                     currentEdgePositionDict[currentEdgeId] = true;
 
                 ShowDictEdges(obj, currentEdgePositionDict);
+
+
+
+                if (currentVtxID == beginVtxId)
+                {
+                    nextEdgeId = -1;
+                    continue;
+                }
+
 
                 //дальше двигаемся к следующему ребру
                 var parents = vertParentsDict[currentVtxID]
@@ -1323,7 +1363,9 @@ namespace MeshSimplificationTest.SBRep
                         obj,
                         potentialPointsEdgeDict.Keys,
                         plane,
-                        false);
+                        false,
+                        currentVtxID,
+                        prevVtxID);
 
                     // берём первую и переходим по соответствующему ребру
                     nextEdgeId = potentialPointsEdgeDict[sortedVtxIds.First()];
@@ -1333,15 +1375,57 @@ namespace MeshSimplificationTest.SBRep
             return loops;
         }
 
+        private static bool ClassifyLoop(SBRepObject obj, IEnumerable<int> loop, IntersectContour contour)
+        {
+            //находим точку внутри контура
+            var loopCoord = loop
+                .Select(x => obj.Edges[x].Vertices)
+                .SelectMany( x => new List<int>(){ x.a, x.b })
+                .Distinct()
+                .Select(x => obj.Vertices[x].Coordinate.xy)
+                .ToList();
+
+            var centerPoint = Vector2d.Zero;
+            foreach (var loopPoint in loopCoord)
+            {
+                centerPoint += loopPoint;
+            }
+            centerPoint /= loopCoord.Count;
+
+            var maxDistPoint = Vector2d.Zero;
+            var maxDistance = double.MinValue;
+            foreach (var loopPoint in loopCoord)
+            {
+                if((loopPoint - centerPoint).LengthSquared > maxDistance)
+                    maxDistPoint = loopPoint;
+            }
+
+            var point = maxDistPoint + (centerPoint - maxDistPoint)*1e-4;
+            //определяем, где точка находится внутри или снаружи контура
+            var pointPosition = IntersectContour.CalcPointPosition(contour, point, 1e-10);
+            Debug.Assert(pointPosition != null);
+            Debug.Assert(pointPosition.Mode != PointPositionMode.InPlane || pointPosition.Mode != PointPositionMode.OutPlane);
+            if (pointPosition.Mode == PointPositionMode.InPlane)
+                return true;
+            return false;
+        }
+
 
         public static Tuple<IEnumerable<IEnumerable<int>>, IEnumerable<IEnumerable<int>>> ClassifyLoops(
             SBRepObject obj,
-            IEnumerable<IEnumerable<int>> loops)
+            IEnumerable<IEnumerable<int>> loops,
+            IntersectContour contour)
         {
-            IEnumerable<IEnumerable<int>> oldoops = new List<IEnumerable<int>>();
-            IEnumerable<IEnumerable<int>> newLoops = new List<IEnumerable<int>>();
+            ICollection<IEnumerable<int>> oldoops = new List<IEnumerable<int>>();
+            ICollection<IEnumerable<int>> newLoops = new List<IEnumerable<int>>();
 
-            //TODO
+            foreach (var loop in loops)
+            {
+                if(ClassifyLoop(obj, loop, contour))
+                    newLoops.Add(loop);
+                else
+                    oldoops.Add(loop);
+            }
 
             return new Tuple<IEnumerable<IEnumerable<int>>, IEnumerable<IEnumerable<int>>>(oldoops, newLoops);
         }

@@ -471,6 +471,17 @@ namespace MeshSimplificationTest.SBRep
         {
             return vtxIds.Select(vid => Vertices[vid].Coordinate).ToList();
         }
+        public Dictionary<int, Vector3d> GetCoordinatesWithId(IEnumerable<int> vtxIds)
+        {
+            var dict = new Dictionary<int, Vector3d>();
+            foreach (var vid in vtxIds)
+            {
+                dict.Add(vid, Vertices[vid].Coordinate);
+            }
+            return dict;
+        }
+
+
         public IEnumerable<Index2i> GetEdgesVtxs(IEnumerable<int> edgeIds)
         {
             return edgeIds.Select(eid => Edges[eid].Vertices).ToList();
