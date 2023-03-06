@@ -268,6 +268,16 @@ namespace MeshSimplificationTest.SBRep.Utils
         /// <returns></returns>
         public static double GetArea(List<Vector2d> points)
         {
+            return Math.Abs(GetAreaSigned(points));
+        }
+
+        /// <summary>
+        /// Вычисляет площадь внутри двухмерного контура points с учётом знака
+        /// </summary>
+        /// <param name="points"></param>
+        /// <returns>если больше нуля, то точки расположены против часовой</returns>
+        public static double GetAreaSigned(List<Vector2d> points)
+        {
             var points2D = new List<Vector2d>();
             var first = points.First();
             points2D.Add(points.Last());
@@ -280,7 +290,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             {
                 sum += (decimal)points2D[i].x * ((decimal)points2D[i + 1].y - (decimal)points2D[i - 1].y);
             }
-            var area = Math.Abs((double)sum) / 2.0;
+            var area = (double)sum / 2.0;
             return area;
         }
 

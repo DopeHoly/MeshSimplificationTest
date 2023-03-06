@@ -187,7 +187,6 @@ namespace MeshSimplificationTest.SBRep
                 var currentIndex = 0;
                 foreach (var vertice in triData.vertices)
                 {
-                    //TODO Оптимизацияя
                     var verticeIndex = vertices.FindIndex(vtx => Vector3dEqual(vtx, vertice));
                     //var verticeIndex = -1;
                     //var hash = GetVtxHash(vertice);

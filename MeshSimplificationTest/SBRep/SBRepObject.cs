@@ -64,7 +64,6 @@ namespace MeshSimplificationTest.SBRep
             {
                 Faces.Add(new SBRep_Face(face));
             }
-            //TODO
         }
         private static bool Vector3dEqual(Vector3d a, Vector3d b, double eps = 1e-8)
         {
@@ -401,15 +400,6 @@ namespace MeshSimplificationTest.SBRep
             return Vertices[id].Coordinate;
         }
 
-        public Tuple<Vector3d, Vector3d> GetEdgePoints(int eid)
-        {
-            if (!Edges.ContainsKey(eid)) return null;
-            var edge = Edges[eid];
-            var pA = edge.Vertices.a;
-            var pB = edge.Vertices.b;
-            return new Tuple<Vector3d, Vector3d>(Vertices[pA].Coordinate, Vertices[pB].Coordinate);
-        }
-
         public IEnumerable<Vector3d> GetVertices()
         {
             return Vertices.Select(x => x.Coordinate);
@@ -488,8 +478,11 @@ namespace MeshSimplificationTest.SBRep
         }
         public Tuple<Vector3d, Vector3d> GetEdgeCoordinates(int eid)
         {
+            if (!Edges.ContainsKey(eid)) return null;
             var edge = Edges[eid];
-            return new Tuple<Vector3d, Vector3d>(Vertices[edge.Vertices.a].Coordinate, Vertices[edge.Vertices.b].Coordinate);
+            var pA = edge.Vertices.a;
+            var pB = edge.Vertices.b;
+            return new Tuple<Vector3d, Vector3d>(Vertices[pA].Coordinate, Vertices[pB].Coordinate);
         }
 
         public IEnumerable<int> GetFacesLoops(int faceID)
@@ -566,7 +559,7 @@ namespace MeshSimplificationTest.SBRep
                 var parents = vtx.Parents.Intersect(edgesIDs).ToList();
                 if (parents.Count() % 2 == 1)
                 {
-                    //Show(obj, edgesIDs);
+                    Show(obj, edgesIDs);
                     throw new Exception("Невозможно обойти граф");
                 }
                 vertParentsDict.Add(vtx.ID, parents);

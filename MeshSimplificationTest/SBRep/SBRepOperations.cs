@@ -202,7 +202,9 @@ namespace MeshSimplificationTest.SBRep
             foreach (var edge in contour.Edges)
             {
                 var index = sbrep.AddEdge(pointIndexDict[edge.Points.a], pointIndexDict[edge.Points.b]);
+#if DEBUG
                 sbrep.Edges[index].Color = color;
+#endif
             }
         }
 
@@ -215,354 +217,6 @@ namespace MeshSimplificationTest.SBRep
             }
             return groupIDsDict[id];
         }
-
-        public static IEnumerable<SBRepObject> DebugContourProjection(this SBRepObject sbrep, List<Vector2d> contour, bool topDirection)
-        {
-            var obj = new SBRepObject(sbrep);
-            if (obj.Faces.Count == 0)
-                return new List<SBRepObject>();
-            if (contour == null || contour.Count < 3)
-                return new List<SBRepObject>();
-
-            //валидация контура по площади, если нулевая, то ничего не делаем
-            if (Geometry2DHelper.GetArea(contour) < 1e-6)
-                return new List<SBRepObject>();
-            //выбираем только нужные грани
-            Func<double, bool> comparer = null;
-            if (topDirection)
-                comparer = (x) => x > 0;
-            else
-                comparer = (x) => x < 0;
-
-            int maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
-            var replaceIntdex = ++maxGroidID;
-            foreach (var face in obj.Faces)
-            {
-                face.GroupID = face.GroupID != -1 ? face.GroupID : replaceIntdex;
-            }
-
-            maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
-            var groupIDsDict = new Dictionary<int, int>();
-
-            var filteredFaces = obj.Faces.Where(face => comparer(face.Normal.z)).ToList();
-            if (filteredFaces.Count == 0)
-                return new List<SBRepObject>() { obj };
-            //TODO тут нужно разделить конутр на N контуров без самопересечений, т.к. в исходном контуре они могут быть
-            var projectionContour = GetProjectionContourFromPoint(contour);
-            projectionContour = IntersectContour.Intersect(projectionContour, projectionContour);
-            var count = 0;
-            var results = new List<SBRepObject>();
-            foreach (var face in filteredFaces)
-            {
-                obj = new SBRepObject(sbrep);
-                var projContour = new IntersectContour(projectionContour);
-                var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
-                //if (face.ID == 9)
-                //    AddToSBrep(obj, outsideLoop, face.Plane, Colors.GreenYellow);
-                //else
-                //    AddToSBrep(obj, outsideLoop, face.Plane, Colors.AliceBlue);
-                var insideLoops = face.InsideLoops.Select(lid =>
-                 new IntersectContour(GetContourFromLoop(obj, lid)))
-                    .ToList();
-                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
-                foreach (var insideLoop in insideLoops)
-                {
-                    //AddToSBrep(obj, insideLoop, face.Plane, Colors.BlueViolet);
-                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
-                }
-                try
-                {
-
-                    //AddToSBrep(obj, resultIntersect, face.Plane, Colors.Chocolate);
-                    DebugApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID);
-                }
-                catch
-                {
-                    results.Add(new SBRepObject(obj));
-                    return results;
-                }
-                results.Add(new SBRepObject(obj));
-                ++count;
-            }
-
-            return results;
-        }
-
-        public static void DebugApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID, bool useShortAlgorithm = false)
-        {
-            var face = sbrep.Faces[faceID];
-            //Обработка случаев, когда полностью грань попадает в проекцию или не попадает
-            if (useShortAlgorithm)
-            {
-                if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.OutPlane))
-                {
-                    var faceEdgesPos = GetEdgesInsideOutside(sbrep, faceID, contour);
-                    if (faceEdgesPos.All(ePos => ePos.Value == true))
-                        face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
-                    return;
-                }
-            }
-
-
-            //Обработка случая, когда попали проекцией полностью на контур, и ничего не задели
-            //если все грани внутри и все точки внутри, то юзаем упрощённый алгоритм
-            //if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-            //    contour.Points.All(
-            //        point => point.Position.Mode == PointPositionMode.InPlane))
-            //{
-            //    AddContourOnFace(sbrep, faceID, contour, groupIDsDict, ref maxGroidID);
-            //    return;
-            //}
-
-            //если дошёл до этого места, то контур пересекается либо с внешней петлёй, либо со внутренними
-
-            //сначала добавляем все точки из contour в sbrep
-            //var objString = sbrep.ToString();
-
-            var pointIndexDict = new Dictionary<int, int>();
-
-            //индексируем существующие точки
-            IndexedExistingPoints(sbrep, contour, ref pointIndexDict);
-
-            //добавляем точки на плоскость
-            AddPlanePoint(sbrep, faceID, contour, ref pointIndexDict);
-
-            //добавляем точки на грани
-            var edgesReplaceDict = AddPointsToEdges(sbrep, faceID, contour, ref pointIndexDict);
-
-            //добавляем новые рёбра
-            var addedEdges = AddNewEdges(sbrep, contour, pointIndexDict, edgesReplaceDict);
-
-#if DEBUG
-            foreach (var edge in sbrep.Edges)
-            {
-                edge.Color = Colors.Gray;
-            }
-#endif
-
-            //вычисляем, какие рёбра внутри, какие снаружи
-            var faceEdgesPosition = GetEdgesInsideOutside(sbrep, faceID, contour);
-
-            //Если нет новых рёбер, лежащих внутри данной грани и нет рёбер грани, лежащих внутри, то ничего больше с гранью не делаем
-            if (addedEdges.Where(x => x.Value == true).Count() == 0 && faceEdgesPosition
-                .Where(idPos => idPos.Value == true).Count() == 0)
-                return;
-
-            //вычисляем множества рёбер для новых и старых граней
-            var newFaceEdges = new List<int>();
-            newFaceEdges.AddRange(
-                faceEdgesPosition
-                .Where(idPos => idPos.Value == true)
-                .Select(idPos => idPos.Key));
-            newFaceEdges.AddRange(addedEdges.Keys.ToList());
-
-            IEnumerable<IEnumerable<int>> newFacesLoops = null;
-            IEnumerable<IEnumerable<int>> oldFacesLoops = null;
-
-            //Собираем петли для новых граней
-            newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
-
-#if DEBUG
-            foreach (var eid in newFaceEdges)
-            {
-                sbrep.Edges[eid].Color = Colors.HotPink;
-            }
-            //foreach (var eid in oldFacesEdges)
-            //{
-            //    //Debug.Assert(sbrep.Edges[eid].Color != Colors.Gray);
-            //    if (sbrep.Edges[eid].Color != Colors.Gray)
-            //        sbrep.Edges[eid].Color = Colors.Yellow;
-            //    else
-            //        sbrep.Edges[eid].Color = Colors.Red;
-            //}
-#endif
-            //Собираем петли для старых граней
-            //случай, когда контур разделяет точками на грани на n петель
-            if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-                contour.Points.Where(
-                    point => point.Position.Mode == PointPositionMode.OnEdge ||
-                    point.Position.Mode == PointPositionMode.OnVertex)
-                .Count() > 1)
-            {
-                var oldFacesEdgesPriority = new Dictionary<int, bool>();
-
-                foreach (var edge in faceEdgesPosition
-                    .Where(idPos => idPos.Value == false)
-                    .Select(idPos => idPos.Key))
-                {
-                    oldFacesEdgesPriority.Add(edge, false);
-                }
-                foreach (var edge in addedEdges
-                    .Where(idPos => idPos.Value == true)
-                    .Select(idPos => idPos.Key))
-                {
-                    oldFacesEdgesPriority.Add(edge, true);
-                }
-                oldFacesLoops = SBRepObject.BuildLoopsFromEdgesByAngle(sbrep, oldFacesEdgesPriority);
-            }
-            else
-            {
-                var oldFacesEdges = new List<int>();
-                oldFacesEdges.AddRange(
-                    faceEdgesPosition
-                    .Where(idPos => idPos.Value == false)
-                    .Select(idPos => idPos.Key));
-                oldFacesEdges.AddRange(
-                    addedEdges
-                    .Where(idPos => idPos.Value == true)
-                    .Select(idPos => idPos.Key));
-#if DEBUG
-                foreach (var eid in oldFacesEdges)
-                {
-                    //Debug.Assert(sbrep.Edges[eid].Color != Colors.Gray);
-                    if (sbrep.Edges[eid].Color != Colors.Gray)
-                        sbrep.Edges[eid].Color = Colors.Yellow;
-                    else
-                        sbrep.Edges[eid].Color = Colors.Red;
-                }
-#endif
-                //Собираем петли для старых граней
-                oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
-            }
-
-            return;
-
-
-            Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
-            Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
-            //objString = sbrep.ToString();
-            //Тут вычисляем, какие части петли нужно разделять на N частей
-            //и составляем словарь какое ребро какой части петли соответствует
-
-
-            //удаляем уже не нужные петли грани
-
-            //Добавляем новые петли
-
-            //sbrep.RebuildVerges();
-
-            //пересобираем грани
-
-            //применяем изменения к sbrep
-
-            /////////////////////Зона эксперементов
-
-            //тут получаем все рассматриваемые рёбра
-            var edges = new List<int>();
-            edges.AddRange(faceEdgesPosition.Keys.ToList());
-            edges.AddRange(addedEdges.Keys.ToList());
-            edges = edges.Distinct().ToList();
-
-            //дальше собираем добавляем ломанные в brep по принципу - одно ребро - одна ломанная
-            var vergeEdgeDict = new Dictionary<int, IEnumerable<int>>();
-            foreach (var eid in edges)
-            {
-                var id = sbrep.Edges[eid].Parent;
-                if (id == -1)
-                    continue;
-                vergeEdgeDict.Add(eid, sbrep.Verges[id].Parents);
-            }
-
-            //дальше сносим все ломанные, которые к ним относятся
-            var edgeToOldVergesID = new Dictionary<int, int>();
-            var vergesIds = edges.Select(eid => sbrep.Edges[eid].Parent).Distinct().ToList();
-            foreach (var vergeId in vergesIds)
-            {
-                if (vergeId == -1)
-                    continue;
-                var verge = sbrep.Verges[vergeId];
-                foreach (var eid in verge.Edges)
-                {
-                    edgeToOldVergesID.Add(eid, vergeId);
-                }
-                sbrep.RemoveVerge(vergeId);
-            }
-
-            var dictEdgeNewVerge = new Dictionary<int, int>();
-            foreach (var eid in edges)
-            {
-                var vergeIndex = sbrep.AddVerge(new List<int> { eid });
-                dictEdgeNewVerge.Add(eid, vergeIndex);
-                var verge = sbrep.Verges[vergeIndex];
-                if (vergeEdgeDict.ContainsKey(eid))
-                {
-                    verge.Parents = new List<int>(vergeEdgeDict[eid]);
-                    foreach (var loopId in vergeEdgeDict[eid])
-                    {
-                        sbrep.Loops[loopId].Verges.Add(vergeIndex);
-                    }
-                }
-            }
-
-            //Создаём петли и запихиваем их в sbrep
-            var loopsByNewFaces = new IndexedCollection<SBRep_Loop>();
-            foreach (var loop in newFacesLoops)
-            {
-                if (loop.Count() == 0) continue;
-                var loopId = sbrep.AddLoop(loop.Select(eid => dictEdgeNewVerge[eid]).ToList());
-                Debug.Assert(loopId != -1);
-                loopsByNewFaces.Add(sbrep.Loops[loopId]);
-            }
-            var loopsByOldFaces = new IndexedCollection<SBRep_Loop>();
-            foreach (var loop in oldFacesLoops)
-            {
-                if (loop.Count() == 0) continue;
-                int loopId = -1;
-                var loopVerges = loop.Select(eid => dictEdgeNewVerge[eid]).ToList();
-                loopId = sbrep.AddLoop(loopVerges);
-                Debug.Assert(loopId != -1);
-                loopsByOldFaces.Add(sbrep.Loops[loopId]);
-            }
-
-
-            //дальше создаём по петлям все заготовки данных для грани (какие петли внутренние, какие внешние)
-
-            var blackList = new List<int>();
-            var blackListNew = new List<int>();
-            var facesLoopsColectionOld = new Dictionary<int, IEnumerable<int>>();
-            foreach (var loop in loopsByOldFaces)
-            {
-                IEnumerable<int> insideLoopsIds = new List<int>();
-                var checkedLoops = loopsByOldFaces.Where(checkedLoop => checkedLoop != loop).ToList();
-                insideLoopsIds = GetInsideLoops(sbrep, loop, checkedLoops);
-                blackList.AddRange(insideLoopsIds);
-                facesLoopsColectionOld.Add(loop.ID, insideLoopsIds);
-            }
-            var facesLoopsColectionNew = new Dictionary<int, IEnumerable<int>>();
-            foreach (var loop in loopsByNewFaces)
-            {
-                IEnumerable<int> insideLoopsIds = new List<int>();
-                var checkedLoops = loopsByNewFaces.Where(checkedLoop => checkedLoop != loop).ToList();
-                insideLoopsIds = GetInsideLoops(sbrep, loop, checkedLoops);
-                blackListNew.AddRange(insideLoopsIds);
-                facesLoopsColectionNew.Add(loop.ID, insideLoopsIds);
-            }
-
-            //сносим старую грань
-            sbrep.RemoveFace(faceID);
-
-            //добавляем новые грани
-            foreach (var facedLoops in facesLoopsColectionOld)
-            {
-                if (blackList.Contains(facedLoops.Key))
-                    continue;
-                sbrep.AddFace(face.GroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
-            }
-            ++maxGroidID;
-            foreach (var facedLoops in facesLoopsColectionNew)
-            {
-                if (blackListNew.Contains(facedLoops.Key))
-                    continue;
-                var newGroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
-                sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
-            }
-
-            //пересобираем verges по принадлежности одинаковым граням и по зонам связанности
-            sbrep.RebuildVerges();//TODO а надо ли
-            ////////////////////
-
-        }
-
         public static void ApplyIntersectContourToFace(SBRepObject sbrep, int faceID, IntersectContour contour, Dictionary<int, int> groupIDsDict, ref int maxGroidID, bool useShortAlgorithm = false)
         {
             var face = sbrep.Faces[faceID];
@@ -724,24 +378,61 @@ namespace MeshSimplificationTest.SBRep
             //Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
 
             //словарь, где ключ - номер ребра, значение - является ли ребро внутренним к внешнему контуру
-            var edgesDict = new Dictionary<int, bool>();
-            foreach (var contourEdge in addedEdges)
-            {
-                if (contourEdge.Value == false)
-                    continue;
-                edgesDict.Add(contourEdge.Key, false);
-            }
-            var facesEdges = sbrep.GetEdgesFromFaceId(faceID);
-            foreach (var eid in facesEdges)
-            {
-                edgesDict.Add(eid, true);
-            }
 
-            var allLoops = BuildLoopsFromEdges(sbrep, faceID, edgesDict);
+            //begin BuildLoopsFromEdges V2
+            //var edgesDict = new Dictionary<int, bool>();
+            //foreach (var contourEdge in addedEdges)
+            //{
+            //    if (contourEdge.Value == false)
+            //        continue;
+            //    edgesDict.Add(contourEdge.Key, false);
+            //}
+            //var facesEdges = sbrep.GetEdgesFromFaceId(faceID);
+            //foreach (var eid in facesEdges)
+            //{
+            //    edgesDict.Add(eid, true);
+            //}
 
-            var oldAndNewLoops = ClassifyLoops(sbrep, allLoops, contour);
-            oldFacesLoops = oldAndNewLoops.Item1;
-            newFacesLoops = oldAndNewLoops.Item2;
+            //var allLoops = BuildLoopsFromEdges(sbrep, faceID, edgesDict);
+
+            //var oldAndNewLoops = ClassifyLoops(sbrep, allLoops, contour);
+            //oldFacesLoops = oldAndNewLoops.Item1;
+            //newFacesLoops = oldAndNewLoops.Item2;
+            //end BuildLoopsFromEdges v2
+
+            //begin BuildLoopsFromEdges V3
+            var oldFacesEdgesPriority = new Dictionary<int, bool>();
+
+            foreach (var edge in faceEdgesPosition
+                .Where(idPos => idPos.Value == false)
+                .Select(idPos => idPos.Key))
+            {
+                oldFacesEdgesPriority.Add(edge, true);
+            }
+            foreach (var edge in addedEdges
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key))
+            {
+                oldFacesEdgesPriority.Add(edge, false);
+            }
+            oldFacesLoops = BuildLoopsFromEdgesV3(sbrep, faceID, oldFacesEdgesPriority);
+
+            var newFacesEdgesPriority = new Dictionary<int, bool>();
+
+            foreach (var edge in faceEdgesPosition
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key))
+            {
+                newFacesEdgesPriority.Add(edge, false);
+            }
+            foreach (var edge in addedEdges
+                .Select(idPos => idPos.Key))
+            {
+                newFacesEdgesPriority.Add(edge, true);
+            }
+            newFacesLoops = BuildLoopsFromEdgesV3(sbrep, faceID, newFacesEdgesPriority);
+            //end BuildLoopsFromEdges v3
+
 
             //тут получаем все рассматриваемые рёбра
             var edges = new List<int>();
@@ -951,7 +642,7 @@ namespace MeshSimplificationTest.SBRep
             var faceEdgesPosition = new Dictionary<int, bool?>();
             foreach (var edge in edgesIDs)
             {
-                var points = sbrep.GetEdgePoints(edge);
+                var points = sbrep.GetEdgeCoordinates(edge);
                 var a = points.Item1.xy;
                 var b = points.Item2.xy;
                 faceEdgesPosition.Add(edge, contour.EdgeInsideDeep(a, b, 1e-12));
@@ -1114,12 +805,12 @@ namespace MeshSimplificationTest.SBRep
         /// <returns>сортированный список точек</returns>
         private static IEnumerable<int> SortByPolar(SBRepObject obj, IEnumerable<int> vtxIds, PlaneFace plane, bool clockwise, int curentVtx = -1, int prevVtx = -1)
         {
-            Vector3d edgeCurentPoint = Vector3d.Zero;
+            Vector3d zeroPoint = Vector3d.Zero;
             Vector3d edgePrevPoint = Vector3d.One;
             if(curentVtx != -1)
             {
                 var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx, prevVtx });
-                edgeCurentPoint = lastEdgesPoint.First().Value;
+                zeroPoint = lastEdgesPoint.First().Value;
                 edgePrevPoint = lastEdgesPoint.Last().Value;
             }
             else
@@ -1129,11 +820,14 @@ namespace MeshSimplificationTest.SBRep
 
             var points = obj.GetCoordinatesWithId(vtxIds);
 
-            var currentEdgeVector = edgeCurentPoint - edgePrevPoint;
+            var currentEdgeVector = edgePrevPoint - zeroPoint;
 
             Func<Vector3d, double> calcAngle = (p1) =>
             {
-                return signedAngle(currentEdgeVector, p1 - edgePrevPoint, plane.Normal);
+                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, plane.Normal);
+                if (angle < 0)
+                    angle += Math.PI * 2;
+                return angle;
             };
 
             var vtxAngleDict = new Dictionary<int, double>();
@@ -1167,7 +861,9 @@ namespace MeshSimplificationTest.SBRep
         /// </summary>
         public static double signedAngle(Vector3d v1, Vector3d v2, Vector3d norm)
         {
-            Vector3d v3 = v1.Cross(v2);
+            Vector3d v3 = v1.Cross(v2); 
+            if (v3.Length < 1e-6)
+                return Math.PI;
             double angle = Math.Acos(v1.Normalized.Dot(v2.Normalized));
             return angle * Math.Sign(v3.Dot(norm));
         }
@@ -1207,24 +903,177 @@ namespace MeshSimplificationTest.SBRep
             var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var vtx in vertices)
             {
-                var vertexParents = vtx.Parents.Intersect(edgesIds);
+                var vertexParents = vtx.Parents.Intersect(edgesIds).ToList();
                 vertParentsDict.Add(vtx.ID, vertexParents);
             }
             return vertParentsDict;
         }
 
-        private static Dictionary<int, bool> MarksOutsideEdges(SBRepObject obj, IEnumerable<int> edgesIDs)
+        private static Dictionary<int, bool> MarksOutsideEdges(SBRepObject obj, IEnumerable<int> edgesIDs, PlaneFace plane)
         {
+            var edgesOutisede = new List<int>();
+            //нужно выделить группы связанных между собой рёбер
+            IEnumerable<IEnumerable<int>> edgesGroups = SeparateEdgesByConnected(obj, edgesIDs);
+
+            foreach (var edgesGroup in edgesGroups)
+            {
+                //вычисляем точку центра группы
+                var loopCoord = edgesGroup
+                    .Select(x => obj.Edges[x].Vertices)
+                    .SelectMany(x => new List<int>() { x.a, x.b })
+                    .Distinct()
+                    .Select(x => obj.Vertices[x].Coordinate)
+                    .ToList();
+
+                var centerPoint = Vector3d.Zero;
+                foreach (var loopPoint in loopCoord)
+                {
+                    centerPoint += loopPoint;
+                }
+                centerPoint /= loopCoord.Count;
+
+                var maxLength = double.MinValue;
+                var maxEdgeId = -1;
+                //находим ребро на максимальном отдалении
+                foreach (var eid in edgesGroup)
+                {
+                    var vertices = obj.GetEdgeCoordinates(eid);
+                    var edgeCenter = (vertices.Item1 + vertices.Item2) / 2.0;
+                    var length = (edgeCenter - centerPoint).Length;
+                    if(length > maxLength)
+                    {
+                        maxLength = length;
+                        maxEdgeId = eid;
+                    }
+                }
+
+                var beginEdge = maxEdgeId;
+
+                var nextEdgeId = -1;
+                var beginVtxId = -1;
+                int currentVtxID = -1;
+                int prevVtxID = -1;
+                var edgesId = new List<int>(edgesGroup);
+                Dictionary<int, IEnumerable<int>> vertParentsDict = null;
+                while(true)
+                {
+                    int currentEdgeId = -1;
+                    if (nextEdgeId == -1)
+                    {
+                        vertParentsDict = GetVtxParentsDict(obj, edgesGroup);
+                        var beginEdgeVertices = CalcEdgeClockwiseVector(obj, plane, edgesGroup, beginEdge);
+                        //первую точку ребра по полярному углу устанавливаем, как начальную для петли
+                        beginVtxId = beginEdgeVertices.a;
+                        prevVtxID = beginVtxId;
+                        //вторую точку ребра устанавливаем, как текущую
+                        currentVtxID = beginEdgeVertices.b;
+                        currentEdgeId = beginEdge;
+                    }
+                    else
+                    {
+                        prevVtxID = currentVtxID;
+                        //получаем новую точку обхода от предыдущей по новому ребру
+                        currentVtxID = obj.GetVertexNeigborIdByEdge(currentVtxID, nextEdgeId);
+                        currentEdgeId = nextEdgeId;
+                    }
+                    if (!edgesId.Contains(currentEdgeId))
+                        break;
+                    //удаляем из списка непройденных рёбер текущее
+                    edgesId.Remove(currentEdgeId);
+                    edgesOutisede.Add(currentEdgeId);
+                    var parents = vertParentsDict[currentVtxID]
+                        .Where(eid => edgesId.Contains(eid))
+                        .ToList();
+                    if (parents.Count == 0)
+                        break;
+                    if (parents.Count == 1)
+                    {
+                        nextEdgeId = parents.First();
+                    }
+                    else //если текущая точка - развилка
+                    {
+                        //получаем точки, куда можем пойти
+                        var potentialPointsEdgeDict = new Dictionary<int, int>();
+                        foreach (var eid in parents)
+                        {
+                            potentialPointsEdgeDict.Add(obj.GetVertexNeigborIdByEdge(currentVtxID, eid), eid);
+                        }
+
+                        // ортируем точки, до которых с текущей точки можем дойти по полярному углу против часовой 
+                        var sortedVtxIds = SortByPolar(
+                            obj,
+                            potentialPointsEdgeDict.Keys,
+                            plane,
+                            false,
+                            currentVtxID,
+                            prevVtxID);
+
+                        // берём первую и переходим по соответствующему ребру
+                        nextEdgeId = potentialPointsEdgeDict[sortedVtxIds.Last()];
+                    }
+                }
+
+            }
+
             //нужно выбрать максимальное ребро на отдаление, потому что начальное ребро должно находиться точно на границе контура
             //TODO
             var dict = new Dictionary<int, bool>();
             foreach (var item in edgesIDs)
             {
-                dict.Add(item, true);
+                var outside = edgesOutisede.Contains(item);
+                dict.Add(item, outside);
             }
 
             //далее следует
             return dict;
+        }
+
+        private static IEnumerable<IEnumerable<int>> SeparateEdgesByConnected(SBRepObject obj, IEnumerable<int> edgesIDs)
+        {
+            var edges = new List<int>(edgesIDs);
+            var edgesGroups = new List<IEnumerable<int>>();
+            ICollection<int> currentEdgesGroup = null;
+            var vertParentsDict = GetVtxParentsDict(obj, edgesIDs);
+            var edgeQueue = new Queue<int>();
+            while (edgeQueue.Count > 0 ||
+                       edges.Count() > 0)
+            {
+                if (edgeQueue.Count < 1)
+                {
+                    currentEdgesGroup = new List<int>();
+                    edgesGroups.Add(currentEdgesGroup);
+                    var tempEID = edges.First();
+                    edges.RemoveAt(0);
+                    edgeQueue.Enqueue(tempEID);
+                }
+                var currentEdgeId = edgeQueue.Dequeue();
+                currentEdgesGroup.Add(currentEdgeId);
+                var edgeVertices = obj.Edges[currentEdgeId].Vertices;
+                var parentsA = vertParentsDict[edgeVertices.a]
+                        .Where(eid => edges.Contains(eid))
+                        .ToList();
+                var parentsB = vertParentsDict[edgeVertices.b]
+                        .Where(eid => edges.Contains(eid))
+                        .ToList();
+                if(parentsA.Count > 0)
+                {
+                    foreach (var edge in parentsA)
+                    {
+                        edges.Remove(edge);
+                        edgeQueue.Enqueue(edge);
+                    }
+                }
+                if(parentsB.Count > 0)
+                {
+                    foreach (var edge in parentsB)
+                    {
+                        edges.Remove(edge);
+                        edgeQueue.Enqueue(edge);
+                    }
+                }
+
+            }
+            return edgesGroups;
         }
 
         private static void ShowDictEdges(SBRepObject obj, Dictionary<int, bool> edgesIDsWithPosition)
@@ -1241,7 +1090,7 @@ namespace MeshSimplificationTest.SBRep
             keyValuePairs.Add(Colors.Red, boundary);
             keyValuePairs.Add(Colors.Blue, inner);
 
-            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+            //SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
         }
 
 
@@ -1287,7 +1136,8 @@ namespace MeshSimplificationTest.SBRep
                         .FirstOrDefault();
                     if (boundaryEdge == null)
                     {
-                        currentEdgePositionDict = MarksOutsideEdges(obj, currentEdgePositionDict.Keys);
+                        currentEdgePositionDict = MarksOutsideEdges(obj, currentEdgePositionDict.Keys, plane);
+                        ShowDictEdges(obj, currentEdgePositionDict);
                         boundaryEdge = boundaryEdge = currentEdgePositionDict
                             .Where(x => x.Value)
                             .Select(e => (int?)e.Key)
@@ -1298,19 +1148,22 @@ namespace MeshSimplificationTest.SBRep
                     Debug.Assert(edgeOnEdge != -1);
                     currentEdgeId = edgeOnEdge;
 
-                    //сортируем точки ребра по полярному углу по часовой стрелке
-                    var edgeVtxIds = obj.Edges[currentEdgeId].Vertices;
-                    var sortedEdgeVtxIds = SortByPolar(
+                    //вычисляем, направление вектора по часовой стрелке
+                    var edgeClockwiseVtx = CalcEdgeClockwiseVector(
                         obj,
-                        new List<int>() { edgeVtxIds.a, edgeVtxIds.b },
                         plane,
-                        true);
-
+                        currentEdgePositionDict
+                            .Where(x => x.Value)
+                            .Select(e => e.Key)
+                            .ToList(),
+                        currentEdgeId);
                     //первую точку ребра по полярному углу устанавливаем, как начальную для петли
-                    beginVtxId = sortedEdgeVtxIds.First();
+                    beginVtxId = edgeClockwiseVtx.a;
                     prevVtxID = beginVtxId;
                     //вторую точку ребра устанавливаем, как текущую
-                    currentVtxID = sortedEdgeVtxIds.Last();
+                    currentVtxID = edgeClockwiseVtx.b;
+
+                    ShowDictEdges(obj, currentEdgePositionDict);
                 }
                 else
                 {
@@ -1327,17 +1180,15 @@ namespace MeshSimplificationTest.SBRep
                     currentEdgePositionDict.Remove(currentEdgeId);
                 else
                     currentEdgePositionDict[currentEdgeId] = true;
-
                 ShowDictEdges(obj, currentEdgePositionDict);
 
-
-
+                //если пришли в начальную точку, то следующего ребра нет, т.к. сформировали петлю
                 if (currentVtxID == beginVtxId)
                 {
+                    //ShowDictEdges(obj, currentEdgePositionDict);
                     nextEdgeId = -1;
                     continue;
                 }
-
 
                 //дальше двигаемся к следующему ребру
                 var parents = vertParentsDict[currentVtxID]
@@ -1350,7 +1201,7 @@ namespace MeshSimplificationTest.SBRep
                     nextEdgeId = parents.First();
                 }
                 else //если текущая точка - развилка
-                {                    
+                {
                     //получаем точки, куда можем пойти
                     var potentialPointsEdgeDict = new Dictionary<int, int>();
                     foreach (var eid in parents)
@@ -1373,6 +1224,60 @@ namespace MeshSimplificationTest.SBRep
             }
 
             return loops;
+        }
+
+        private static Index2i CalcEdgeClockwiseVector(SBRepObject obj, PlaneFace plane, IEnumerable<int> edgesIdUngrouped, int edgeId)
+        {
+            var edgeVertices = obj.Edges[edgeId].Vertices;
+            var edgesGroups = SBRepObject.BuildLoopsFromEdges(obj, edgesIdUngrouped);
+            var edgesId = edgesGroups.FirstOrDefault(x => x.Contains(edgeId));
+            if (edgesId == null)
+            {
+                var dict = new Dictionary<int, bool>();
+                foreach (var item in edgesIdUngrouped)
+                {
+                    if (item != edgeId)
+                    {
+                        dict.Add(item, false);
+                    }
+                    else
+                        dict.Add(item, true);
+                }
+                var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+
+                var boundary = dict
+                    .Where(idPos => idPos.Value == true)
+                    .Select(idPos => idPos.Key);
+                var inner = dict
+                    .Where(idPos => idPos.Value == false)
+                    .Select(idPos => idPos.Key);
+
+                keyValuePairs.Add(Colors.Red, boundary);
+                keyValuePairs.Add(Colors.Blue, inner);
+
+                SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+                return new Index2i(edgeVertices.a, edgeVertices.b);
+            }
+
+
+
+
+            var loop = GetClosedContourVtx(obj, edgesId, edgeId);
+
+
+
+            var loop2d = obj.GetPointsFromVtxOnPlane(loop, plane);
+            //var contour = IntersectContour.FromPoints(loop2d.Values.ToList());
+            //SbrepVizualizer.ShowContours(obj, new List<IntersectContour>() { contour });
+
+            var area = Geometry2DHelper.GetAreaSigned(loop2d.Values.ToList());
+
+            var isClockwise = area < 0;
+
+            if(isClockwise)
+                return new Index2i(edgeVertices.b, edgeVertices.a);
+
+            return new Index2i(edgeVertices.a, edgeVertices.b);
         }
 
         private static bool ClassifyLoop(SBRepObject obj, IEnumerable<int> loop, IntersectContour contour)
@@ -1410,7 +1315,49 @@ namespace MeshSimplificationTest.SBRep
             return false;
         }
 
+        public static IEnumerable<int> GetClosedContourVtx(SBRepObject obj, IEnumerable<int> edgesIDs, int startEdge)
+        {
+            int currentEdge = -1;
+            var lastVtxID = -1;
+            var vertexOrderList = new List<int>();
+            while (startEdge != currentEdge)
+            {
+                if (currentEdge == -1)
+                    currentEdge = startEdge;
 
+                var edge = obj.Edges[currentEdge];
+                //edgesIDs.RemoveAt(currentEdge);
+                var verticeIndexes = edge.Vertices;
+                int vtxID = -1;
+                if (lastVtxID == -1)
+                {
+                    vtxID = verticeIndexes.a;
+                }
+                else
+                {
+                    vtxID = verticeIndexes.a == lastVtxID ? verticeIndexes.b : verticeIndexes.a;
+                }
+                var vtx = obj.Vertices[vtxID];
+                vertexOrderList.Add(vtx.ID);
+                lastVtxID = vtx.ID;
+                List<int> nextEdge = null;
+                try
+                {
+                    nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
+                }
+                catch(Exception ex)
+                {
+                    break;
+                }
+
+                if (nextEdge.Count != 1)
+                    break;
+                currentEdge = nextEdge.First();
+            }
+
+            return vertexOrderList;
+        }
+        
         public static Tuple<IEnumerable<IEnumerable<int>>, IEnumerable<IEnumerable<int>>> ClassifyLoops(
             SBRepObject obj,
             IEnumerable<IEnumerable<int>> loops,
@@ -1428,6 +1375,135 @@ namespace MeshSimplificationTest.SBRep
             }
 
             return new Tuple<IEnumerable<IEnumerable<int>>, IEnumerable<IEnumerable<int>>>(oldoops, newLoops);
+        }
+
+        public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdgesV3(SBRepObject obj, int faceId, Dictionary<int, bool> edgesIDsWithPosition)
+        {
+            if (edgesIDsWithPosition.Count() < 3)
+            {
+                ShowDictEdges(obj, edgesIDsWithPosition);
+                throw new Exception("Недостаточно граней для графа");
+                //return new List<IEnumerable<int>>();
+            }
+            var plane = obj.Faces[faceId].Plane;
+
+            ICollection<int> edgesIds = null;
+            Dictionary<int, IEnumerable<int>> vertParentsDict = null;
+
+            var loops = new List<IEnumerable<int>>();
+            var nextEdgeId = -1;
+            var beginVtxId = -1;
+            int currentVtxID = -1;
+            int prevVtxID = -1;
+            List<int> currentLoopEdges = null;
+            var currentEdgePositionDict = new Dictionary<int, bool>(edgesIDsWithPosition);
+            ShowDictEdges(obj, currentEdgePositionDict);
+            //пока есть непройденные рёбра
+            while (currentEdgePositionDict.Count > 0)
+            {
+                int currentEdgeId = -1;
+                //если не известно следующее ребро, то начинаем новую петлю
+                if (nextEdgeId == -1)
+                {
+                    //подготавливаем данные для новой петли
+                    edgesIds = currentEdgePositionDict.Select(eid => eid.Key).ToList();
+                    //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
+                    vertParentsDict = GetVtxParentsDict(obj, edgesIds);
+
+                    currentLoopEdges = new List<int>();
+                    loops.Add(currentLoopEdges);
+
+                    //начинаем с ребра, лежащего на границе
+                    int edgeOnEdge = -1;
+                    var boundaryEdge = currentEdgePositionDict
+                        .Where(x => x.Value)
+                        .Select(e => (int?)e.Key)
+                        .FirstOrDefault();
+                    if (boundaryEdge == null)
+                    {
+                        currentEdgePositionDict = MarksOutsideEdges(obj, currentEdgePositionDict.Keys, plane);
+                        ShowDictEdges(obj, currentEdgePositionDict);
+                        boundaryEdge = boundaryEdge = currentEdgePositionDict
+                            .Where(x => x.Value)
+                            .Select(e => (int?)e.Key)
+                            .FirstOrDefault();
+                        Debug.Assert(boundaryEdge != null);
+                    }
+                    edgeOnEdge = (int)boundaryEdge;
+                    Debug.Assert(edgeOnEdge != -1);
+                    currentEdgeId = edgeOnEdge;
+
+                    //вычисляем, направление вектора по часовой стрелке
+                    var edgeClockwiseVtx = CalcEdgeClockwiseVector(
+                        obj,
+                        plane,
+                        currentEdgePositionDict
+                            .Select(e => e.Key)
+                            .ToList(),
+                        currentEdgeId);
+                    //первую точку ребра по полярному углу устанавливаем, как начальную для петли
+                    beginVtxId = edgeClockwiseVtx.a;
+                    prevVtxID = beginVtxId;
+                    //вторую точку ребра устанавливаем, как текущую
+                    currentVtxID = edgeClockwiseVtx.b;
+
+                }
+                else
+                {
+                    prevVtxID = currentVtxID;
+                    //получаем новую точку обхода от предыдущей по новому ребру
+                    currentVtxID = obj.GetVertexNeigborIdByEdge(currentVtxID, nextEdgeId);
+                    currentEdgeId = nextEdgeId;
+                }
+                //удаляем из списка непройденных рёбер текущее
+                edgesIds.Remove(currentEdgeId);
+                currentLoopEdges.Add(currentEdgeId);
+
+                currentEdgePositionDict.Remove(currentEdgeId);
+                ShowDictEdges(obj, currentEdgePositionDict);
+
+                //если пришли в начальную точку, то следующего ребра нет, т.к. сформировали петлю
+                if (currentVtxID == beginVtxId)
+                {
+                    //ShowDictEdges(obj, currentEdgePositionDict);
+                    nextEdgeId = -1;
+                    continue;
+                }
+
+                //дальше двигаемся к следующему ребру
+                var parents = vertParentsDict[currentVtxID]
+                    .Where(eid => edgesIds.Contains(eid))
+                    .ToList();
+                Debug.Assert(parents.Count != 0);
+                // если нет развилки, то просто берём следующее
+                if (parents.Count == 1)
+                {
+                    nextEdgeId = parents.First();
+                }
+                else //если текущая точка - развилка
+                {
+                    //получаем точки, куда можем пойти
+                    var potentialPointsEdgeDict = new Dictionary<int, int>();
+                    foreach (var eid in parents)
+                    {
+                        potentialPointsEdgeDict.Add(obj.GetVertexNeigborIdByEdge(currentVtxID, eid), eid);
+                    }
+
+                    // ортируем точки, до которых с текущей точки можем дойти по полярному углу против часовой 
+                    var sortedVtxIds = SortByPolar(
+                        obj,
+                        potentialPointsEdgeDict.Keys,
+                        plane,
+                        false,
+                        currentVtxID,
+                        prevVtxID);
+
+                    // берём первую и переходим по соответствующему ребру
+                    nextEdgeId = potentialPointsEdgeDict[sortedVtxIds.First()];
+                }
+            }
+
+            return loops;
         }
     }
 }

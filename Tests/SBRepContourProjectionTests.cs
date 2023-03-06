@@ -345,25 +345,42 @@ namespace Tests
             Assert.IsTrue(failedTests.Count == 0);
         }
 
+        //[TestMethod]
+        //public void SortByPolarTest()
+        //{
+        //    var beginPoint = Vector2d.Zero;
+        //    var edgeLastPoint = new Vector2d(1,1);
+
+        //    var pointsForSort = new List<Vector2d>()
+        //    {
+        //        new Vector2d(1, 0),
+        //        new Vector2d(1, -1),
+        //        new Vector2d(-1, -1),
+        //        new Vector2d(-1, 1),
+        //        new Vector2d(0, 1),
+        //    };
+
+        //    var result = SBRepOperationsExtension.SortByPolarT(
+        //        pointsForSort,
+        //        beginPoint,
+        //        edgeLastPoint);
+        //}
+
         [TestMethod]
-        public void SortByPolarTest()
+        public void SignedAreaTest()
         {
-            var beginPoint = Vector2d.Zero;
-            var edgeLastPoint = new Vector2d(1,1);
-
-            var pointsForSort = new List<Vector2d>()
+            var points = new List<Vector2d>()
             {
-                new Vector2d(1, 0),
-                new Vector2d(1, -1),
-                new Vector2d(-1, -1),
-                new Vector2d(-1, 1),
+                new Vector2d(0, 0),
                 new Vector2d(0, 1),
+                new Vector2d(1, 1),
+                new Vector2d(1, 0),
             };
-
-            var result = SBRepOperationsExtension.SortByPolarT(
-                pointsForSort,
-                beginPoint,
-                edgeLastPoint);
+            var areaCW = Geometry2DHelper.GetAreaSigned(points);
+            points.Reverse();
+            var areaCCW = Geometry2DHelper.GetAreaSigned(points);
+            Assert.AreEqual(Math.Abs(areaCW), Math.Abs(areaCCW));
+            Assert.AreNotEqual(Math.Sign(areaCW), Math.Sign(areaCCW));
         }
 
     }
