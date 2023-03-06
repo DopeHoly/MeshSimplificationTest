@@ -628,7 +628,7 @@ namespace MeshSimplificationTest.SBRep
             return loops;
         }
 
-        private static bool IsLoopEdges(SBRepObject obj, IEnumerable<int> edgesIds)
+        public static bool IsLoopEdges(SBRepObject obj, IEnumerable<int> edgesIds)
         {
             var edges = edgesIds.Select(eid => obj.Edges[eid]).ToList();
             var verticesIds = edges.SelectMany(edge =>

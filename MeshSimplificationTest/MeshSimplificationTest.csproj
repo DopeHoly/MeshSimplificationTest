@@ -130,6 +130,7 @@
     <Compile Include="SBRep\SBRepOperations.cs" />
     <Compile Include="SBRep\SBRepToMeshBuilder.cs" />
     <Compile Include="SBRep\Utils\Geometry2DHelper.cs" />
+    <Compile Include="SBRep\Utils\Graph.cs" />
     <Compile Include="SBRep\Utils\IndexedCollection.cs" />
     <Compile Include="SBRep\Utils\IntersectContour.cs" />
     <Compile Include="SBRep\Utils\PlaneFace.cs" />
