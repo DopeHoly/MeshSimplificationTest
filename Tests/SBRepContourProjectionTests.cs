@@ -17,7 +17,7 @@ namespace Tests
     [TestClass]
     public class SBRepContourProjectionTests
     {
-        private static string SamplesPath = "../../../../samples/";
+        private static string SamplesPath = "../../../samples/";
         private static string Sample_Cube4x4Path = SamplesPath + "Кубик4Fix.obj";
         private static string Sample_PipePath = SamplesPath + "pipe.obj";
         private static string Sample_LargePipePath = SamplesPath + "Труба большая.obj";
@@ -325,7 +325,7 @@ namespace Tests
                     var sbRep = SBRepBuilder.Convert(mesh);
                     foreach (var contour in GetContours(currentTestPath))
                     {
-                        sbRep = sbRep.ContourProjection(contour, true);
+                        sbRep = sbRep.ContourProjectionParallel(contour, true);
                     }
                 }
                 catch

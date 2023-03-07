@@ -559,7 +559,6 @@ namespace MeshSimplificationTest.SBRep
                 var parents = vtx.Parents.Intersect(edgesIDs).ToList();
                 if (parents.Count() % 2 == 1)
                 {
-                    Show(obj, edgesIDs);
                     throw new Exception("Невозможно обойти граф");
                 }
                 vertParentsDict.Add(vtx.ID, parents);
@@ -630,6 +629,8 @@ namespace MeshSimplificationTest.SBRep
 
         public static bool IsLoopEdges(SBRepObject obj, IEnumerable<int> edgesIds)
         {
+            if(edgesIds.Count() == 0)
+                return false;
             var edges = edgesIds.Select(eid => obj.Edges[eid]).ToList();
             var verticesIds = edges.SelectMany(edge =>
                 new int[2] { edge.Vertices.a, edge.Vertices.b }
