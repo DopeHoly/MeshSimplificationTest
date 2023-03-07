@@ -185,7 +185,7 @@ namespace MeshSimplificationTest.SBRepVM
             _ = vizualizer.ShowDialog();
         }
 
-        public static void ShowContours(SBRepObject sbrep, IEnumerable<IntersectContour> contours)
+        public static void ShowContours(IEnumerable<IntersectContour> contours)
         {
             var plotModel = new PlotModel();
 

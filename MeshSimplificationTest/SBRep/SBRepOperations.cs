@@ -1710,20 +1710,39 @@ namespace MeshSimplificationTest.SBRep
                 var resultPoint = potentialPointFirst;
 
                 //Старый вариант тут идёт проверка, что новое потенциальное ребро не будет пересекать существующие в петле
-
+                var potentialCrossingFirst = CheckEdgeCrossing(obj, plane, currentLoopEdges, otherVtxID, potentialPointFirst);
+                var potentialCrossingLast = CheckEdgeCrossing(obj, plane, currentLoopEdges, otherVtxID, potentialPointLast);
+                //если оба пересекают, то тут хуй вообще знает что делать
+                if(potentialCrossingFirst && potentialCrossingLast)
+                {
+                    throw new Exception("Мало вероятно, но всё же");
+                }
+                if(potentialCrossingFirst || potentialCrossingLast)
+                {
+                    if (potentialCrossingFirst)
+                    {
+                        nextEdge = potentialPointsEdgeDict[potentialPointLast];
+                        return;
+                    }
+                    if (potentialCrossingLast)
+                    {
+                        nextEdge = potentialPointsEdgeDict[potentialPointFirst];
+                        return;
+                    }
+                }
 
                 ////если не одно не пересекает, то проверяем по площади
-                //var areaFirst = GetAreaWithNewEdge(obj, plane, currentLoopEdges, currentVtxID, otherVtxID, potentialPointFirst);
-                //var areaLast = GetAreaWithNewEdge(obj, plane, currentLoopEdges, currentVtxID, otherVtxID, potentialPointLast);
+                var areaFirst = GetAreaWithNewEdge(obj, plane, currentLoopEdges, currentVtxID, otherVtxID, potentialPointFirst);
+                var areaLast = GetAreaWithNewEdge(obj, plane, currentLoopEdges, currentVtxID, otherVtxID, potentialPointLast);
 
                 var potentialPointFirstCoord = obj.Vertices[potentialPointFirst].Coordinate;
                 var potentialPointLastCoord = obj.Vertices[potentialPointLast].Coordinate;
-                
-                var otherCoord = obj.Vertices[otherVtxID].Coordinate;
-                var lenghtFirst = (otherCoord - potentialPointFirstCoord).LengthSquared;
-                var lenghtLast = (otherCoord - potentialPointLastCoord).LengthSquared;
 
-                if (lenghtFirst > lenghtLast)
+                //var otherCoord = obj.Vertices[otherVtxID].Coordinate;
+                //var lenghtFirst = (otherCoord - potentialPointFirstCoord).LengthSquared;
+                //var lenghtLast = (otherCoord - potentialPointLastCoord).LengthSquared;
+
+                if (areaFirst > areaLast)
                     resultPoint = potentialPointLast;
 
                 // берём первую и переходим по соответствующему ребру
@@ -1755,52 +1774,42 @@ namespace MeshSimplificationTest.SBRep
             return Geometry2DHelper.GetArea(contour2d);
         }
 
-
-        /// <summary>
-        /// Сортирует точки на плоскости по полярному углу 
-        /// </summary>
-        /// <param name="obj">объект sbrep</param>
-        /// <param name="vtxIds">индексы вершин</param>
-        /// <param name="plane">плоскость, в которой лежат вершины</param>
-        /// <param name="clockwise">сортировка по часовой/против часовой стрелки</param>
-        /// <returns>сортированный список точек</returns>
-        private static IEnumerable<int> SortByPolarSigned(SBRepObject obj, IEnumerable<int> vtxIds, PlaneFace plane, bool clockwise, int curentVtx, int prevVtx)
+        private static bool CheckEdgeCrossing(SBRepObject obj, PlaneFace plane, IEnumerable<int> edgesIds, int verticeId1, int verticeId2)
         {
-            Vector3d zeroPoint = Vector3d.Zero;
-            Vector3d edgePrevPoint = Vector3d.One;
+            var edges = edgesIds.Select(eid => obj.Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
 
-            var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx, prevVtx });
-            zeroPoint = lastEdgesPoint.First().Value;
-            edgePrevPoint = lastEdgesPoint.Last().Value;
+            var v1 = obj.Vertices[verticeId1].Coordinate.xy;
+            var v2 = obj.Vertices[verticeId2].Coordinate.xy;
+            
+            //var secondContour = IntersectContour.FromPoints(new List<Vector2d>() { v1, v2 });
 
-            var points = obj.GetCoordinatesWithId(vtxIds);
-
-            var currentEdgeVector = edgePrevPoint - zeroPoint;
-
-            Func<Vector3d, double> calcAngle = (p1) =>
+            var intersectContour = IntersectContour.FromSBRepLoop(
+                verticesIds.Select(x => obj.Vertices[x]).ToList(),
+                edges);
+            EdgePosition edgeCrossing = null;
+            try
             {
-                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, plane.Normal);
-                return angle;
-            };
-
-            var vtxAngleDict = new Dictionary<int, double>();
-            foreach (var item in points)
+                //SbrepVizualizer.ShowContours(new List<IntersectContour>() { intersectContour, secondContour });
+                edgeCrossing = IntersectContour.CalcEdgePositions(
+                v1,
+                v2,
+                -1,
+                intersectContour,
+                1e-10);
+            }
+            catch (Exception ex)
             {
-                vtxAngleDict.Add(item.Key, calcAngle(item.Value));
+                return true;
             }
 
-            Func<double, double, int> sortFunc = (p1, p2) =>
-            {
-                return (clockwise ? -1 : 1) * p1.CompareTo(p2);
-            };
-            var vertices = new List<int>(vtxIds);
-            vertices.Sort(delegate (int a, int b)
-            {
-                var p1 = vtxAngleDict[a];
-                var p2 = vtxAngleDict[b];
-                return sortFunc(p1, p2);
-            });
-            return vertices;
+            if (edgeCrossing.Mode == EdgePositionMode.Cross)
+                return true;
+            return false;
         }
     }
 }

@@ -146,9 +146,24 @@ namespace MeshSimplificationTest.SBRep.Utils
         public IEnumerable<Point> GetContour()
         {
             var currentPointId = -1;
-            var startEdge = Edges.First();
+
+            Edge startEdge = null;
+            var startPointId = -1;
+
+            var pointWithout2Edges = Points.Where(x => x.Parents.Count == 1).ToList();
+            if(pointWithout2Edges.Count == 0)
+            {
+                startEdge = Edges.First();
+                startPointId = startEdge.Points.a;
+            }
+            else
+            {
+                var startPoint = pointWithout2Edges.First();
+                startPointId = startPoint.ID;
+                startEdge = Edges[startPoint.Parents.First()];
+            }
             var startEdgeId = startEdge.ID;
-            var startPointId = startEdge.Points.a;
+
             var currentEdge = startEdge;
             var currentEdgeId = -1;
             while (startPointId != currentPointId)
@@ -158,7 +173,16 @@ namespace MeshSimplificationTest.SBRep.Utils
                 var currentPoint = Points[currentPointId];
                 yield return currentPoint;
 
-                var nextEdgeID = currentPoint.Parents.First(eid => eid != currentEdgeId);
+                int nextEdgeID = -1;
+
+                try
+                {
+                    nextEdgeID = currentPoint.Parents.First(eid => eid != currentEdgeId);
+                }
+                catch
+                {
+                    break;
+                }
                 currentEdge = Edges[nextEdgeID];
                 currentEdgeId = nextEdgeID;
                 currentPointId = currentEdge.GetNext(currentPointId);
@@ -173,9 +197,22 @@ namespace MeshSimplificationTest.SBRep.Utils
         public IEnumerable<Edge> GetEdges()
         {
             var currentPointId = -1;
-            var startEdge = Edges.First();
-            var startEdgeId = startEdge.ID;
-            var startPointId = startEdge.Points.a;
+
+            Edge startEdge = null;
+            var startPointId = -1;
+
+            var pointWithout2Edges = Points.Where(x => x.Parents.Count == 1).ToList();
+            if (pointWithout2Edges.Count == 0)
+            {
+                startEdge = Edges.First();
+                startPointId = startEdge.Points.a;
+            }
+            else
+            {
+                var startPoint = pointWithout2Edges.First();
+                startPointId = startPoint.ID;
+                startEdge = Edges[startPoint.Parents.First()];
+            }
             var currentEdge = startEdge;
             var currentEdgeId = -1;
             while (startPointId != currentPointId)
@@ -183,8 +220,15 @@ namespace MeshSimplificationTest.SBRep.Utils
                 if (currentPointId == -1)
                     currentPointId = startEdge.Points.a;
                 var currentPoint = Points[currentPointId];
-
-                var nextEdgeID = currentPoint.Parents.First(eid => eid != currentEdgeId);
+                int nextEdgeID = -1;
+                try
+                {
+                    nextEdgeID = currentPoint.Parents.First(eid => eid != currentEdgeId);
+                }
+                catch 
+                {
+                    break;
+                }
                 currentEdge = Edges[nextEdgeID];
 
                 currentEdgeId = nextEdgeID;
@@ -644,7 +688,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             double eps)
         {
             var crosses = new List<EdgeCrossPosition>();
-            foreach (var edge in contour.GetEdges())
+            foreach (var edge in contour.Edges)
             {
                 var edgesPoints = contour.GetEdgePoints(edge);
                 var edgeA = edgesPoints.Item1.Coord;
