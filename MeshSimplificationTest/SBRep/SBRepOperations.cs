@@ -1544,7 +1544,7 @@ namespace MeshSimplificationTest.SBRep
         {
             if (edgesIDsWithPosition.Count() < 3)
             {
-                ShowDictEdges(obj, edgesIDsWithPosition);
+                //ShowDictEdges(obj, edgesIDsWithPosition);
                 throw new Exception("Недостаточно граней для графа");
                 //return new List<IEnumerable<int>>();
             }
@@ -1614,25 +1614,9 @@ namespace MeshSimplificationTest.SBRep
                     currentEdgeIdA = nextEdgeIdA;
                     currentEdgeIdB = nextEdgeIdB;
                 }
-                //удаляем из списка непройденных рёбер текущее
-                //ShowDictEdges(obj, currentEdgePositionDict);
-                //если пришли в начальную точку, то следующего ребра нет, т.к. сформировали петлю
-                //if (vtxA == vtxB)
-                //{
-                //    //ShowDictEdges(obj, currentEdgePositionDict);
-                //    nextEdgeIdA = -1;
-                //    nextEdgeIdB = -1;
-                //    continue;
-                //}
 
                 GoNextEdge(obj, plane, vertParentsDict, edgesIds, currentLoopEdges, currentEdgePositionDict, ref currentEdgeIdA, ref nextEdgeIdA, vtxA, lastVtxA, lastVtxB);
-                //if (vtxA == vtxB)
-                //{
-                //    //ShowDictEdges(obj, currentEdgePositionDict);
-                //    nextEdgeIdA = -1;
-                //    nextEdgeIdB = -1;
-                //    continue;
-                //}
+
 
                 GoNextEdge(obj, plane, vertParentsDict, edgesIds, currentLoopEdges, currentEdgePositionDict, ref currentEdgeIdB, ref nextEdgeIdB, vtxB, lastVtxB, vtxA);
 
@@ -1668,7 +1652,7 @@ namespace MeshSimplificationTest.SBRep
 
                 currentEdgePositionDict.Remove(currentEdgeId);
             }
-            ShowDictEdges(obj, currentEdgePositionDict);
+            //ShowDictEdges(obj, currentEdgePositionDict);
 
             //дальше двигаемся к следующему ребру
             var parents = vertParentsDict[currentVtxID]
