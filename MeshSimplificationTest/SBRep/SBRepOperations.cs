@@ -44,6 +44,25 @@ namespace MeshSimplificationTest.SBRep
             return projectionContour;
         }
 
+        private static List<Vector2d> PreprocessingContour(List<Vector2d> inContour, double minX, double minY, double maxX, double maxY)
+        {
+            var outContour = new List<Vector2d>();
+            foreach (var point in inContour)
+            {
+                var resultPoint = new Vector2d(point);
+                if (Math.Abs(resultPoint.x) == double.MaxValue)
+                {
+                    resultPoint.x = Math.Sign(resultPoint.x) > 0 ? maxX : minX;
+                }
+                if (Math.Abs(resultPoint.y) == double.MaxValue)
+                {
+                    resultPoint.y = Math.Sign(resultPoint.x) > 0 ? maxY : minY;
+                }
+                outContour.Add(resultPoint);
+            }
+            return outContour;
+        }
+
         public static SBRepObject ContourProjection(this SBRepObject sbrep, List<Vector2d> contour, bool topDirection)
         {
             var obj = new SBRepObject(sbrep);
@@ -51,6 +70,14 @@ namespace MeshSimplificationTest.SBRep
                 return obj;
             if (contour == null || contour.Count < 3)
                 return obj;
+
+            double minX = 0;
+            double minY = 0;
+            double maxX = 0;
+            double maxY = 0;
+            sbrep.CalcBoundingBox(ref minX, ref minY, ref maxX, ref maxY);
+
+            contour = PreprocessingContour(contour, minX, minY, maxX, maxY);
 
             //валидация контура по площади, если нулевая, то ничего не делаем
             if (Geometry2DHelper.GetArea(contour) < 1e-6)
@@ -82,10 +109,6 @@ namespace MeshSimplificationTest.SBRep
             var count = 0;
             foreach (var face in filteredFaces)
             {
-                if(face.ID == 128)
-                {
-                    ;
-                }
                 var projContour = new IntersectContour(projectionContour);
                 var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
                 var insideLoops = face.InsideLoops.Select(lid =>
@@ -96,6 +119,7 @@ namespace MeshSimplificationTest.SBRep
                 {
                     resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
+                SbrepVizualizer.ShowContours(new List<IntersectContour>() { resultIntersect/*, GetProjectionContourFromPoint(contour)*/ });
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID, true);
                 ++count;
             }
@@ -111,6 +135,14 @@ namespace MeshSimplificationTest.SBRep
                 return obj;
             if (contour == null || contour.Count < 3)
                 return obj;
+
+            double minX = 0;
+            double minY = 0;
+            double maxX = 0;
+            double maxY = 0;
+            sbrep.CalcBoundingBox(ref minX, ref minY, ref maxX, ref maxY);
+
+            contour = PreprocessingContour(contour, minX, minY, maxX, maxY);
 
             //валидация контура по площади, если нулевая, то ничего не делаем
             if (Geometry2DHelper.GetArea(contour) < 1e-6)
@@ -909,7 +941,7 @@ namespace MeshSimplificationTest.SBRep
 
         private static void ShowDictEdges(SBRepObject obj, Dictionary<int, bool> edgesIDsWithPosition)
         {
-            return;
+            //return;
             var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
 
             var boundary = edgesIDsWithPosition

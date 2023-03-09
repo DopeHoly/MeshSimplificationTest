@@ -55,9 +55,18 @@ namespace MeshSimplificationTest.SBRep.Utils
                     answer.Point0 = intersector.Point0;
                     break;
                 case IntersectionType.Segment:
-                    answer.IntersectionType = EdgeIntersectionType.Segment;
-                    answer.Point0 = intersector.Point0;
-                    answer.Point1 = intersector.Point1;
+                    if(IsPointOnLine(e1v1, e2v1, e2v2, eps) &&
+                        IsPointOnLine(e1v2, e2v1, e2v2, eps))
+                    {
+                        answer.IntersectionType = EdgeIntersectionType.Segment;
+                        answer.Point0 = intersector.Point0;
+                        answer.Point1 = intersector.Point1;
+                    }
+                    else
+                    {
+                        answer.Intersection = IntersectionVariants.NoIntersection;
+                        answer.IntersectionType = EdgeIntersectionType.Empty;
+                    }
                     break;
                 case IntersectionType.Line:
                     answer.IntersectionType = EdgeIntersectionType.Unknown;
@@ -244,18 +253,18 @@ namespace MeshSimplificationTest.SBRep.Utils
                 //throw new Exception("Точки a и b совпадают. Сортировка невозможна");
                 return points;
             }
-            var tDict = new Dictionary<double, int>();
+            var tDict = new Dictionary<int, double>();
             foreach (var point in points)
             {
                 var t = CalcT(a, b, point);
-                tDict.Add(t, point.Key);
+                tDict.Add(point.Key,t);
             }
-            var sortedT = tDict.Keys.ToList();
-            sortedT.Sort();
+            var sortedDict = from entry in tDict orderby entry.Value ascending select entry;
+
             var result = new Dictionary<int, Vector2d>();
-            foreach (var t in sortedT)
+            foreach (var t in sortedDict)
             {
-                var key = tDict[t];
+                var key = t.Key;
                 result.Add(key, points[key]);
             }
             return result;

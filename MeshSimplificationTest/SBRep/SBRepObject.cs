@@ -943,6 +943,27 @@ namespace MeshSimplificationTest.SBRep
             return result;
         }
 
+        public void CalcBoundingBox(ref double minX, ref double minY, ref double maxX, ref double maxY)
+        {
+            minX = double.MaxValue;
+            minY = double.MaxValue;
+            maxX = double.MinValue;
+            maxY = double.MinValue;
+
+            foreach (var vtx in Vertices)
+            {
+                var coord = vtx.Coordinate;
+                if (coord.x > maxX)
+                    maxX = coord.x;
+                if (coord.x < minX)
+                    minX = coord.x;
+                if (coord.y > maxY)
+                    maxY = coord.y;
+                if (coord.y < minY)
+                    minY = coord.y;
+            }
+        }
+
         public override string ToString()
         {
             var builder = new StringBuilder();

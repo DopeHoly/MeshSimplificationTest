@@ -260,12 +260,12 @@ namespace MeshSimplificationTest.SBRepVM
                         Name = "Триангулированный объект c проекцией " + contour.Name,
                         Model = ConvertToModel3D(projectionObjectMesh),
                     });
-                }
-                catch (Exception ex)
-                {
-                    ;
-                }
             }
+                catch (Exception ex)
+            {
+                ;
+            }
+        }
 
             //projectionObject = projectionObject.ContourProjection(contour2, true);
 
