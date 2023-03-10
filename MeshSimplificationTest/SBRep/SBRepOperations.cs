@@ -21,6 +21,7 @@ namespace MeshSimplificationTest.SBRep
 {
     public static class SBRepOperationsExtension
     {
+        private static bool EnableVisualizator = false;
 
         private static IntersectContour GetContourFromLoop(SBRepObject sbrep, int lid)
         {
@@ -119,7 +120,7 @@ namespace MeshSimplificationTest.SBRep
                 {
                     resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
-                SbrepVizualizer.ShowContours(new List<IntersectContour>() { resultIntersect/*, GetProjectionContourFromPoint(contour)*/ });
+                //SbrepVizualizer.ShowContours(new List<IntersectContour>() { resultIntersect/*, GetProjectionContourFromPoint(contour)*/ });
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID, true);
                 ++count;
             }
@@ -263,6 +264,8 @@ namespace MeshSimplificationTest.SBRep
                     return;
                 }
             }
+
+            EnableVisualizator = faceID == 350;
 
             //if(faceID == 128)
             //{
@@ -941,7 +944,8 @@ namespace MeshSimplificationTest.SBRep
 
         private static void ShowDictEdges(SBRepObject obj, Dictionary<int, bool> edgesIDsWithPosition)
         {
-            //return;
+            if(!EnableVisualizator)
+                return;
             var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
 
             var boundary = edgesIDsWithPosition
@@ -993,6 +997,21 @@ namespace MeshSimplificationTest.SBRep
                     edgesIds = currentEdgePositionDict.Select(eid => eid.Key).ToList();
                     //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
                     vertParentsDict = GetVtxParentsDict(obj, edgesIds);
+
+                    if (vertParentsDict.All(x => x.Value.Count() == 2 || x.Value.Count() == 4))
+                    {
+                        var tempLoops = SBRepObject.BuildLoopsFromEdges(obj, edgesIds);
+                        foreach (var loop in tempLoops)
+                        {
+                            foreach (var loopEdge in loop)
+                            {
+                                if (currentEdgePositionDict.ContainsKey(loopEdge))
+                                    currentEdgePositionDict.Remove(loopEdge);
+                            }
+                        }
+                        loops.AddRange(tempLoops);
+                        continue;
+                    }
 
                     currentLoopEdges = new List<int>();
                     loops.Add(currentLoopEdges);
