@@ -251,8 +251,8 @@ namespace MeshSimplificationTest.SBRepVM
 
 
                 //if (contour == Contours.Last()) continue;
-                //try
-                //{
+                try
+                {
                     projectionObject = projectionObject?.ContourProjection(contour.Value, true);
                     projectionObjectMesh = SBRepToMeshBuilderV2.ConvertParallel(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
@@ -260,11 +260,11 @@ namespace MeshSimplificationTest.SBRepVM
                         Name = "Триангулированный объект c проекцией " + contour.Name,
                         Model = ConvertToModel3D(projectionObjectMesh),
                     });
-            //}
-            //    catch (Exception ex)
-            //{
-            //    ;
-            //}
+            }
+                catch (Exception ex)
+            {
+                ;
+            }
         }
 
             //projectionObject = projectionObject.ContourProjection(contour2, true);

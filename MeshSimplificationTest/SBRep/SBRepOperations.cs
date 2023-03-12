@@ -998,7 +998,8 @@ namespace MeshSimplificationTest.SBRep
                     //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
                     vertParentsDict = GetVtxParentsDict(obj, edgesIds);
 
-                    if (vertParentsDict.All(x => x.Value.Count() == 2 || x.Value.Count() == 4))
+                    if (vertParentsDict.All(x => x.Value.Count() == 2 || x.Value.Count() == 4) && 
+                        vertParentsDict.Where(x => x.Value.Count() == 4).Count() == 1)
                     {
                         var tempLoops = SBRepObject.BuildLoopsFromEdges(obj, edgesIds);
                         foreach (var loop in tempLoops)
