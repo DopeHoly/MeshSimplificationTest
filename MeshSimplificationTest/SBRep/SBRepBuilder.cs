@@ -191,7 +191,7 @@ namespace MeshSimplificationTest.SBRep
             if (mesh == null)
                 return null;
             //TODO опциональная, понять насколько тут это нужно
-            //RemeshTool.FixAndRepairMesh(mesh);
+            //RemeshTool.FixNormals(mesh);
 
             var normalGroupedTIDs = GroupTriangleByNormal(mesh);
 

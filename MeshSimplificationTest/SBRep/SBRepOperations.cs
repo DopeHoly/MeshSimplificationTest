@@ -157,14 +157,14 @@ namespace MeshSimplificationTest.SBRep
             else
                 comparer = (x) => x < 0;
 
-            int maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
-            var replaceIntdex = maxGroidID + 2;
+            int maxGroupID = obj.Faces.Select(face => face.GroupID).Max();
+            var replaceIntdex = maxGroupID + 2;
             foreach (var face in obj.Faces)
             {
                 face.GroupID = face.GroupID != -1 ? face.GroupID : replaceIntdex;
             }
 
-            maxGroidID = obj.Faces.Select(face => face.GroupID).Max();
+            maxGroupID = obj.Faces.Select(face => face.GroupID).Max();
             var groupIDsDict = new Dictionary<int, int>();
 
             var filteredFaces = obj.Faces.Where(face => comparer(face.Normal.z)).ToList();
@@ -188,7 +188,7 @@ namespace MeshSimplificationTest.SBRep
                     {
                         case ContoursIntersectType.Inside:
                             lock (mutex)
-                                face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
+                                face.GroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroupID);
                             break;
                         case ContoursIntersectType.Outside:
                             break;
@@ -214,7 +214,7 @@ namespace MeshSimplificationTest.SBRep
                 {
                     resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
-                ApplyIntersectContourToFace(obj, faceID, resultIntersect, groupIDsDict, ref maxGroidID, false);
+                ApplyIntersectContourToFace(obj, faceID, resultIntersect, groupIDsDict, ref maxGroupID, false);
             }
             obj.RebuildVerges();
             return obj;
@@ -265,8 +265,8 @@ namespace MeshSimplificationTest.SBRep
                     return;
                 }
             }
-
-            EnableVisualizator = faceID == 350;
+            EnableVisualizator = true;
+            //EnableVisualizator = faceID == 350;
 
             //if(faceID == 128)
             //{
@@ -322,160 +322,26 @@ namespace MeshSimplificationTest.SBRep
 
             IEnumerable<IEnumerable<int>> newFacesLoops = null;
             IEnumerable<IEnumerable<int>> oldFacesLoops = null;
-
-            //Собираем петли для новых граней
-            //try
-            //{
-            //    //if (newFaceEdges.Count < 3)
-            //    //{
-            //    //    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
-            //    //    var oldFacesEdgesIds = faceEdgesPosition.Select(x => x.Key).ToList();
-            //    //    keyValuePairs.Add(Colors.Yellow, oldFacesEdgesIds);
-            //    //    keyValuePairs.Add(Colors.Red, addedEdges.Keys);
-
-            //    //    SbrepVizualizer.ShowEdgePlot(sbrep, keyValuePairs, contour);
-            //    //    return;
-            //    //}
-            //    newFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, newFaceEdges);
-            //}
-            //catch
-            //{
-            //    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
-            //    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
-            //    ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
-            //    throw;
-            //}
-
-            //Debug.Assert(newFaceEdges.Count == newFacesLoops.Sum(x => x.Count()));
-
-            //var oldFacesEdges = new List<int>();
-            ////Собираем петли для старых граней
-            ////случай, когда контур разделяет точками на грани на n петель
-            //if (contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-            //    contour.Points.Where(
-            //        point => point.Position.Mode == PointPositionMode.OnEdge ||
-            //        point.Position.Mode == PointPositionMode.OnVertex)
-            //    .Count() > 1)
-            //{
-            //    var oldFacesEdgesPriority = new Dictionary<int, bool>();
-
-            //    foreach (var edge in faceEdgesPosition
-            //        .Where(idPos => idPos.Value == false)
-            //        .Select(idPos => idPos.Key))
-            //    {
-            //        oldFacesEdgesPriority.Add(edge, false);
-            //    }
-            //    foreach (var edge in addedEdges
-            //        .Where(idPos => idPos.Value == true)
-            //        .Select(idPos => idPos.Key))
-            //    {
-            //        oldFacesEdgesPriority.Add(edge, true);
-            //    }
-            //    oldFacesLoops = SBRepObject.BuildLoopsFromEdgesByAngle(sbrep, oldFacesEdgesPriority);
-            //}
-            //else
-            //{
-            //    oldFacesEdges = new List<int>();
-            //    oldFacesEdges.AddRange(
-            //        faceEdgesPosition
-            //        .Where(idPos => idPos.Value == false)
-            //        .Select(idPos => idPos.Key));
-            //    oldFacesEdges.AddRange(
-            //        addedEdges
-            //        .Where(idPos => idPos.Value == true)
-            //        .Select(idPos => idPos.Key));
-
-            //    //Собираем петли для старых граней
-            //    try
-            //    {
-            //    oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
-            //    }
-            //    catch
-            //    {
-            //        var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
-            //        SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop, contour });
-            //        ShowOldNewEdgesPlot(sbrep, faceEdgesPosition, addedEdges);
-            //        throw;
-            //    }
-
-            //    //Debug.Assert(oldFacesEdges.Count == oldFacesLoops.Sum(x => x.Count()));
-            //}
-
-            //if(!newFacesLoops.All(x => x.Count() >= 3) || !oldFacesLoops.All(x => x.Count() >= 3))
-            //{
-            //    var outsideLoop = new IntersectContour(GetContourFromLoop(sbrep, face.OutsideLoop));
-            //    SbrepVizualizer.ShowContours(sbrep, new List<IntersectContour>() { outsideLoop , contour});
-
-            //    throw new Exception();
-            //}
+            //EnableVisualizator = faceID == 566;
 
 
-            //Debug.Assert(newFacesLoops.All(x => x.Count() >= 3));
-            //Debug.Assert(oldFacesLoops.All(x => x.Count() >= 3));
-
-            //словарь, где ключ - номер ребра, значение - является ли ребро внутренним к внешнему контуру
-
-            //begin BuildLoopsFromEdges V2
-            //var edgesDict = new Dictionary<int, bool>();
-            //foreach (var contourEdge in addedEdges)
-            //{
-            //    if (contourEdge.Value == false)
-            //        continue;
-            //    edgesDict.Add(contourEdge.Key, false);
-            //}
-            //var facesEdges = sbrep.GetEdgesFromFaceId(faceID);
-            //foreach (var eid in facesEdges)
-            //{
-            //    edgesDict.Add(eid, true);
-            //}
-
-            //var allLoops = BuildLoopsFromEdges(sbrep, faceID, edgesDict);
-
-            //var oldAndNewLoops = ClassifyLoops(sbrep, allLoops, contour);
-            //oldFacesLoops = oldAndNewLoops.Item1;
-            //newFacesLoops = oldAndNewLoops.Item2;
-            //end BuildLoopsFromEdges v2
-
-            //begin BuildLoopsFromEdges V3
             var oldFacesEdgesPriority = new Dictionary<int, bool>();
 
-            //if(contour.Edges.All(edge => edge.Position.Mode == ShortEdgePositionMode.InPlane) &&
-            //    contour.Points.Where(
-            //        point => point.Position.Mode == PointPositionMode.OnVertex ||
-            //        point.Position.Mode == PointPositionMode.OnEdge).Count() == 1)
-            //{
-            //    var oldFacesEdges = new List<int>();
-            //    oldFacesEdges.AddRange(
-            //        faceEdgesPosition
-            //        .Where(idPos => idPos.Value == false)
-            //        .Select(idPos => idPos.Key));
-            //    oldFacesEdges.AddRange(
-            //        addedEdges
-            //        .Where(idPos => idPos.Value == true)
-            //        .Select(idPos => idPos.Key));
-
-            //    //Собираем петли для старых граней
-            //    oldFacesLoops = SBRepObject.BuildLoopsFromEdges(sbrep, oldFacesEdges);
-            //}
-            //else
+            foreach (var edge in faceEdgesPosition
+                            .Where(idPos => idPos.Value == false)
+                            .Select(idPos => idPos.Key))
             {
-                foreach (var edge in faceEdgesPosition
-                .Where(idPos => idPos.Value == false)
-                .Select(idPos => idPos.Key))
-                {
-                    oldFacesEdgesPriority.Add(edge, true);
-                }
-                foreach (var edge in addedEdges
-                    .Where(idPos => idPos.Value == true)
-                    .Select(idPos => idPos.Key))
-                {
-                    oldFacesEdgesPriority.Add(edge, false);
-                }
-                oldFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, oldFacesEdgesPriority);
+                oldFacesEdgesPriority.Add(edge, true);
             }
+            foreach (var edge in addedEdges
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key))
+            {
+                oldFacesEdgesPriority.Add(edge, false);
+            }
+            oldFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, oldFacesEdgesPriority);
 
             var newFacesEdgesPriority = new Dictionary<int, bool>();
-            EnableVisualizator = faceID == 0;
             foreach (var edge in faceEdgesPosition
                 .Where(idPos => idPos.Value == true)
                 .Select(idPos => idPos.Key))
@@ -870,6 +736,65 @@ namespace MeshSimplificationTest.SBRep
             return vertices;
         }
 
+
+        private static void Draw2Vectors(Vector3d v1, Vector3d v2)
+        {
+            if (!EnableVisualizator)
+                return;
+            var contour1 = IntersectContour.FromPoints(new List<Vector2d> { Vector2d.Zero, v1.xy });
+            var contour2 = IntersectContour.FromPoints(new List<Vector2d> { Vector2d.Zero, v2.xy });
+            SbrepVizualizer.ShowContours(new List<IntersectContour>() { contour1, contour2 });
+        }
+
+        /// <summary>
+        /// Сортирует точки на плоскости по полярному углу 
+        /// </summary>
+        /// <param name="obj">объект sbrep</param>
+        /// <param name="vtxIds">индексы вершин</param>
+        /// <param name="plane">плоскость, в которой лежат вершины</param>
+        /// <param name="clockwise">сортировка по часовой/против часовой стрелки</param>
+        /// <returns>сортированный список точек</returns>
+        private static IEnumerable<int> SortByPolarByZeroPi(SBRepObject obj, IEnumerable<int> vtxIds, PlaneFace plane, bool clockwise, int curentVtx)
+        {
+            Vector3d zeroPoint = Vector3d.Zero;
+
+            var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx });
+            zeroPoint = lastEdgesPoint.First().Value;
+
+            var points = obj.GetPointsFromVtxOnPlane(vtxIds, plane);
+
+            var currentEdgeVector = new Vector3d(1, 0, 0);
+
+            Func<Vector3d, double> calcAngle = (p1) =>
+            {
+                var vector = p1 - zeroPoint;
+                Draw2Vectors(vector, currentEdgeVector);
+
+                var angle = signedAngle(currentEdgeVector, vector, plane.Normal);
+                return angle;
+            };
+
+            var vtxAngleDict = new Dictionary<int, double>();
+            foreach (var item in points)
+            {
+                var vector = new Vector3d(item.Value.x, item.Value.y, 0);
+                vtxAngleDict.Add(item.Key, calcAngle(vector));
+            }
+
+            Func<double, double, int> sortFunc = (p1, p2) =>
+            {
+                return (clockwise ? -1 : 1) * p1.CompareTo(p2);
+            };
+            var vertices = new List<int>(vtxIds);
+            vertices.Sort(delegate (int a, int b)
+            {
+                var p1 = vtxAngleDict[a];
+                var p2 = vtxAngleDict[b];
+                return sortFunc(p1, p2);
+            });
+            return vertices;
+        }
+
         //public static double GetAngle(Vector2d v1, Vector2d v2)
         //{
         //    return Math.Acos(v1.Dot(v2)/(v1.Length * v2.Length)) * (180.0 / Math.PI);
@@ -910,20 +835,7 @@ namespace MeshSimplificationTest.SBRep
 
         private static int GetMaxDistanceEdgeFromCenter(SBRepObject obj, IEnumerable<int> edgesIDs)
         {
-            //вычисляем точку центра группы
-            var loopCoord = edgesIDs
-                .Select(x => obj.Edges[x].Vertices)
-                .SelectMany(x => new List<int>() { x.a, x.b })
-                .Distinct()
-                .Select(x => obj.Vertices[x].Coordinate)
-                .ToList();
-
-            var centerPoint = Vector3d.Zero;
-            foreach (var loopPoint in loopCoord)
-            {
-                centerPoint += loopPoint;
-            }
-            centerPoint /= loopCoord.Count;
+            var centerPoint = obj.GetCenterFromEdgeBoundingBox(edgesIDs);
 
             var maxLength = double.MinValue;
             var maxEdgeId = -1;
@@ -931,8 +843,9 @@ namespace MeshSimplificationTest.SBRep
             foreach (var eid in edgesIDs)
             {
                 var vertices = obj.GetEdgeCoordinates(eid);
-                var edgeCenter = (vertices.Item1 + vertices.Item2) / 2.0;
-                var length = (edgeCenter - centerPoint).LengthSquared;
+                var lengthA = (vertices.Item1 - centerPoint).LengthSquared;
+                var lengthB = (vertices.Item2 - centerPoint).LengthSquared;
+                var length = lengthA + lengthB;
                 if (length > maxLength)
                 {
                     maxLength = length;
@@ -1346,6 +1259,7 @@ namespace MeshSimplificationTest.SBRep
                 int currentEdgeIdB = -1;
                 if (nextEdgeIdA == -1 || nextEdgeIdB == -1)
                 {
+                    ShowDictEdges(obj, currentEdgePositionDict);
                     //подготавливаем данные для новой петли
                     edgesIds = currentEdgePositionDict.Select(eid => eid.Key).ToList();
                     //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
@@ -1354,24 +1268,29 @@ namespace MeshSimplificationTest.SBRep
                     currentLoopEdges = new List<int>();
                     loops.Add(currentLoopEdges);
 
-                    //начинаем с ребра, лежащего на границе
-                    int edgeOnEdge = -1;
-                    var boundaryEdge = currentEdgePositionDict
-                        .Where(x => x.Value)
-                        .Select(e => (int?)e.Key)
-                        .FirstOrDefault();
-                    if (boundaryEdge == null)
-                    {
-                        boundaryEdge = (int?)GetMaxDistanceEdgeFromCenter(obj, currentEdgePositionDict.Keys);
-                        Debug.Assert(boundaryEdge != -1);
-                    }
-                    edgeOnEdge = (int)boundaryEdge;
-                    Debug.Assert(edgeOnEdge != -1);
+                    ////начинаем с ребра, лежащего на границе
+                    //int edgeOnEdge = -1;
+                    //var boundaryEdge = currentEdgePositionDict
+                    //    .Where(x => x.Value)
+                    //    .Select(e => (int?)e.Key)
+                    //    .FirstOrDefault();
+                    //if (boundaryEdge == null)
+                    //{
+                    //    boundaryEdge = (int?)GetMaxDistanceEdgeFromCenter(obj, currentEdgePositionDict.Keys);
+                    //    Debug.Assert(boundaryEdge != -1);
+                    //}
+                    //edgeOnEdge = (int)boundaryEdge;
+                    //Debug.Assert(edgeOnEdge != -1);
+                    var edgeAndDirrections = GetEdgeWithABDirrection(obj, plane, edgesIds);
+                    var edgeOnEdge = edgeAndDirrections.Item1;
                     var currentEdgeId = edgeOnEdge;
 
-                    var dirrections = DetectDirection(obj, plane, edgesIds, currentEdgeId);
-                    aDirrection = dirrections.Item1;
-                    bDirrection = dirrections.Item2;
+                    aDirrection = edgeAndDirrections.Item2;
+                    bDirrection = edgeAndDirrections.Item3;
+
+                    //var dirrections = DetectDirection(obj, plane, edgesIds, currentEdgeId);
+                    //aDirrection = dirrections.Item1;
+                    //bDirrection = dirrections.Item2;
 
                     var edgeVertices = obj.Edges[currentEdgeId].Vertices;
                     vtxA = edgeVertices.a;
@@ -1382,7 +1301,6 @@ namespace MeshSimplificationTest.SBRep
 
                     currentEdgeIdA = currentEdgeId;
                     currentEdgeIdB = currentEdgeId;
-                    ShowDictEdges(obj, currentEdgePositionDict);
                 }
                 else
                 {
@@ -1423,6 +1341,68 @@ namespace MeshSimplificationTest.SBRep
             return loops;
         }
 
+        private static int GetSBRepVtxOnTopLeft(SBRepObject obj, PlaneFace plane, IEnumerable<int> edgesIds)
+        {
+            var edges = edgesIds.Select(eid => obj.Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+
+            var points = obj.GetPointsFromVtxOnPlane(verticesIds, plane);
+
+            var minX = double.MaxValue;
+            var maxY = double.MinValue;
+            int id = -1;
+            foreach (var point in points)
+            {
+                if(point.Value.x <= minX &&
+                    point.Value.y >= maxY)
+                {
+                    maxY = point.Value.y;
+                    minX = point.Value.x;
+                    id = point.Key;
+                }
+            }
+            Debug.Assert(id != -1);
+            return id;
+        }
+
+        private static Tuple<int, bool, bool> GetEdgeWithABDirrection(
+            SBRepObject obj,
+            PlaneFace plane,
+            IEnumerable<int> edgesIds)
+        {
+            var currentVtxID = GetSBRepVtxOnTopLeft(obj, plane, edgesIds);
+
+            var parents = edgesIds
+                .Select(x => obj.Edges[x])
+                .Where(x => x.Vertices.a == currentVtxID || x.Vertices.b == currentVtxID)
+                .Select(x => x.ID)
+                .ToList();
+
+            var potentialPointsEdgeDict = new Dictionary<int, int>();
+            foreach (var eid in parents)
+            {
+                potentialPointsEdgeDict.Add(obj.GetVertexNeigborIdByEdge(currentVtxID, eid), eid);
+            }
+
+            var sortedVtxIds = SortByPolarByZeroPi(
+                obj,
+                potentialPointsEdgeDict.Keys,
+                plane,
+                false,
+                currentVtxID);
+            var nextPoint = sortedVtxIds.First();
+
+            var nextEdge = potentialPointsEdgeDict[nextPoint];
+            var nextEdgeVertices = obj.Edges[nextEdge].Vertices;
+            var aDir = nextEdgeVertices.a == currentVtxID;
+            var bDir = nextEdgeVertices.b == currentVtxID;
+
+            return new Tuple<int, bool, bool>(nextEdge, aDir, bDir);
+        }
 
         private static bool GoNextEdgeV2(
             SBRepObject obj,
@@ -1508,5 +1488,7 @@ namespace MeshSimplificationTest.SBRep
             }
             return false;
         }
+
+
     }
 }

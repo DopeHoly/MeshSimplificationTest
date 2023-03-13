@@ -964,6 +964,78 @@ namespace MeshSimplificationTest.SBRep
             }
         }
 
+        public Vector3d GetCenterFromEdge(IEnumerable<int> edgesIds = null)
+        {
+            IEnumerable<SBRep_Edge> edges = null;
+            if (edgesIds == null)
+            {
+                edges = Edges;
+            }
+            else
+                edges = edgesIds.Select(eid => Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => Vertices[vid]).ToList();
+            var center = Vector3d.Zero;
+            foreach (var vtx in vertices)
+            {
+                center += vtx.Coordinate;
+            }
+            center /= vertices.Count;
+            return center;
+        }
+
+        public Vector3d GetCenterFromEdgeBoundingBox(IEnumerable<int> edgesIds = null)
+        {
+            IEnumerable<SBRep_Edge> edges = null;
+            if (edgesIds == null)
+            {
+                edges = Edges;
+            }
+            else
+                edges = edgesIds.Select(eid => Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => Vertices[vid]).ToList();
+
+
+            var minX = double.MaxValue;
+            var minY = double.MaxValue;
+            var minZ = double.MaxValue;
+            var maxX = double.MinValue;
+            var maxY = double.MinValue;
+            var maxZ = double.MinValue;
+
+            foreach (var vtx in Vertices)
+            {
+                var coord = vtx.Coordinate;
+                if (coord.x > maxX)
+                    maxX = coord.x;
+                if (coord.x < minX)
+                    minX = coord.x;
+                if (coord.y > maxY)
+                    maxY = coord.y;
+                if (coord.y < minY)
+                    minY = coord.y;
+                if (coord.z > maxZ)
+                    maxZ = coord.z;
+                if (coord.z < minZ)
+                    minZ = coord.z;
+            }
+            var center = new Vector3d(
+                (minX + maxX) / 2.0,
+                (minY + maxY) / 2.0,
+                (minZ + maxZ) / 2.0);
+
+            return center;
+        }
+
         public override string ToString()
         {
             var builder = new StringBuilder();
