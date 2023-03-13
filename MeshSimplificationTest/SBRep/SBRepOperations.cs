@@ -265,8 +265,8 @@ namespace MeshSimplificationTest.SBRep
                     return;
                 }
             }
-            EnableVisualizator = true;
-            //EnableVisualizator = faceID == 350;
+
+            EnableVisualizator = faceID == 350;
 
             //if(faceID == 128)
             //{
@@ -322,7 +322,7 @@ namespace MeshSimplificationTest.SBRep
 
             IEnumerable<IEnumerable<int>> newFacesLoops = null;
             IEnumerable<IEnumerable<int>> oldFacesLoops = null;
-            //EnableVisualizator = faceID == 566;
+            EnableVisualizator = faceID == 566;
 
 
             var oldFacesEdgesPriority = new Dictionary<int, bool>();
@@ -761,24 +761,24 @@ namespace MeshSimplificationTest.SBRep
             var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx });
             zeroPoint = lastEdgesPoint.First().Value;
 
-            var points = obj.GetPointsFromVtxOnPlane(vtxIds, plane);
+            var points = obj.GetCoordinatesWithId(vtxIds);
 
-            var currentEdgeVector = new Vector3d(1, 0, 0);
+            var currentEdgeVector = new Vector3d(1, 0, plane.GetZ(1, 0));
 
             Func<Vector3d, double> calcAngle = (p1) =>
             {
                 var vector = p1 - zeroPoint;
+                vector.z = 0;
                 Draw2Vectors(vector, currentEdgeVector);
 
-                var angle = signedAngle(currentEdgeVector, vector, plane.Normal);
+                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, plane.Normal);
                 return angle;
             };
 
             var vtxAngleDict = new Dictionary<int, double>();
             foreach (var item in points)
             {
-                var vector = new Vector3d(item.Value.x, item.Value.y, 0);
-                vtxAngleDict.Add(item.Key, calcAngle(vector));
+                vtxAngleDict.Add(item.Key, calcAngle(item.Value));
             }
 
             Func<double, double, int> sortFunc = (p1, p2) =>
