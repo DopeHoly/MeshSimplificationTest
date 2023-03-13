@@ -266,7 +266,7 @@ namespace MeshSimplificationTest.SBRep
                 }
             }
 
-            EnableVisualizator = faceID == 350;
+            //EnableVisualizator = true;
 
             //if(faceID == 128)
             //{
@@ -322,7 +322,7 @@ namespace MeshSimplificationTest.SBRep
 
             IEnumerable<IEnumerable<int>> newFacesLoops = null;
             IEnumerable<IEnumerable<int>> oldFacesLoops = null;
-            EnableVisualizator = faceID == 566;
+            //EnableVisualizator = faceID == 566;
 
 
             var oldFacesEdgesPriority = new Dictionary<int, bool>();
@@ -707,10 +707,12 @@ namespace MeshSimplificationTest.SBRep
             var points = obj.GetCoordinatesWithId(vtxIds);
 
             var currentEdgeVector = edgePrevPoint - zeroPoint;
+            var normal = new Vector3d(0, 0, 1);
+            //var normal = plane.Normal;
 
             Func<Vector3d, double> calcAngle = (p1) =>
             {
-                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, plane.Normal);
+                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, normal);
                 if (angle < 0)
                     angle += Math.PI * 2;
                 return angle;
@@ -764,10 +766,12 @@ namespace MeshSimplificationTest.SBRep
             var points = obj.GetCoordinatesWithId(vtxIds);
 
             var currentEdgeVector = new Vector3d(1, 0, 0/* plane.GetZ(1, 0)*/);
-
+            //var normal = new Vector3d(0, 0, 1 * Math.Sign(plane.Normal.z));
+            var normal = new Vector3d(0, 0, 1);
+            //normal = normal.Normalized;
             Func<Vector3d, double> calcAngle = (p1) =>
             {
-                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, new Vector3d(0, 0, 1));
+                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, normal);
                 return angle;
             };
 
@@ -855,7 +859,7 @@ namespace MeshSimplificationTest.SBRep
 
         private static void ShowDictEdges(SBRepObject obj, Dictionary<int, bool> edgesIDsWithPosition)
         {
-            //if(!EnableVisualizator)
+            if(!EnableVisualizator)
                 return;
             var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
 

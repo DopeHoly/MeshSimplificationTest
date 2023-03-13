@@ -253,7 +253,7 @@ namespace MeshSimplificationTest.SBRepVM
                 //if (contour == Contours.Last()) continue;
                 //try
                 //{
-                    projectionObject = projectionObject?.ContourProjection(contour.Value, true);
+                    projectionObject = projectionObject?.ContourProjection(contour.Value, false);
                     projectionObjectMesh = SBRepToMeshBuilderV2.ConvertParallel(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
                     {
