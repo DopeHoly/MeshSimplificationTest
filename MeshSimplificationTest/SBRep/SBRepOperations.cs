@@ -763,21 +763,18 @@ namespace MeshSimplificationTest.SBRep
 
             var points = obj.GetCoordinatesWithId(vtxIds);
 
-            var currentEdgeVector = new Vector3d(1, 0, plane.GetZ(1, 0));
+            var currentEdgeVector = new Vector3d(1, 0, 0/* plane.GetZ(1, 0)*/);
 
             Func<Vector3d, double> calcAngle = (p1) =>
             {
-                var vector = p1 - zeroPoint;
-                vector.z = 0;
-                Draw2Vectors(vector, currentEdgeVector);
-
-                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, plane.Normal);
+                var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, new Vector3d(0, 0, 1));
                 return angle;
             };
 
             var vtxAngleDict = new Dictionary<int, double>();
             foreach (var item in points)
             {
+                var vector = new Vector3d(item.Value.x, item.Value.y, 0);
                 vtxAngleDict.Add(item.Key, calcAngle(item.Value));
             }
 
@@ -858,7 +855,7 @@ namespace MeshSimplificationTest.SBRep
 
         private static void ShowDictEdges(SBRepObject obj, Dictionary<int, bool> edgesIDsWithPosition)
         {
-            if(!EnableVisualizator)
+            //if(!EnableVisualizator)
                 return;
             var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
 
@@ -1268,29 +1265,12 @@ namespace MeshSimplificationTest.SBRep
                     currentLoopEdges = new List<int>();
                     loops.Add(currentLoopEdges);
 
-                    ////начинаем с ребра, лежащего на границе
-                    //int edgeOnEdge = -1;
-                    //var boundaryEdge = currentEdgePositionDict
-                    //    .Where(x => x.Value)
-                    //    .Select(e => (int?)e.Key)
-                    //    .FirstOrDefault();
-                    //if (boundaryEdge == null)
-                    //{
-                    //    boundaryEdge = (int?)GetMaxDistanceEdgeFromCenter(obj, currentEdgePositionDict.Keys);
-                    //    Debug.Assert(boundaryEdge != -1);
-                    //}
-                    //edgeOnEdge = (int)boundaryEdge;
-                    //Debug.Assert(edgeOnEdge != -1);
                     var edgeAndDirrections = GetEdgeWithABDirrection(obj, plane, edgesIds);
                     var edgeOnEdge = edgeAndDirrections.Item1;
                     var currentEdgeId = edgeOnEdge;
 
                     aDirrection = edgeAndDirrections.Item2;
                     bDirrection = edgeAndDirrections.Item3;
-
-                    //var dirrections = DetectDirection(obj, plane, edgesIds, currentEdgeId);
-                    //aDirrection = dirrections.Item1;
-                    //bDirrection = dirrections.Item2;
 
                     var edgeVertices = obj.Edges[currentEdgeId].Vertices;
                     vtxA = edgeVertices.a;
@@ -1350,7 +1330,7 @@ namespace MeshSimplificationTest.SBRep
                 .Distinct()
                 .ToList();
 
-            var points = obj.GetPointsFromVtxOnPlane(verticesIds, plane);
+            var points = obj.GetCoordinatesWithId(verticesIds);
 
             var minX = double.MaxValue;
             var maxY = double.MinValue;
