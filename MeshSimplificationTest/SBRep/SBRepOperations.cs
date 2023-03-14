@@ -266,7 +266,7 @@ namespace MeshSimplificationTest.SBRep
                 }
             }
 
-            //EnableVisualizator = true;
+            EnableVisualizator = true;
 
             //if(faceID == 128)
             //{
@@ -771,6 +771,7 @@ namespace MeshSimplificationTest.SBRep
             //normal = normal.Normalized;
             Func<Vector3d, double> calcAngle = (p1) =>
             {
+                Draw2Vectors(currentEdgeVector, p1 - zeroPoint);
                 var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, normal);
                 return angle;
             };
@@ -809,7 +810,11 @@ namespace MeshSimplificationTest.SBRep
         {
             Vector3d v3 = v1.Cross(v2); 
             if (v3.Length < 1e-6)
+            {
+                if (Geometry2DHelper.EqualVectors(v1.Normalized, v2.Normalized))
+                    return 0;
                 return Math.PI;
+            }
             double angle = Math.Acos(v1.Normalized.Dot(v2.Normalized));
             return angle * Math.Sign(v3.Dot(norm));
         }
@@ -1261,8 +1266,18 @@ namespace MeshSimplificationTest.SBRep
                 if (nextEdgeIdA == -1 || nextEdgeIdB == -1)
                 {
                     ShowDictEdges(obj, currentEdgePositionDict);
+
                     //подготавливаем данные для новой петли
                     edgesIds = currentEdgePositionDict.Select(eid => eid.Key).ToList();
+
+                    //пытаемся проредить рёбра и убрать уж совсем простые петли, которые без развилок уже являются петлями
+                    var simpleLoops = GetSimpleLoopsFromEdges(obj, ref edgesIds, ref currentEdgePositionDict);
+                    if(simpleLoops != null && simpleLoops.Count() > 0)
+                        loops.AddRange(simpleLoops);
+
+                    if (edgesIds.Count == 0)
+                        continue;
+
                     //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
                     vertParentsDict = GetVtxParentsDict(obj, edgesIds);
 
@@ -1473,6 +1488,80 @@ namespace MeshSimplificationTest.SBRep
             return false;
         }
 
+        private static IEnumerable<IEnumerable<int>> GetSimpleLoopsFromEdges(
+            SBRepObject obj,
+            ref ICollection<int> edges,
+            ref Dictionary<int, bool> currentEdgePositionDict)
+        {
+            var simpleLoops = FindSimpleLoop(obj, edges);
 
+            var edgeToRemove = simpleLoops.SelectMany(x => x).ToList();
+            foreach (var eid in edgeToRemove)
+            {
+                edges.Remove(eid);
+                currentEdgePositionDict.Remove(eid);
+            }
+            return simpleLoops;
+        }
+
+        private static IEnumerable<IEnumerable<int>> FindSimpleLoop(
+            SBRepObject obj, 
+            IEnumerable<int> edges)
+        {
+            var edgesIds = new List<int>(edges);
+            var vertParentsDict = GetVtxParentsDict(obj, edgesIds);
+
+
+            var bypassEdges = new List<int>(edgesIds);
+            var potentialLoop = new List<IEnumerable<int>>();
+            var edgeQueue = new Queue<int>();
+            List<int> currentLoopEdges = null;
+            var currentEdge = -1;
+            SBRep_Edge current = null;
+            while (bypassEdges.Count > 0 ||
+                edgeQueue.Count > 0)
+            {
+                if (edgeQueue.Count == 0)
+                {
+                    currentLoopEdges = new List<int>();
+                    potentialLoop.Add(currentLoopEdges);
+                    currentEdge = bypassEdges.First();
+                    currentLoopEdges.Add(currentEdge);
+                    bypassEdges.Remove(currentEdge);
+                }
+                else
+                    currentEdge = edgeQueue.Dequeue();
+                var edgesNeighbors = new List<int>();
+                current = obj.Edges[currentEdge];
+                var vtxANeighbor = vertParentsDict[current.Vertices.a];
+                var vtxBNeighbor = vertParentsDict[current.Vertices.b];
+
+                if (vtxANeighbor.Count() <= 2)
+                    edgesNeighbors.AddRange(vtxANeighbor);
+                if (vtxBNeighbor.Count() <= 2)
+                    edgesNeighbors.AddRange(vtxBNeighbor);
+                edgesNeighbors = edgesNeighbors
+                    .Where(x => bypassEdges.Contains(x))
+                    .Distinct()
+                    .ToList();
+                foreach (var item in edgesNeighbors)
+                {
+                    currentLoopEdges.Add(item);
+                    bypassEdges.Remove(item);
+                    edgeQueue.Enqueue(item);
+                }
+            }
+
+            var loops = new List<IEnumerable<int>>();
+
+            foreach (var loop in potentialLoop)
+            {
+                if (SBRepObject.IsLoopEdges(obj, loop))
+                    loops.Add(loop);
+            }
+
+
+            return loops;
+        }
     }
 }

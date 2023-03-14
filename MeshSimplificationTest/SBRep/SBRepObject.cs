@@ -641,8 +641,10 @@ namespace MeshSimplificationTest.SBRep
             foreach (var vtx in vertices)
             {
                 var parents = vtx.Parents.Intersect(edgesIds).ToList();
-                if (parents.Count() != 2)
+                if (parents.Count() < 2)
                     return false;
+                if (parents.Count() > 2)
+                    throw new Exception("Петля содержит развилки");
             }
             return true;
         }

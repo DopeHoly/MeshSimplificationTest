@@ -16,6 +16,13 @@ namespace MeshSimplificationTest.SBRep.Utils
             if (!(Math.Abs(p1.y - p2.y) <= eps)) return false;//по Y не близко
             return true;
         }
+        public static bool EqualVectors(Vector3d p1, Vector3d p2, double eps = 1e-6)
+        {
+            if (!(Math.Abs(p1.x - p2.x) <= eps)) return false;//по X не близко
+            if (!(Math.Abs(p1.y - p2.y) <= eps)) return false;//по Y не близко
+            if (!(Math.Abs(p1.z - p2.z) <= eps)) return false;//по Z не близко
+            return true;
+        }
         public static bool EqualZero(Vector2d p1, double eps = 1e-6)
         {
             return EqualPoints(p1, Vector2d.Zero, eps);

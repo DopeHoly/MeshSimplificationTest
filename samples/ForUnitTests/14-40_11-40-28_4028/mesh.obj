@@ -1,0 +1,26 @@
+v -8.7 -8.2 0
+v -8.7 -8.2 10
+v -8.7 5.5 0
+v -8.7 5.5 10
+v 9.2 -8.2 0
+v 9.2 -8.2 10
+v 9.2 5.5 0
+v 9.2 5.5 10
+g mmGroup0
+f 5 1 7
+f 1 3 7
+g mmGroup1
+f 2 6 8
+f 4 2 8
+g mmGroup2
+f 6 5 7
+f 6 7 8
+g mmGroup3
+f 2 1 5
+f 2 5 6
+g mmGroup4
+f 1 2 4
+f 3 1 4
+g mmGroup5
+f 3 4 8
+f 7 3 8
