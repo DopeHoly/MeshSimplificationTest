@@ -204,11 +204,11 @@ namespace MeshSimplificationTest.SBRepVM
             contour1.Add(new Vector2d(-5, -5));
             contour1.Add(new Vector2d(-5, 100));
             contour1.Add(new Vector2d(100, -5));
-            Contours.Add(new ContourVM()
-            {
-                Name = "TestContour",
-                Value = contour1,
-            });
+            //Contours.Add(new ContourVM()
+            //{
+            //    Name = "TestContour",
+            //    Value = contour1,
+            //});
 
             //var contour2 = new List<Vector2d>();
             //contour2.Add(new Vector2d(3, 1));

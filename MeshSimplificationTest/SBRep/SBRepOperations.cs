@@ -771,7 +771,7 @@ namespace MeshSimplificationTest.SBRep
             //normal = normal.Normalized;
             Func<Vector3d, double> calcAngle = (p1) =>
             {
-                Draw2Vectors(currentEdgeVector, p1 - zeroPoint);
+                //Draw2Vectors(currentEdgeVector, p1 - zeroPoint);
                 var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, normal);
                 return angle;
             };
@@ -1277,6 +1277,7 @@ namespace MeshSimplificationTest.SBRep
 
                     if (edgesIds.Count == 0)
                         continue;
+                    ShowDictEdges(obj, currentEdgePositionDict);
 
                     //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
                     vertParentsDict = GetVtxParentsDict(obj, edgesIds);
