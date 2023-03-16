@@ -6,6 +6,7 @@ using MeshSimplificationTest.SBRep;
 using System.Linq;
 using System.Collections.Generic;
 using MeshSimplificationTest.SBRep.Utils;
+using System.Xml.Schema;
 
 namespace Tests
 {
@@ -103,6 +104,20 @@ namespace Tests
                     x => Math.Abs(x - loopsAreas.First()) < 1e-9 
                     )
                 );
+        }
+
+
+        [TestMethod]
+        public void SBRepIOTest()
+        {
+            var mesh = StandardMeshReader.ReadMesh(Sample_CubePath);
+            var sbRep = SBRepBuilder.Convert(mesh);
+            var path = @"D:\test.sbrep";
+
+            SBRepIO.Write(sbRep, path);
+            var loadedSbrep = SBRepIO.Read(path);
+            Assert.IsNotNull(loadedSbrep);
+            Assert.AreEqual(sbRep.ToString(), loadedSbrep.ToString());
         }
     }
 

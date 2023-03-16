@@ -182,7 +182,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 GroupID = groupID,
                 Plane = plane,
-                Normal = normal,
+                //Normal = normal,
                 OutsideLoop = outsideLoopId,
                 InsideLoops = insideLoops
             };

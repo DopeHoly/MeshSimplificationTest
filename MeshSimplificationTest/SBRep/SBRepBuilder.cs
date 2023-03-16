@@ -483,7 +483,7 @@ namespace MeshSimplificationTest.SBRep
                 faces.Add(new SBRep_Face()
                 {
                     ID = face.ID,
-                    Normal = face.Normal,
+                    //Normal = face.Normal,
                     GroupID = face.GroupId,
                     InsideLoops = allLoopsIDs.ToList(),
                     Plane = face.GetPlane(),
@@ -595,7 +595,7 @@ namespace MeshSimplificationTest.SBRep
                     ID = face.ID,
                     OutsideLoop = face.OutsideLoop,
                     GroupID = face.GroupID,
-                    Normal = face.Normal,
+                    //Normal = face.Normal,
                     InsideLoops = face.InsideLoops,
                     Plane = face.Plane,
                 });

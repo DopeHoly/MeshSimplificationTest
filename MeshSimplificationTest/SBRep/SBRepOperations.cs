@@ -339,6 +339,15 @@ namespace MeshSimplificationTest.SBRep
             {
                 oldFacesEdgesPriority.Add(edge, false);
             }
+            if(!EdgesContainsOnlyEdgeWithNeighbor(sbrep, oldFacesEdgesPriority.Keys))
+            {
+                foreach (var edge in addedEdges
+                    .Where(idPos => idPos.Value == false)
+                    .Select(idPos => idPos.Key))
+                {
+                    oldFacesEdgesPriority.Add(edge, false);
+                }
+            }
             oldFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, oldFacesEdgesPriority);
 
             var newFacesEdgesPriority = new Dictionary<int, bool>();
@@ -349,11 +358,22 @@ namespace MeshSimplificationTest.SBRep
                 newFacesEdgesPriority.Add(edge, false);
             }
             foreach (var edge in addedEdges
+                .Where(idPos => !(idPos.Value == false && faceEdgesPosition[idPos.Key] == null))
                 .Select(idPos => idPos.Key))
             {
                 newFacesEdgesPriority.Add(edge, true);
             }
+            if (!EdgesContainsOnlyEdgeWithNeighbor(sbrep, newFacesEdgesPriority.Keys))
+            {
+                foreach (var edge in addedEdges
+                    .Where(idPos => idPos.Value == false && faceEdgesPosition[idPos.Key] == null)
+                    .Select(idPos => idPos.Key))
+                {
+                    newFacesEdgesPriority.Add(edge, true);
+                }
+            }
             newFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, newFacesEdgesPriority);
+
             //end BuildLoopsFromEdges v3
 
 
@@ -1335,10 +1355,17 @@ namespace MeshSimplificationTest.SBRep
                     nextEdgeIdB = -1;
                     continue;
                 }
-
-
             }
-            return loops;
+
+            var result = new List<IEnumerable<int>>();
+
+            foreach (var loop in loops)
+            {
+                if (SBRepObject.IsLoopEdges(obj, loop))
+                    result.Add(loop);
+            }
+
+            return result;
         }
 
         private static int GetSBRepVtxOnTopLeft(SBRepObject obj, PlaneFace plane, IEnumerable<int> edgesIds)
@@ -1563,6 +1590,27 @@ namespace MeshSimplificationTest.SBRep
 
 
             return loops;
+        }
+
+        private static bool EdgesContainsOnlyEdgeWithNeighbor(SBRepObject obj, IEnumerable<int> edgesIds)
+        {
+            var edges = edgesIds.Select(eid => obj.Edges[eid]).ToList();
+            var verticesIds = edges.SelectMany(edge =>
+                new int[2] { edge.Vertices.a, edge.Vertices.b }
+                )
+                .Distinct()
+                .ToList();
+            var vertices = verticesIds.Select(vid => obj.Vertices[vid]).ToList();
+
+            //индексируем словарь, точка - рёбра, которые она объеденяет из списка edgesIds
+            var vertParentsDict = new Dictionary<int, IEnumerable<int>>();
+            foreach (var vtx in vertices)
+            {
+                var vertexParents = vtx.Parents.Intersect(edgesIds).ToList();
+                if (vertexParents.Count < 2)
+                    return false;
+            }
+            return true;
         }
     }
 }

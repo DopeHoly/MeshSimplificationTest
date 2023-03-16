@@ -123,6 +123,7 @@
       <DependentUpon>SbrepVisualizer.xaml</DependentUpon>
     </Compile>
     <Compile Include="SBRepVM\SbrepVizualizer.cs" />
+    <Compile Include="SBRep\SBRepIO.cs" />
     <Compile Include="SBRep\SBRepToMeshBuilderV2.cs" />
     <Compile Include="SBRep\SBRep_Primitives.cs" />
     <Compile Include="SBRep\SBRepBuilder.cs" />

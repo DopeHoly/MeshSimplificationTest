@@ -131,7 +131,7 @@ namespace MeshSimplificationTest.SBRep
     public class SBRep_Face : SBRep_Primitive
     {
         public int GroupID = -1;
-        public Vector3d Normal;
+        public Vector3d Normal => Plane.Normal;
         public PlaneFace Plane;
         public int OutsideLoop;
         public ICollection<int> InsideLoops;
@@ -144,7 +144,7 @@ namespace MeshSimplificationTest.SBRep
         public SBRep_Face(SBRep_Face other) : base(other.ID)
         {
             GroupID = other.GroupID;
-            Normal = other.Normal;
+            //Normal = other.Normal;
             Plane = other.Plane;
             OutsideLoop = other.OutsideLoop;
             InsideLoops = new List<int>(other.InsideLoops);
