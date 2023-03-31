@@ -217,55 +217,44 @@ namespace MeshSimplificationTest.SBRepVM
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             SBRepObject projectionObject = null;
-            //try
-            //{
+            try
+            {
                 var sbrep = SBRepBuilder.Convert(model);
                 projectionObject = new SBRepObject(sbrep);
-            //}
-            //catch (Exception ex)
-            //{
-            //    ;
-            //}
+                ModelsVM.Add(new Model3DLayerVM(this)
+                {
+                    Name = "Триангулированный объект",
+                    Model = ConvertToModel3D(SBRepToMeshBuilder.ConvertParallel(sbrep)),
+                });
+            }
+            catch (Exception ex)
+            {
+                ;
+            }
             foreach (var contour in Contours)
             {
-                //var debugProjection = projectionObject.DebugContourProjection(contour.Value, true);
-
-                //foreach (var deb in debugProjection)
-                //{
-                //    ModelsVM.Add(new Model3DLayerVM(this)
-                //    {
-                //        Name = "Грани проекции по контуру " + contour.Name,
-                //        Model = GenerateModelFormSBRepObjectEdges(deb),
-                //    });
-                //    //try
-                //    //{
-                //    //    projectionObjectMesh = SBRepToMeshBuilder.Convert(deb);
-                //    //    ModelsVM.Add(new Model3DLayerVM(this)
-                //    //    {
-                //    //        Name = "debug объект c проекцией " + contour.Name,
-                //    //        Model = ConvertToModel3D(projectionObjectMesh),
-                //    //    });
-                //    //}
-                //    //catch {; }
-                //}
-
-
                 //if (contour == Contours.Last()) continue;
-                //try
-                //{
-                    projectionObject = projectionObject?.ContourProjection(contour.Value, false);
+                try
+                {
+                    projectionObject = projectionObject?.ContourProjection(contour.Value, true);
                     projectionObjectMesh = SBRepToMeshBuilderV2.ConvertParallel(projectionObject);
                     ModelsVM.Add(new Model3DLayerVM(this)
                     {
                         Name = "Триангулированный объект c проекцией " + contour.Name,
                         Model = ConvertToModel3D(projectionObjectMesh),
                     });
-            //}
-            //    catch (Exception ex)
-            //{
-            //    ;
-            //}
-        }
+                    ModelsVM.Add(new Model3DLayerVM(this)
+                    {
+                        Name = "Грани проекции",
+                        Model = GenerateModelFormSBRepObjectEdges(projectionObject)
+                    });
+                }
+                catch (OutOfMemoryException ex)
+                //catch (Exception ex)
+                {
+                    ;
+                }
+            }
 
             //projectionObject = projectionObject.ContourProjection(contour2, true);
 
@@ -763,7 +752,8 @@ namespace MeshSimplificationTest.SBRepVM
             {
                 var curentColor = Colors.Gray;
 #if DEBUG
-                curentColor = mesh.Edges[eid].Color;
+                curentColor = GetColor(mesh.Edges[eid].Parent);
+                //curentColor = mesh.Edges[eid].Color;
 #endif
                 if (!edgesColorized.ContainsKey(curentColor))
                     edgesColorized.Add(curentColor, new List<int>());

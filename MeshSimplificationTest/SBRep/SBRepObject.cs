@@ -348,7 +348,8 @@ namespace MeshSimplificationTest.SBRep
 
             foreach (var face in Faces)
             {
-                //_loops[face.OutsideLoop].Parents.Add(face.ID);
+                if (face.OutsideLoop != -1)
+                    Loops[face.OutsideLoop].Parents.Add(face.ID);
                 foreach (var lid in face.InsideLoops)
                 {
                     Loops[lid].Parents.Add(face.ID);
@@ -559,6 +560,7 @@ namespace MeshSimplificationTest.SBRep
                 var parents = vtx.Parents.Intersect(edgesIDs).ToList();
                 if (parents.Count() % 2 == 1)
                 {
+                    Show(obj, edgesIDs);
                     throw new Exception("Невозможно обойти граф");
                 }
                 vertParentsDict.Add(vtx.ID, parents);
@@ -643,8 +645,11 @@ namespace MeshSimplificationTest.SBRep
                 var parents = vtx.Parents.Intersect(edgesIds).ToList();
                 if (parents.Count() < 2)
                     return false;
-                if (parents.Count() > 2)
-                    throw new Exception("Петля содержит развилки");
+                //if (parents.Count() > 2)
+                //    throw new Exception("Петля содержит развилки");
+                if (parents.Count() % 2 == 1)
+                    return false;
+                    //throw new Exception("Петля содержит развилки");
             }
             return true;
         }

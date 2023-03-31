@@ -315,7 +315,7 @@ namespace MeshSimplificationTest.SBRep
                     throw new Exception("Объект не замкнут");
                 int t1Index = -1;
                 int t2Index = -1;
-                if(triMarks.ContainsKey(edgeTri.a))
+                if (triMarks.ContainsKey(edgeTri.a))
                     t1Index = triMarks[edgeTri.a];
                 if (triMarks.ContainsKey(edgeTri.b))
                     t2Index = triMarks[edgeTri.b];
@@ -367,19 +367,19 @@ namespace MeshSimplificationTest.SBRep
         {
             id = -1;
 
-            //foreach (var loop in loops)
-            //{
-            //    if (loop.Verges.Count != newLoop.Verges.Count)
-            //        continue;
-            //    var edgesA = loop.Verges;
-            //    var edgesB = newLoop.Verges;
-            //    var identical = edgesA.All(x => edgesB.Contains(x));
-            //    if (identical)
-            //    {
-            //        id = loop.ID;
-            //        return true;
-            //    }
-            //}
+            foreach (var loop in loops)
+            {
+                if (loop.Verges.Count != newLoop.Verges.Count)
+                    continue;
+                var edgesA = loop.Verges;
+                var edgesB = newLoop.Verges;
+                var identical = edgesA.All(x => edgesB.Contains(x));
+                if (identical)
+                {
+                    id = loop.ID;
+                    return true;
+                }
+            }
 
             return false;
         }
@@ -419,7 +419,7 @@ namespace MeshSimplificationTest.SBRep
             var planarLoopsDict = new Dictionary<int, IEnumerable<int>>();
             foreach (var planarGroup in planarGroups)
             {
-                var loops = planarGroup.GetLoops2();
+                var loops = planarGroup.GetLoops();
 
                 var planesLoopsDict = new Dictionary<int, int>();
                 var currentPlanarloops = new List<int>();
@@ -484,6 +484,7 @@ namespace MeshSimplificationTest.SBRep
                 {
                     ID = face.ID,
                     //Normal = face.Normal,
+                    OutsideLoop = -1,
                     GroupID = face.GroupId,
                     InsideLoops = allLoopsIDs.ToList(),
                     Plane = face.GetPlane(),
@@ -542,7 +543,7 @@ namespace MeshSimplificationTest.SBRep
         {
             if (mesh == null)
                 return new SBRepObject();
-
+            RemeshTool.FixNormals(mesh);
             ///Выделяем из исходного объекта группы связанных треугольников
             ///лежащих на одной плоскости и имеющие одинаковый GroupID
             var planarGroups = BuildPlanarGroups(mesh);
@@ -552,6 +553,7 @@ namespace MeshSimplificationTest.SBRep
 
             //Формируем из списка использованных граней использованные вершины
             var verticeDict = GetVerticeFromMeshEdge(mesh, edgesDict.Values);
+
             //Собираем ломанные
             var loopparts = BuildVerges(mesh, planarGroups);
             //Собираем петли

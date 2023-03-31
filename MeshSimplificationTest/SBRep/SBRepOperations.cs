@@ -121,12 +121,10 @@ namespace MeshSimplificationTest.SBRep
                 {
                     resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
                 }
-                //SbrepVizualizer.ShowContours(new List<IntersectContour>() { resultIntersect/*, GetProjectionContourFromPoint(contour)*/ });
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID, true);
                 ++count;
             }
 
-            obj.RebuildVerges();
             return obj;
         }
 
@@ -174,9 +172,7 @@ namespace MeshSimplificationTest.SBRep
             var projectionContour = GetProjectionContourFromPoint(contour);
             projectionContour = IntersectContour.Intersect(projectionContour, projectionContour);
             var facesCrossedContor = new List<int>();
-            //foreach (var face in filteredFaces)
             object mutex = new object();
-
             Parallel.ForEach(filteredFaces,
                 (face) =>
                 {
@@ -220,7 +216,7 @@ namespace MeshSimplificationTest.SBRep
             return obj;
         }
 
-        private static void AddToSBrep(SBRepObject sbrep, IntersectContour contour, PlaneFace plane, Color color)
+        private static void AddToSBrep(SBRepObject sbrep, IntersectContour contour, PlaneFace plane)
         {
             Dictionary<int, int> pointIndexDict = new Dictionary<int, int>();
             foreach (var point in contour.Points)
@@ -237,7 +233,6 @@ namespace MeshSimplificationTest.SBRep
             {
                 var index = sbrep.AddEdge(pointIndexDict[edge.Points.a], pointIndexDict[edge.Points.b]);
 #if DEBUG
-                sbrep.Edges[index].Color = color;
 #endif
             }
         }
@@ -266,7 +261,7 @@ namespace MeshSimplificationTest.SBRep
                 }
             }
 
-            EnableVisualizator = true;
+            //EnableVisualizator = faceID == 6;
 
             //if(faceID == 128)
             //{
@@ -322,14 +317,16 @@ namespace MeshSimplificationTest.SBRep
 
             IEnumerable<IEnumerable<int>> newFacesLoops = null;
             IEnumerable<IEnumerable<int>> oldFacesLoops = null;
-            //EnableVisualizator = faceID == 566;
 
+            if (newFaceEdges.Count() < 3)
+                return;
 
+            //Собираем петли для старых граней
             var oldFacesEdgesPriority = new Dictionary<int, bool>();
 
             foreach (var edge in faceEdgesPosition
-                            .Where(idPos => idPos.Value == false)
-                            .Select(idPos => idPos.Key))
+                                        .Where(idPos => idPos.Value == false)
+                                        .Select(idPos => idPos.Key))
             {
                 oldFacesEdgesPriority.Add(edge, true);
             }
@@ -339,7 +336,7 @@ namespace MeshSimplificationTest.SBRep
             {
                 oldFacesEdgesPriority.Add(edge, false);
             }
-            if(!EdgesContainsOnlyEdgeWithNeighbor(sbrep, oldFacesEdgesPriority.Keys))
+            if (!EdgesContainsOnlyEdgeWithNeighbor(sbrep, oldFacesEdgesPriority.Keys))
             {
                 foreach (var edge in addedEdges
                     .Where(idPos => idPos.Value == false)
@@ -350,6 +347,7 @@ namespace MeshSimplificationTest.SBRep
             }
             oldFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, oldFacesEdgesPriority);
 
+            //собираем петли для новых граней
             var newFacesEdgesPriority = new Dictionary<int, bool>();
             foreach (var edge in faceEdgesPosition
                 .Where(idPos => idPos.Value == true)
@@ -713,7 +711,7 @@ namespace MeshSimplificationTest.SBRep
         {
             Vector3d zeroPoint = Vector3d.Zero;
             Vector3d edgePrevPoint = Vector3d.One;
-            if(curentVtx != -1)
+            if (curentVtx != -1)
             {
                 var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx, prevVtx });
                 zeroPoint = lastEdgesPoint.First().Value;
@@ -728,7 +726,6 @@ namespace MeshSimplificationTest.SBRep
 
             var currentEdgeVector = edgePrevPoint - zeroPoint;
             var normal = new Vector3d(0, 0, 1);
-            //var normal = plane.Normal;
 
             Func<Vector3d, double> calcAngle = (p1) =>
             {
@@ -782,16 +779,14 @@ namespace MeshSimplificationTest.SBRep
 
             var lastEdgesPoint = obj.GetCoordinatesWithId(new List<int>() { curentVtx });
             zeroPoint = lastEdgesPoint.First().Value;
+            var normal = new Vector3d(0, 0, 1);
 
             var points = obj.GetCoordinatesWithId(vtxIds);
 
-            var currentEdgeVector = new Vector3d(1, 0, 0/* plane.GetZ(1, 0)*/);
-            //var normal = new Vector3d(0, 0, 1 * Math.Sign(plane.Normal.z));
-            var normal = new Vector3d(0, 0, 1);
-            //normal = normal.Normalized;
+            var currentEdgeVector = new Vector3d(1, 0, 0);
+
             Func<Vector3d, double> calcAngle = (p1) =>
             {
-                //Draw2Vectors(currentEdgeVector, p1 - zeroPoint);
                 var angle = signedAngle(currentEdgeVector, p1 - zeroPoint, normal);
                 return angle;
             };
@@ -817,10 +812,6 @@ namespace MeshSimplificationTest.SBRep
             return vertices;
         }
 
-        //public static double GetAngle(Vector2d v1, Vector2d v2)
-        //{
-        //    return Math.Acos(v1.Dot(v2)/(v1.Length * v2.Length)) * (180.0 / Math.PI);
-        //}
 
         /// <summary>
         /// Функция получает угол со знаком между указанными векторами,
@@ -900,7 +891,16 @@ namespace MeshSimplificationTest.SBRep
 
             SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
         }
-        
+        private static void ShowDictEdges(SBRepObject obj, IEnumerable<int> edges)
+        {
+            if (!EnableVisualizator)
+                return;
+            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            keyValuePairs.Add(Colors.Blue, edges);
+
+            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+        }
+
 
         public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdgesV4(SBRepObject obj, int faceId, Dictionary<int, bool> edgesIDsWithPosition)
         {
@@ -1285,20 +1285,16 @@ namespace MeshSimplificationTest.SBRep
                 int currentEdgeIdB = -1;
                 if (nextEdgeIdA == -1 || nextEdgeIdB == -1)
                 {
-                    ShowDictEdges(obj, currentEdgePositionDict);
-
                     //подготавливаем данные для новой петли
                     edgesIds = currentEdgePositionDict.Select(eid => eid.Key).ToList();
 
                     //пытаемся проредить рёбра и убрать уж совсем простые петли, которые без развилок уже являются петлями
                     var simpleLoops = GetSimpleLoopsFromEdges(obj, ref edgesIds, ref currentEdgePositionDict);
-                    if(simpleLoops != null && simpleLoops.Count() > 0)
+                    if (simpleLoops != null && simpleLoops.Count() > 0)
                         loops.AddRange(simpleLoops);
 
                     if (edgesIds.Count == 0)
                         continue;
-                    ShowDictEdges(obj, currentEdgePositionDict);
-
                     //получаем словарь: вершина - рёбра из edgesIds, которые её содержат
                     vertParentsDict = GetVtxParentsDict(obj, edgesIds);
 
@@ -1332,13 +1328,12 @@ namespace MeshSimplificationTest.SBRep
                     currentEdgeIdB = nextEdgeIdB;
                 }
 
-                var resultA = GoNextEdgeV2(obj, plane, vertParentsDict, edgesIds, 
+                var resultA = GoNextEdgeV2(obj, plane, vertParentsDict, edgesIds,
                     currentLoopEdges, currentEdgePositionDict, ref currentEdgeIdA, ref nextEdgeIdA,
                     vtxA, lastVtxA, lastVtxB, aDirrection);
 
                 if (resultA)
                 {
-                    ShowDictEdges(obj, currentEdgePositionDict);
                     nextEdgeIdA = -1;
                     nextEdgeIdB = -1;
                     continue;
@@ -1350,7 +1345,6 @@ namespace MeshSimplificationTest.SBRep
 
                 if (resultB)
                 {
-                    ShowDictEdges(obj, currentEdgePositionDict);
                     nextEdgeIdA = -1;
                     nextEdgeIdB = -1;
                     continue;
@@ -1362,7 +1356,7 @@ namespace MeshSimplificationTest.SBRep
             foreach (var loop in loops)
             {
                 if (SBRepObject.IsLoopEdges(obj, loop))
-                    result.Add(loop);
+                    result.AddRange(SBRepObject.BuildLoopsFromEdges(obj, loop));
             }
 
             return result;
@@ -1452,10 +1446,9 @@ namespace MeshSimplificationTest.SBRep
 
                 currentEdgePositionDict.Remove(currentEdgeId);
 
-                if (SBRepObject.IsLoopEdges(obj, currentLoopEdges))
-                    return true;
-            }
-            ShowDictEdges(obj, currentEdgePositionDict);
+                    if (SBRepObject.IsLoopEdges(obj, currentLoopEdges))
+                        return true;
+                }
 
             //дальше двигаемся к следующему ребру
             var parents = vertParentsDict[currentVtxID]
@@ -1611,6 +1604,29 @@ namespace MeshSimplificationTest.SBRep
                     return false;
             }
             return true;
+        }
+
+
+        public static bool ContourIsValid(IEnumerable<Vector2d> contour)
+        {
+            try
+            {
+                var projContour = contour.ToList();
+                var projectionContour = GetProjectionContourFromPoint(projContour);
+                var newProjectionContour = IntersectContour.Intersect(projectionContour, projectionContour);
+                var crossCount = newProjectionContour.Edges.Count - projectionContour.Edges.Count;
+                var expectLoopCount = (crossCount / 2) + 1;
+
+                var sbrep = new SBRepObject();
+                AddToSBrep(sbrep, newProjectionContour, new PlaneFace());
+                var eids = sbrep.Edges.Select(x => x.ID).ToList();
+                var resultLoops = SBRepObject.BuildLoopsFromEdges(sbrep, eids);
+                return resultLoops != null && resultLoops.Count() == expectLoopCount;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

@@ -83,14 +83,16 @@ namespace Tests
         [TestMethod]
         public void PointInContour()
         {
-            var contour = new List<Vector2d>();
-            contour.Add(new Vector2d(0, 0));
-            contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(4, 2));
-            contour.Add(new Vector2d(4, 0));
-            contour.Add(new Vector2d(3, -1));
-            contour.Add(new Vector2d(2, 1));
-            contour.Add(new Vector2d(1, 1));
+            var contour = new List<Vector2d>
+            {
+                new Vector2d(0, 0),
+                new Vector2d(0, 5),
+                new Vector2d(4, 2),
+                new Vector2d(4, 0),
+                new Vector2d(3, -1),
+                new Vector2d(2, 1),
+                new Vector2d(1, 1)
+            };
 
             Assert.IsTrue(Geometry2DHelper.InContour(contour, new Vector2d(1,1), 1e-6));
             Assert.IsTrue(Geometry2DHelper.InContour(contour, new Vector2d(2,2), 1e-6));
