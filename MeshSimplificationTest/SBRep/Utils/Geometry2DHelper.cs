@@ -12,17 +12,14 @@ namespace MeshSimplificationTest.SBRep.Utils
     {
         public static bool EqualPoints(Vector2d p1, Vector2d p2, double eps = 1e-6)
         {
-            if (!(Math.Abs(p1.x - p2.x) <= eps)) return false;//по X не близко
-            if (!(Math.Abs(p1.y - p2.y) <= eps)) return false;//по Y не близко
-            return true;
+            return Math.Abs((p1 - p2).Length) <= eps;
         }
+
         public static bool EqualVectors(Vector3d p1, Vector3d p2, double eps = 1e-6)
         {
-            if (!(Math.Abs(p1.x - p2.x) <= eps)) return false;//по X не близко
-            if (!(Math.Abs(p1.y - p2.y) <= eps)) return false;//по Y не близко
-            if (!(Math.Abs(p1.z - p2.z) <= eps)) return false;//по Z не близко
-            return true;
+            return Math.Abs((p1 - p2).Length) <= eps;
         }
+
         public static bool EqualZero(Vector2d p1, double eps = 1e-6)
         {
             return EqualPoints(p1, Vector2d.Zero, eps);
@@ -85,9 +82,9 @@ namespace MeshSimplificationTest.SBRep.Utils
                     break;
             }
 
-            if(answer.IntersectionType == EdgeIntersectionType.Segment)
+            if (answer.IntersectionType == EdgeIntersectionType.Segment)
             {
-                if(EqualPoints(answer.Point0, answer.Point1, eps))
+                if (EqualPoints(answer.Point0, answer.Point1, eps))
                 {
                     answer.IntersectionType = EdgeIntersectionType.Point;
                 }
@@ -264,7 +261,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             foreach (var point in points)
             {
                 var t = CalcT(a, b, point);
-                tDict.Add(point.Key,t);
+                tDict.Add(point.Key, t);
             }
             var sortedDict = from entry in tDict orderby entry.Value ascending select entry;
 
@@ -301,12 +298,12 @@ namespace MeshSimplificationTest.SBRep.Utils
             points2D.Add(first);
 
             var cnt = points2D.Count - 2;
-            decimal sum = 0.0M;
+            double sum = 0.0;
             for (int i = 1; i <= cnt; ++i)
             {
-                sum += (decimal)points2D[i].x * ((decimal)points2D[i + 1].y - (decimal)points2D[i - 1].y);
+                sum += points2D[i].x * (points2D[i + 1].y - points2D[i - 1].y);
             }
-            var area = (double)sum / 2.0;
+            var area = sum / 2.0;
             return area;
         }
 
@@ -333,6 +330,58 @@ namespace MeshSimplificationTest.SBRep.Utils
             var mtx = new Matrix3d(vectorP, vectorM, normal, true);
             var inverseMtx = new Matrix3d(vectorP, vectorM, normal, false);
             return new Tuple<Matrix3d, Matrix3d, Vector3d>(mtx, inverseMtx, pointOnVector);
+        }
+        
+        /// <summary>
+        /// Вычисляет двухмерные координаты трёхмерного контура
+        /// </summary>
+        /// <param name="contour">плоский контур с 3д координатами</param>
+        /// <param name="normal">нормаль поверхности, на которой находится контур</param>
+        /// <returns></returns>
+        public static List<Vector2d> ConvertTo2D(IEnumerable<Vector3d> contour, Vector3d normal)
+        {
+            var transformMtxs = Geometry2DHelper.CalculateTransform(contour.First(), normal);
+            var offset = transformMtxs.Item3;
+            var mtx = transformMtxs.Item1;
+            var points2d = new List<Vector2d>();
+            foreach (var vertice in contour)
+            {
+                //смещение в 0
+                var point = new Vector3d(vertice.x - offset.x, vertice.y - offset.y, vertice.z - offset.z);
+                //применение матрицы преобразования в плоскость XOY
+                var point2D = mtx * point;
+                points2d.Add(new Vector2d(point2D.x, point2D.y));
+            }
+            return points2d;
+        }
+
+        public static Vector3d GetWeightedCenter(IEnumerable<Vector3d> contour)
+        {
+            var cnt = contour.Count();
+            var sum = 0.0;
+            var dict = new Dictionary<int, double>();
+            for (int i = 0; i < cnt; i++)
+            {
+                var nextIndex = i + 1;
+                if (cnt == nextIndex)
+                    nextIndex = 0;
+                var len = (contour.ElementAt(i) - contour.ElementAt(nextIndex)).Length;
+                dict.Add(i, len);
+                sum += len;
+            }
+
+            var center = new Vector3d(0, 0, 0);
+            for (int i = 0; i < cnt; i++)
+            {
+                var nextIndex = i + 1;
+                if (cnt == nextIndex)
+                    nextIndex = 0;
+
+                var centerEdge = (contour.ElementAt(i) + contour.ElementAt(nextIndex)) / 2.0;
+                var weight = dict[i] / sum;
+                center += centerEdge * weight;
+            }
+            return center;
         }
     }
 }

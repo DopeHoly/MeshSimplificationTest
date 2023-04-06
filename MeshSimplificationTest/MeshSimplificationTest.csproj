@@ -128,7 +128,7 @@
     <Compile Include="SBRep\SBRep_Primitives.cs" />
     <Compile Include="SBRep\SBRepBuilder.cs" />
     <Compile Include="SBRep\SBRepObject.cs" />
-    <Compile Include="SBRep\SBRepOperations.cs" />
+    <Compile Include="SBRep\SBRepOperationsExtension.cs" />
     <Compile Include="SBRep\SBRepToMeshBuilder.cs" />
     <Compile Include="SBRep\Utils\Geometry2DHelper.cs" />
     <Compile Include="SBRep\Utils\Graph.cs" />

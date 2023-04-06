@@ -44,6 +44,7 @@
                 <Button Height="30" Command="{Binding ApplyOffset}" Content="Применить смещение контура"/>
 
                 <Button Height="30" Command="{Binding LoadModelCommand}" Content="Загрузить модель"/>
+                <Button Height="30" Command="{Binding LoadSBRepCommand}" Content="Загрузить SBRep"/>
                 <TextBlock Text="Сетка валидна"/>
                 <CheckBox IsChecked="{Binding Data.MeshValid, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="False"/>
             </StackPanel>

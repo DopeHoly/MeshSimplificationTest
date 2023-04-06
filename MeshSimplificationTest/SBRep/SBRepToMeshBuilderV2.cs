@@ -16,7 +16,7 @@ namespace MeshSimplificationTest.SBRep
 {
     public static class SBRepToMeshBuilderV2
     {
-        public const double EPS_PointCompare = 1e-6;
+        public const double EPS_PointCompare = 1e-4;
 
         public class IndexedVertex : IIndexed
         {

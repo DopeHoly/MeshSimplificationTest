@@ -35,6 +35,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             this.Coord = other.Coord;
             this.Parents = new List<int>(other.Parents);
             this.Position = other.Position;
+            this.SourceID = other.SourceID;
         }
 
         public override string ToString()
@@ -73,6 +74,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             ID = other.ID;
             Points = other.Points;
             Position = other.Position;
+            SourceID = other.SourceID;
         }
 
         public int GetNext(int index)
@@ -688,7 +690,7 @@ namespace MeshSimplificationTest.SBRep.Utils
             double eps)
         {
             var crosses = new List<EdgeCrossPosition>();
-            foreach (var edge in contour.Edges)
+            foreach (var edge in contour.GetEdges())
             {
                 var edgesPoints = contour.GetEdgePoints(edge);
                 var edgeA = edgesPoints.Item1.Coord;

@@ -65,18 +65,11 @@ namespace MeshSimplificationTest.SBRep
                 Faces.Add(new SBRep_Face(face));
             }
         }
-        private static bool Vector3dEqual(Vector3d a, Vector3d b, double eps = 1e-8)
-        {
-            return Math.Abs(a.x - b.x) < eps &&
-                Math.Abs(a.y - b.y) < eps &&
-                Math.Abs(a.z - b.z) < eps;
-        }
-
         public int FindVertex(Vector3d vertex)
         {
             foreach (var vtx in Vertices)
             {
-                if (Vector3dEqual(vtx.Coordinate, vertex))
+                if (Geometry2DHelper.EqualVectors(vtx.Coordinate, vertex))
                     return vtx.ID;
             }
             return -1;
@@ -645,8 +638,6 @@ namespace MeshSimplificationTest.SBRep
                 var parents = vtx.Parents.Intersect(edgesIds).ToList();
                 if (parents.Count() < 2)
                     return false;
-                //if (parents.Count() > 2)
-                //    throw new Exception("Петля содержит развилки");
                 if (parents.Count() % 2 == 1)
                     return false;
                     //throw new Exception("Петля содержит развилки");
@@ -769,7 +760,7 @@ namespace MeshSimplificationTest.SBRep
 
         public void RebuildVerges()
         {
-            
+            //TODO
         }
 
         /// <summary>
@@ -895,6 +886,17 @@ namespace MeshSimplificationTest.SBRep
             return Geometry2DHelper.GetArea(contour2d);
         }
 
+        public double GetFaceArea(int fid)
+        {
+            var face = Faces[fid];
+            var area = GetLoopArea(face.OutsideLoop);
+            foreach (var lid in face.InsideLoops)
+            {
+                area -= GetLoopArea(lid);
+            }
+            return area;
+        }
+
         /// <summary>
         /// Вычисляет двухмерные координаты трёхмерного контура
         /// </summary>
@@ -952,7 +954,7 @@ namespace MeshSimplificationTest.SBRep
 
         public void CalcBoundingBox(ref double minX, ref double minY, ref double maxX, ref double maxY)
         {
-            minX = double.MaxValue;
+            minX = double.MaxValue; 
             minY = double.MaxValue;
             maxX = double.MinValue;
             maxY = double.MinValue;
@@ -971,76 +973,44 @@ namespace MeshSimplificationTest.SBRep
             }
         }
 
-        public Vector3d GetCenterFromEdge(IEnumerable<int> edgesIds = null)
+        public bool AreEquivalent(SBRepObject other, double eps = 1e-2, bool groupIDCheck = true)
+            {
+            if(Faces.Count != other.Faces.Count) return false;
+            if(Loops.Count != other.Loops.Count) return false;
+            if(Verges.Count != other.Verges.Count) return false;
+
+            
+            foreach(var face in Faces)
         {
-            IEnumerable<SBRep_Edge> edges = null;
-            if (edgesIds == null)
+                IEnumerable<SBRep_Face> otherFace = other.Faces;
+                try
             {
-                edges = Edges;
-            }
-            else
-                edges = edgesIds.Select(eid => Edges[eid]).ToList();
-            var verticesIds = edges.SelectMany(edge =>
-                new int[2] { edge.Vertices.a, edge.Vertices.b }
-                )
-                .Distinct()
-                .ToList();
-            var vertices = verticesIds.Select(vid => Vertices[vid]).ToList();
-            var center = Vector3d.Zero;
-            foreach (var vtx in vertices)
+                    if (groupIDCheck)
+                        otherFace = otherFace
+                            .Where(x => x.GroupID == face.GroupID).ToList();
+
+                    otherFace = otherFace.Where(x => Geometry2DHelper.EqualVectors(x.Normal, face.Normal, eps)).ToList();
+
+                    var currentFaceArea = GetFaceArea(face.ID);
+                    otherFace = otherFace.Where(x => Math.Abs(other.GetFaceArea(x.ID) - currentFaceArea) < eps).ToList();
+
+                    var currentFaceCenterPoint = Geometry2DHelper.GetWeightedCenter(GetClosedContour(face.OutsideLoop));
+                    otherFace = otherFace.Where(x => Geometry2DHelper.EqualVectors(
+                            currentFaceCenterPoint,
+                            Geometry2DHelper.GetWeightedCenter(other.GetClosedContour(x.OutsideLoop)), eps))
+                        .ToList();
+                }
+                catch (Exception ex)
             {
-                center += vtx.Coordinate;
+                    return false;
             }
-            center /= vertices.Count;
-            return center;
-        }
 
-        public Vector3d GetCenterFromEdgeBoundingBox(IEnumerable<int> edgesIds = null)
-        {
-            IEnumerable<SBRep_Edge> edges = null;
-            if (edgesIds == null)
-            {
-                edges = Edges;
+
+                if (otherFace == null || otherFace.Count() != 1)
+                    return false;                
             }
-            else
-                edges = edgesIds.Select(eid => Edges[eid]).ToList();
-            var verticesIds = edges.SelectMany(edge =>
-                new int[2] { edge.Vertices.a, edge.Vertices.b }
-                )
-                .Distinct()
-                .ToList();
-            var vertices = verticesIds.Select(vid => Vertices[vid]).ToList();
 
-
-            var minX = double.MaxValue;
-            var minY = double.MaxValue;
-            var minZ = double.MaxValue;
-            var maxX = double.MinValue;
-            var maxY = double.MinValue;
-            var maxZ = double.MinValue;
-
-            foreach (var vtx in Vertices)
-            {
-                var coord = vtx.Coordinate;
-                if (coord.x > maxX)
-                    maxX = coord.x;
-                if (coord.x < minX)
-                    minX = coord.x;
-                if (coord.y > maxY)
-                    maxY = coord.y;
-                if (coord.y < minY)
-                    minY = coord.y;
-                if (coord.z > maxZ)
-                    maxZ = coord.z;
-                if (coord.z < minZ)
-                    minZ = coord.z;
-            }
-            var center = new Vector3d(
-                (minX + maxX) / 2.0,
-                (minY + maxY) / 2.0,
-                (minZ + maxZ) / 2.0);
-
-            return center;
+            return true;
         }
 
         public override string ToString()

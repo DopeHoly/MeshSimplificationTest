@@ -367,19 +367,19 @@ namespace MeshSimplificationTest.SBRep
         {
             id = -1;
 
-            foreach (var loop in loops)
-            {
-                if (loop.Verges.Count != newLoop.Verges.Count)
-                    continue;
-                var edgesA = loop.Verges;
-                var edgesB = newLoop.Verges;
-                var identical = edgesA.All(x => edgesB.Contains(x));
-                if (identical)
-                {
-                    id = loop.ID;
-                    return true;
-                }
-            }
+            //foreach (var loop in loops)
+            //{
+            //    if (loop.Verges.Count != newLoop.Verges.Count)
+            //        continue;
+            //    var edgesA = loop.Verges;
+            //    var edgesB = newLoop.Verges;
+            //    var identical = edgesA.All(x => edgesB.Contains(x));
+            //    if (identical)
+            //    {
+            //        id = loop.ID;
+            //        return true;
+            //    }
+            //}
 
             return false;
         }

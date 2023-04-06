@@ -338,9 +338,40 @@ namespace MeshSimplificationTest.SBRepVM
             SetModel(StandardMeshReader.ReadMesh(path));
         }
 
+
+        public void SetSBRepModel(SBRepObject model)
+        {
+            ModelsVM.Clear();
+            var mesh = SBRepToMeshBuilderV2.ConvertParallel(model);
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Триангулированный объект",                
+                Visibility = true,
+                Model = ConvertToModel3D(mesh),
+            });
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани проекции",
+                Visibility = true,
+                Model = GenerateModelFormSBRepObjectEdges(model)
+            });
+            OnPropertyChanged(nameof(MainMesh));
+            OnPropertyChanged(nameof(ModelsVM));
+            OnPropertyChanged(nameof(MeshValid));
+        }
+
+        public void LoadSBRepModel(string path)
+        {
+            var fi = new FileInfo(path);
+            if (!fi.Exists) return;
+
+
+            SetSBRepModel(model: SBRepIO.Read(path));
+        }
+
         public Model3D GetOutputViewModel()
         {
-            if(SourceModel == null) return null;
+            //if(SourceModel == null) return null;
             var resultmodels = new Model3DGroup();
 
             foreach (var model in ModelsVM)
@@ -636,7 +667,7 @@ namespace MeshSimplificationTest.SBRepVM
         public Model3D GenerateModelFormSBRepObjectEdges(SBRepObject sbrep)
         {
             var edgesIds = sbrep.Edges.GetIndexes();
-            return ModelFromEdge(sbrep, edgesIds, Colors.Yellow, 2);
+            return ModelFromEdge(sbrep, edgesIds, Colors.Red, 2);
         }
 
         public Model3D GenerateModelFrom2dContour(IEnumerable<Vector2d> contour, Color color, double contsZ = 0, double diameterScale = 1)
@@ -797,9 +828,9 @@ namespace MeshSimplificationTest.SBRepVM
             return group;
         }
 
-#endregion
+        #endregion
 
-                public void LayerVisibilityChanged()
+        public void LayerVisibilityChanged()
         {
             OnPropertyChanged(nameof(MainMesh));
         }
@@ -812,14 +843,18 @@ namespace MeshSimplificationTest.SBRepVM
         public SBRepModel Data => data;
 
         protected Lazy<DelegateCommand> _loadModelCommand;
+        protected Lazy<DelegateCommand> _loadSBRepModelCommand;
         protected Lazy<DelegateCommand> _ApplyOffsetCommand;
         public ICommand LoadModelCommand => _loadModelCommand.Value;
         public ICommand ApplyOffset => _ApplyOffsetCommand.Value;
+        public ICommand LoadSBRepCommand => _loadSBRepModelCommand.Value;
 
         public SBRepViewModel()
         {
             _loadModelCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(LoadModel));
+            _loadSBRepModelCommand = new Lazy<DelegateCommand>(() =>
+                new DelegateCommand(LoadSBRepModel));
             _ApplyOffsetCommand = new Lazy<DelegateCommand>(() =>
                 new DelegateCommand(x => data.ApplyOffset()));
             data = new SBRepModel();
@@ -833,6 +868,16 @@ namespace MeshSimplificationTest.SBRepVM
             // получаем выбранный файл
             string filename = ofd.FileName;
             data.LoadModel(filename);
+        }
+        private void LoadSBRepModel(object obj)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "SBRep Objects|*.sbrep;";
+            if (ofd.ShowDialog() != true)
+                return;
+            // получаем выбранный файл
+            string filename = ofd.FileName;
+            data.LoadSBRepModel(filename);
         }
     }
 }

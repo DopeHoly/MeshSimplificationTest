@@ -41,6 +41,10 @@ namespace MeshSimplificationTest.SBRep.Utils
 
         public double GetZ(double x, double y)
         {
+            if(C == 0)
+            {
+                return 0;
+            }
             return (-A * x - B * y - D) / C;
         }
 

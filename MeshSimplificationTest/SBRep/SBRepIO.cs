@@ -51,12 +51,18 @@ namespace MeshSimplificationTest.SBRep
 
         public int ReadInt()
         {
-            return int.Parse(ReadWord());
+            var word = ReadWord();
+            if (string.IsNullOrEmpty(word))
+                word = ReadWord();
+            return int.Parse(word, System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public double ReadDouble()
         {
-            return double.Parse(ReadWord());
+            var word = ReadWord();
+            if (string.IsNullOrEmpty(word))
+                word = ReadWord();
+            return double.Parse(word, System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public bool EOF
@@ -129,73 +135,73 @@ namespace MeshSimplificationTest.SBRep
         {
             using (StreamWriter writer = new StreamWriter(path, false))
             {
-                Write(obj, writer);
+                Write(obj, writer).Wait();
             }
         }
 
-        public static async void Write(SBRepObject obj, StreamWriter writer)
+        public static async Task Write(SBRepObject obj, StreamWriter writer)
         {
-            await writer.WriteLineAsync(obj.Vertices.Count.ToString());
+            await writer.WriteLineAsync(obj.Vertices.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Vertices)
             {
-                await writer.WriteLineAsync(item.ID.ToString());
-                await writer.WriteLineAsync(item.Coordinate.x.ToString());
-                await writer.WriteLineAsync(item.Coordinate.y.ToString());
-                await writer.WriteLineAsync(item.Coordinate.z.ToString());
+                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Coordinate.x.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Coordinate.y.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Coordinate.z.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            await writer.WriteLineAsync(obj.Edges.Count.ToString());
+            await writer.WriteLineAsync(obj.Edges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Edges)
             {
-                await writer.WriteLineAsync(item.ID.ToString());
-                await writer.WriteLineAsync(item.Vertices.a.ToString());
-                await writer.WriteLineAsync(item.Vertices.b.ToString());
+                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Vertices.a.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Vertices.b.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            await writer.WriteLineAsync(obj.Verges.Count.ToString());
+            await writer.WriteLineAsync(obj.Verges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Verges)
             {
-                await writer.WriteLineAsync(item.ID.ToString());
-                await writer.WriteLineAsync(item.Edges.Count.ToString());
+                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Edges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 foreach (var edge in item.Edges)
                 {
-                    await writer.WriteLineAsync(edge.ToString());
+                    await writer.WriteLineAsync(edge.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 }
             }
 
-            await writer.WriteLineAsync(obj.Loops.Count.ToString());
+            await writer.WriteLineAsync(obj.Loops.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Loops)
             {
-                await writer.WriteLineAsync(item.ID.ToString());
-                await writer.WriteLineAsync(item.Verges.Count.ToString());
+                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Verges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 foreach (var verge in item.Verges)
                 {
-                    await writer.WriteLineAsync(verge.ToString());
+                    await writer.WriteLineAsync(verge.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 }
             }
 
-            await writer.WriteLineAsync(obj.Faces.Count.ToString());
+            await writer.WriteLineAsync(obj.Faces.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Faces)
             {
-                await writer.WriteLineAsync(item.ID.ToString());
-                await writer.WriteLineAsync(item.GroupID.ToString());
-                await writer.WriteLineAsync(item.OutsideLoop.ToString());
-                await writer.WriteLineAsync(item.InsideLoops.Count.ToString());
+                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.GroupID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.OutsideLoop.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.InsideLoops.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 foreach (var loop in item.InsideLoops)
                 {
-                    await writer.WriteLineAsync(loop.ToString());
+                    await writer.WriteLineAsync(loop.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
 
-                await writer.WriteLineAsync(item.Plane.A.ToString());
-                await writer.WriteLineAsync(item.Plane.B.ToString());
-                await writer.WriteLineAsync(item.Plane.C.ToString());
-                await writer.WriteLineAsync(item.Plane.D.ToString());
+                await writer.WriteLineAsync(item.Plane.A.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Plane.B.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Plane.C.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Plane.D.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-                await writer.WriteLineAsync(item.Plane.Normal.x.ToString());
-                await writer.WriteLineAsync(item.Plane.Normal.y.ToString());
-                await writer.WriteLineAsync(item.Plane.Normal.z.ToString());
+                await writer.WriteLineAsync(item.Plane.Normal.x.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Plane.Normal.y.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await writer.WriteLineAsync(item.Plane.Normal.z.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
         }
 
@@ -217,7 +223,7 @@ namespace MeshSimplificationTest.SBRep
             int count = -1;
 
             count = reader.ReadInt();
-            for(int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 int id = reader.ReadInt();
                 var x = reader.ReadDouble();
@@ -231,7 +237,7 @@ namespace MeshSimplificationTest.SBRep
             }
 
             count = reader.ReadInt();
-            for(int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 int id = reader.ReadInt();
                 var a = reader.ReadInt();
@@ -244,25 +250,25 @@ namespace MeshSimplificationTest.SBRep
             }
 
             count = reader.ReadInt();
-            for(int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 int id = reader.ReadInt();
                 var edgesIds = reader.ReadIntArray();
-                
+
                 obj.Verges.Add(new SBRep_Verge()
                 {
                     ID = id,
                     Edges = edgesIds
-                    
+
                 });
             }
 
             count = reader.ReadInt();
-            for(int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 int id = reader.ReadInt();
                 var verges = reader.ReadIntArray();
-                
+
                 obj.Loops.Add(new SBRep_Loop()
                 {
                     ID = id,
