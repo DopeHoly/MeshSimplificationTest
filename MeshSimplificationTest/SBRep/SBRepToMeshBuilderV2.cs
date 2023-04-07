@@ -121,16 +121,33 @@ namespace MeshSimplificationTest.SBRep
                 verticeForTriangulation, newEdges,
                 out triVertices, out triangles);
 
-            if (!noError)
-                ;
             Debug.Assert(noError);
 
             var replaceIndexDict = new Dictionary<int, int>();
             var counter = 0;
             index = -1;
+            var usedPoints = new List<int>();
             foreach (var point in triVertices)
             {
-                var existingPoint = vertices.FirstOrDefault(x => Geometry2DHelper.EqualPoints(x.Coord, point, EPS_PointCompare));
+                IndexedPoint existingPoint = null;
+
+                var minDistance = double.MaxValue;
+                foreach (var item in vertices)
+                {
+                    if (usedPoints.Contains(item.ID))
+                        continue;
+                    var distance = (item.Coord - point).LengthSquared;
+                    if (distance < minDistance)
+                    {
+                        existingPoint = item;
+                        minDistance = distance;
+                    }
+                }
+
+                if(minDistance > 1e-2)
+                    existingPoint = null;
+                //existingPoint = vertices.FirstOrDefault(x => Geometry2DHelper.EqualPoints(x.Coord, point, EPS_PointCompare));
+
                 if(existingPoint == null)
                 {
                     var newVertice = new IndexedPoint()
@@ -145,6 +162,7 @@ namespace MeshSimplificationTest.SBRep
                 }
                 else
                 {
+                    usedPoints.Add(existingPoint.ID);
                     index = existingPoint.ID;
                 }
                 replaceIndexDict.Add(counter, index);

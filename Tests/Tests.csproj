@@ -72,6 +72,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GazpromFileInterpolatorTests.cs" />
     <Compile Include="SBRepContourProjectionTests.cs" />
     <Compile Include="SBRepTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -81,6 +82,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\GeometryLib\GeometryLib.csproj">
+      <Project>{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}</Project>
+      <Name>GeometryLib</Name>
+    </ProjectReference>
     <ProjectReference Include="..\MeshSimplificationTest\MeshSimplificationTest.csproj">
       <Project>{81789145-74E4-4139-9F7B-4AA740B9EE6C}</Project>
       <Name>MeshSimplificationTest</Name>

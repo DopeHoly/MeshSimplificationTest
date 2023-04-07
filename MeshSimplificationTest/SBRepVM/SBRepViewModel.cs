@@ -243,11 +243,11 @@ namespace MeshSimplificationTest.SBRepVM
                         Name = "Триангулированный объект c проекцией " + contour.Name,
                         Model = ConvertToModel3D(projectionObjectMesh),
                     });
-                    ModelsVM.Add(new Model3DLayerVM(this)
-                    {
-                        Name = "Грани проекции",
-                        Model = GenerateModelFormSBRepObjectEdges(projectionObject)
-                    });
+                    //ModelsVM.Add(new Model3DLayerVM(this)
+                    //{
+                    //    Name = "Грани проекции",
+                    //    Model = GenerateModelFormSBRepObjectEdges(projectionObject)
+                    //});
                 }
                 catch (OutOfMemoryException ex)
                 //catch (Exception ex)
@@ -255,7 +255,7 @@ namespace MeshSimplificationTest.SBRepVM
                     ;
                 }
             }
-
+            //SBRepIO.Write(projectionObject, @"D:\Проекция контура\test2.sbrep");
             //projectionObject = projectionObject.ContourProjection(contour2, true);
 
             //var boundaryEdgesModel = GenerateBoundaryEdgesFromEdgeIds(model, triPlanarGroup);
@@ -272,16 +272,16 @@ namespace MeshSimplificationTest.SBRepVM
             //    Model = triPlanarGroupModel,
             //});
 
-            var loopEdgeModel = GenerateModelFromLoopEdge(
-                model,
-                SBRepBuilder.BuildVerges(
-                    model,
-                    triPlanarGroup));
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Грани петель",
-                Model = loopEdgeModel,
-            });
+            //var loopEdgeModel = GenerateModelFromLoopEdge(
+            //    model,
+            //    SBRepBuilder.BuildVerges(
+            //        model,
+            //        triPlanarGroup));
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Грани петель",
+            //    Model = loopEdgeModel,
+            //});
 
             //var sbrep_loops = GenerateModelFromObjectLoop(sbrep);
             //ModelsVM.Add(new Model3DLayerVM(this)
@@ -349,12 +349,12 @@ namespace MeshSimplificationTest.SBRepVM
                 Visibility = true,
                 Model = ConvertToModel3D(mesh),
             });
-            ModelsVM.Add(new Model3DLayerVM(this)
-            {
-                Name = "Грани проекции",
-                Visibility = true,
-                Model = GenerateModelFormSBRepObjectEdges(model)
-            });
+            //ModelsVM.Add(new Model3DLayerVM(this)
+            //{
+            //    Name = "Грани проекции",
+            //    Visibility = true,
+            //    Model = GenerateModelFormSBRepObjectEdges(model)
+            //});
             OnPropertyChanged(nameof(MainMesh));
             OnPropertyChanged(nameof(ModelsVM));
             OnPropertyChanged(nameof(MeshValid));

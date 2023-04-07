@@ -131,77 +131,77 @@ namespace MeshSimplificationTest.SBRep
 
     public static class SBRepIO
     {
-        public static async void Write(SBRepObject obj, string path)
+        public static void Write(SBRepObject obj, string path)
         {
             using (StreamWriter writer = new StreamWriter(path, false))
             {
-                Write(obj, writer).Wait();
+                Write(obj, writer);
             }
         }
 
-        public static async Task Write(SBRepObject obj, StreamWriter writer)
+        public static void Write(SBRepObject obj, StreamWriter writer)
         {
-            await writer.WriteLineAsync(obj.Vertices.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteLine(obj.Vertices.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Vertices)
             {
-                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Coordinate.x.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Coordinate.y.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Coordinate.z.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Coordinate.x.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Coordinate.y.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Coordinate.z.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            await writer.WriteLineAsync(obj.Edges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteLine(obj.Edges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Edges)
             {
-                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Vertices.a.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Vertices.b.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Vertices.a.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Vertices.b.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            await writer.WriteLineAsync(obj.Verges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteLine(obj.Verges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Verges)
             {
-                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Edges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Edges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 foreach (var edge in item.Edges)
                 {
-                    await writer.WriteLineAsync(edge.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    writer.WriteLine(edge.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 }
             }
 
-            await writer.WriteLineAsync(obj.Loops.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteLine(obj.Loops.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Loops)
             {
-                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Verges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Verges.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 foreach (var verge in item.Verges)
                 {
-                    await writer.WriteLineAsync(verge.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    writer.WriteLine(verge.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 }
             }
 
-            await writer.WriteLineAsync(obj.Faces.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteLine(obj.Faces.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             foreach (var item in obj.Faces)
             {
-                await writer.WriteLineAsync(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.GroupID.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.OutsideLoop.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.InsideLoops.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.ID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.GroupID.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.OutsideLoop.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.InsideLoops.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 foreach (var loop in item.InsideLoops)
                 {
-                    await writer.WriteLineAsync(loop.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    writer.WriteLine(loop.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
 
-                await writer.WriteLineAsync(item.Plane.A.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Plane.B.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Plane.C.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Plane.D.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.A.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.B.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.C.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.D.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-                await writer.WriteLineAsync(item.Plane.Normal.x.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Plane.Normal.y.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                await writer.WriteLineAsync(item.Plane.Normal.z.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.Normal.x.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.Normal.y.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                writer.WriteLine(item.Plane.Normal.z.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
         }
 

@@ -12,6 +12,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Controls;
+using static g3.DPolyLine2f;
 
 namespace MeshSimplificationTest.SBRep
 {
@@ -606,6 +607,74 @@ namespace MeshSimplificationTest.SBRep
             sbRepObject.RedefineFeedbacks();
             //Разделяет внешние и внутренние грани у плоскостей
             sbRepObject.DefineFacesOutsideLoop();
+            return sbRepObject;
+        }
+
+        public static SBRepObject ConvertSimple(DMesh3 mesh)
+        {
+
+            if (mesh == null)
+                return new SBRepObject();
+            RemeshTool.FixNormals(mesh);
+
+            var sbRepObject = new SBRepObject();
+
+            foreach (var vid in mesh.VertexIndices())
+            {
+                var coord = mesh.GetVertex(vid);
+                sbRepObject.Vertices.Add(new SBRep_Vtx()
+                {
+                    ID = vid,
+                    Coordinate = coord,
+                });
+            }
+
+            foreach (var eid in mesh.EdgeIndices())
+            {
+                var vertices = mesh.GetEdgeV(eid);
+                sbRepObject.Edges.Add(new SBRep_Edge()
+                {
+                    ID = eid,
+                    Vertices = vertices,
+                });
+            }
+
+            foreach (var edge in sbRepObject.Edges)
+            {
+                sbRepObject.Verges.Add(new SBRep_Verge()
+                {
+                    ID = edge.ID,
+                    Edges = new List<int> { edge.ID},
+                });
+            }
+
+            foreach (var tri in mesh.TriangleIndices())
+            {
+                var edgesIds = mesh.GetTriEdges(tri);                
+                var loop = new SBRep_Loop()
+                {
+                    Verges = new List<int>() { edgesIds.a, edgesIds.b, edgesIds.c },
+                };
+                sbRepObject.Loops.Add(loop);
+
+                Vector3d a = Vector3d.Zero;
+                Vector3d b = Vector3d.Zero;
+                Vector3d c = Vector3d.Zero;
+
+                mesh.GetTriVertices(tri, ref a, ref b ,ref c);
+
+                sbRepObject.Faces.Add(new SBRep_Face()
+                {
+                    GroupID = mesh.GetTriangleGroup(tri),
+                    OutsideLoop = loop.ID,
+                    Plane = PlaneFace.FromPoints(
+                        a, b, c,
+                        mesh.GetTriNormal(tri))
+                });
+            }                
+
+            //Индексирует обратные связи между разными объектами
+            sbRepObject.RedefineFeedbacks();
             return sbRepObject;
         }
     }
