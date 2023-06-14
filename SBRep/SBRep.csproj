@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}</ProjectGuid>
+    <ProjectGuid>{2C98A454-04BC-4A20-B36C-104FF6BB8C70}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>GeometryLib</RootNamespace>
-    <AssemblyName>GeometryLib</AssemblyName>
+    <RootNamespace>SBRep</RootNamespace>
+    <AssemblyName>SBRep</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -44,18 +44,25 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="PlanesStapler.cs" />
-    <Compile Include="PlyReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SBRepBuilder.cs" />
+    <Compile Include="SBRepIO.cs" />
+    <Compile Include="SBRepObject.cs" />
+    <Compile Include="SBRepOperationsExtension.cs" />
+    <Compile Include="SBRepToMeshBuilder.cs" />
+    <Compile Include="SBRepToMeshBuilderV2.cs" />
+    <Compile Include="SBRep_Primitives.cs" />
+    <Compile Include="Utils\Geometry2DHelper.cs" />
+    <Compile Include="Utils\Graph.cs" />
+    <Compile Include="Utils\IndexedCollection.cs" />
+    <Compile Include="Utils\IntersectContour.cs" />
+    <Compile Include="Utils\PlaneFace.cs" />
+    <Compile Include="Utils\PositionClasses.cs" />
+    <Compile Include="Utils\TriangulationCaller.cs" />
+    <Compile Include="Utils\TriPlanarGroup.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\SBRep\SBRep.csproj">
-      <Project>{2c98a454-04bc-4a20-b36c-104ff6bb8c70}</Project>
-      <Name>SBRep</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

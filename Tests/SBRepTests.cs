@@ -2,10 +2,10 @@
 using g3;
 using System;
 using System.IO;
-using MeshSimplificationTest.SBRep;
+using SBRep;
 using System.Linq;
 using System.Collections.Generic;
-using MeshSimplificationTest.SBRep.Utils;
+using SBRep.Utils;
 using System.Xml.Schema;
 
 namespace Tests

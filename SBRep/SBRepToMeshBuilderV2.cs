@@ -1,18 +1,12 @@
 ﻿using g3;
-using HelixToolkit.Wpf;
-using MeshSimplificationTest.SBRep.Utils;
-using MeshSimplificationTest.SBRepVM;
+using SBRep.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using static g3.DPolyLine2f;
-using static MeshSimplificationTest.SBRep.SBRepToMeshBuilder;
 
-namespace MeshSimplificationTest.SBRep
+namespace SBRep
 {
     public static class SBRepToMeshBuilderV2
     {
@@ -364,6 +358,7 @@ namespace MeshSimplificationTest.SBRep
                 indexedTriangles,
                 TriGroups: faces
                 );
+
             return mesh;
         }
     }

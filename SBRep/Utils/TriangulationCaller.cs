@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MeshSimplificationTest.SBRep.Utils
+namespace SBRep.Utils
 {
     [StructLayout(LayoutKind.Sequential)]
     public struct Vector2D

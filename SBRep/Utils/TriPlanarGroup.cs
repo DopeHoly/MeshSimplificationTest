@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MeshSimplificationTest.SBRep.Utils
+namespace SBRep.Utils
 {
     /// <summary>
     /// Представляет собой группу треугольников из mesh

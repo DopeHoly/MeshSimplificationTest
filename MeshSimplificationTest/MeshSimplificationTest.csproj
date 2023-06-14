@@ -101,7 +101,6 @@
     </ApplicationDefinition>
     <Compile Include="BooleanTool.cs" />
     <Compile Include="BoolToVisibilityConverter.cs" />
-    <Compile Include="BrepTools.cs" />
     <Compile Include="GeometryUtils.cs" />
     <Compile Include="MasterView.xaml.cs">
       <DependentUpon>MasterView.xaml</DependentUpon>
@@ -123,21 +122,6 @@
       <DependentUpon>SbrepVisualizer.xaml</DependentUpon>
     </Compile>
     <Compile Include="SBRepVM\SbrepVizualizer.cs" />
-    <Compile Include="SBRep\SBRepIO.cs" />
-    <Compile Include="SBRep\SBRepToMeshBuilderV2.cs" />
-    <Compile Include="SBRep\SBRep_Primitives.cs" />
-    <Compile Include="SBRep\SBRepBuilder.cs" />
-    <Compile Include="SBRep\SBRepObject.cs" />
-    <Compile Include="SBRep\SBRepOperationsExtension.cs" />
-    <Compile Include="SBRep\SBRepToMeshBuilder.cs" />
-    <Compile Include="SBRep\Utils\Geometry2DHelper.cs" />
-    <Compile Include="SBRep\Utils\Graph.cs" />
-    <Compile Include="SBRep\Utils\IndexedCollection.cs" />
-    <Compile Include="SBRep\Utils\IntersectContour.cs" />
-    <Compile Include="SBRep\Utils\PlaneFace.cs" />
-    <Compile Include="SBRep\Utils\PositionClasses.cs" />
-    <Compile Include="SBRep\Utils\TriangulationCaller.cs" />
-    <Compile Include="SBRep\Utils\TriPlanarGroup.cs" />
     <Compile Include="TrulyObservableCollection.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -208,6 +192,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GeometryLib\GeometryLib.csproj">
+      <Project>{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}</Project>
+      <Name>GeometryLib</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SBRep\SBRep.csproj">
+      <Project>{2c98a454-04bc-4a20-b36c-104ff6bb8c70}</Project>
+      <Name>SBRep</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

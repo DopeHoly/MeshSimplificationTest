@@ -1,16 +1,15 @@
 ﻿using g3;
-using MeshSimplificationTest.SBRep.Utils;
+using SBRep.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Media;
 using static g3.DPolyLine2f;
-using static MeshSimplificationTest.SBRep.SBRepBuilder;
+using static SBRep.SBRepBuilder;
 
-namespace MeshSimplificationTest.SBRep
+namespace SBRep
 {
     public abstract class SBRep_Primitive : IIndexed
     {
@@ -54,18 +53,11 @@ namespace MeshSimplificationTest.SBRep
         public Index2i Vertices;
         public int Parent = -1;
 
-#if DEBUG
-        public Color Color { get; set; } = Colors.Gray;
-#endif
-
         public SBRep_Edge() : base() { }
         public SBRep_Edge(SBRep_Edge other) : base(other.ID)
         {
             Vertices = other.Vertices;
             Parent = other.Parent;
-#if DEBUG
-            Color = other.Color;
-#endif
         }
 
         public override string ToString()

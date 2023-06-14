@@ -1,24 +1,12 @@
 ﻿using g3;
-using MeshSimplificationTest.SBRep.Utils;
-using MeshSimplificationTest.SBRepVM;
+using SBRep.Utils;
 using System;
-using System.CodeDom;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Printing;
-using System.Reflection;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Media;
-using System.Xml.Linq;
-using static g3.DPolyLine2f;
 
-namespace MeshSimplificationTest.SBRep
+namespace SBRep
 {
     public static class SBRepOperationsExtension
     {
@@ -762,7 +750,7 @@ namespace MeshSimplificationTest.SBRep
                 return;
             var contour1 = IntersectContour.FromPoints(new List<Vector2d> { Vector2d.Zero, v1.xy });
             var contour2 = IntersectContour.FromPoints(new List<Vector2d> { Vector2d.Zero, v2.xy });
-            SbrepVizualizer.ShowContours(new List<IntersectContour>() { contour1, contour2 });
+            //SbrepVizualizer.ShowContours(new List<IntersectContour>() { contour1, contour2 });
         }
 
         /// <summary>
@@ -877,28 +865,28 @@ namespace MeshSimplificationTest.SBRep
         {
             if(!EnableVisualizator)
                 return;
-            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            //var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
 
-            var boundary = edgesIDsWithPosition
-                .Where(idPos => idPos.Value == true)
-                .Select(idPos => idPos.Key);
-            var inner = edgesIDsWithPosition
-                .Where(idPos => idPos.Value == false)
-                .Select(idPos => idPos.Key);
+            //var boundary = edgesIDsWithPosition
+            //    .Where(idPos => idPos.Value == true)
+            //    .Select(idPos => idPos.Key);
+            //var inner = edgesIDsWithPosition
+            //    .Where(idPos => idPos.Value == false)
+            //    .Select(idPos => idPos.Key);
 
-            keyValuePairs.Add(Colors.Red, boundary);
-            keyValuePairs.Add(Colors.Blue, inner);
+            //keyValuePairs.Add(Colors.Red, boundary);
+            //keyValuePairs.Add(Colors.Blue, inner);
 
-            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+            //SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
         }
         private static void ShowDictEdges(SBRepObject obj, IEnumerable<int> edges)
         {
             if (!EnableVisualizator)
                 return;
-            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
-            keyValuePairs.Add(Colors.Blue, edges);
+            //var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            //keyValuePairs.Add(Colors.Blue, edges);
 
-            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+            //SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
         }
 
 

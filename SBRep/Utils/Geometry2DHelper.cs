@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MeshSimplificationTest.SBRep.Utils
+namespace SBRep.Utils
 {
     public static class Geometry2DHelper
     {

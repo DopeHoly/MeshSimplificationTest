@@ -16,12 +16,15 @@ using System.IO;
 using HelixToolkit.Wpf;
 using System.Windows.Media;
 using System.Windows.Markup;
-using MeshSimplificationTest.SBRep;
-using static MeshSimplificationTest.SBRep.SBRepBuilder;
+using SBRep;
+using static SBRep.SBRepBuilder;
 using System.Collections.ObjectModel;
 using System.Xml.Serialization;
-using MeshSimplificationTest.SBRep.Utils;
+using SBRep.Utils;
 using System.Security.Cryptography;
+using GeometryLib;
+using PlyReader = GeometryLib.PlyReader;
+using gs;
 
 namespace MeshSimplificationTest.SBRepVM
 {
@@ -136,37 +139,105 @@ namespace MeshSimplificationTest.SBRepVM
             Contours = new ObservableCollection<ContourVM>();
             //var contour = LoadContour("D:\\ContourProjection\\contour + 5d7fb584-f43b-4ece-b258-c0cb252f01e9.cnt");
             var contour = new List<Vector2d>();
-            //дефолтный тестовый контур
-            contour.Add(new Vector2d(0, 0));
-            contour.Add(new Vector2d(0, 5));
-            contour.Add(new Vector2d(4, 2));
-            contour.Add(new Vector2d(4, 0));
-            contour.Add(new Vector2d(3, -1));
-            contour.Add(new Vector2d(2, 1));
-            contour.Add(new Vector2d(1, 1));
-
-            //болшой контур покрытия
-            //contour.Add(new Vector2d(0, 0));
-            //contour.Add(new Vector2d(1000, 0));
-            //contour.Add(new Vector2d(1000, 1000));
-            //contour.Add(new Vector2d(0, 1000));
-
-            //контур внутри куба 4 на 4
-            //contour.Add(new Vector2d(1, 1));
-            //contour.Add(new Vector2d(3, 3));
-            //contour.Add(new Vector2d(3, 1));
-
-            //контур с самопересечением
-            //contour.Add(new Vector2d(1, 2));
-            //contour.Add(new Vector2d(1, 3));
-            //contour.Add(new Vector2d(2, 3));
-            //contour.Add(new Vector2d(1, 1));
-            //contour.Add(new Vector2d(3, 2));
-            //contour.Add(new Vector2d(3, 1));
-            //contour.Add(new Vector2d(2, 1));
-
-
             Contour = contour;
+
+            //var pathA = @"D:\Задачи\Газпром грунты\формат ply+свойства\testTop.ply";
+            //var pathB = @"D:\Задачи\Газпром грунты\формат ply+свойства\testBot.ply";
+
+            //var pathA = @"D:\Задачи\Газпром грунты\формат ply+свойства\110000_top.ply";
+            //var pathB = @"D:\Задачи\Газпром грунты\формат ply+свойства\110000_bot.ply";
+
+            var pathA = @"D:\Задачи\Газпром грунты\формат ply+свойства\220010_top.ply";
+            var pathB = @"D:\Задачи\Газпром грунты\формат ply+свойства\220010_bot.ply";
+
+            //var vertices = new List<g3.Vector2d>();
+            //var edges = new List<g3.Index2i>();
+
+            //vertices.Add(new g3.Vector2d(1, 2));
+            //vertices.Add(new g3.Vector2d(1, 3));
+            //vertices.Add(new g3.Vector2d(2, 3));
+            //vertices.Add(new g3.Vector2d(2, 2));
+
+            //vertices.Add(new g3.Vector2d(3, 1));
+            //vertices.Add(new g3.Vector2d(3, 4));
+            //vertices.Add(new g3.Vector2d(0, 0));
+            //vertices.Add(new g3.Vector2d(0, 0));
+
+            //edges.Add(new g3.Index2i(0, 1));
+            //edges.Add(new g3.Index2i(1, 2));
+            //edges.Add(new g3.Index2i(2, 3));
+            //edges.Add(new g3.Index2i(3, 0));
+
+            //edges.Add(new g3.Index2i(0, 4));
+            //edges.Add(new g3.Index2i(4, 5));
+            //edges.Add(new g3.Index2i(5, 1));
+
+            //SbrepVizualizer.ShowEdges(vertices, edges);
+
+            //IEnumerable<g3.Vector2d> triVertices = null;
+            //IEnumerable<g3.Index3i> triangulationTri = null;
+
+
+            //var noError = TriangulationCaller.CDT(
+            //    vertices, edges,
+            //    out triVertices, out triangulationTri);
+
+            //SbrepVizualizer.ShowTriangles(vertices, triangulationTri);
+            var path = @"D:\Задачи\Газпром грунты\формат ply+свойства\";
+
+            var dir = new DirectoryInfo(path);
+            if (!dir.Exists)
+                return;
+
+            var plyReader = new PlyReader();
+            var files = dir.GetFiles("*.ply");
+            var offsetX = 526701.42214999557;
+            var offsetY = 1623689.0564871004;
+            foreach ( var file in files)
+            {
+                var mesh = plyReader.Read(file.FullName);
+                ModelsVM.Add(new Model3DLayerVM(this)
+                {
+                    Name = file.Name,
+                    Visibility = true,
+                    Model = ConvertToModel3D(CompaqMesh(mesh, 0.02, 0.02, 0.02, -offsetX, -offsetY)),
+                });
+            }
+            //var plyReader = new PlyReader();
+            //var meshA = plyReader.Read(pathA);
+            //var meshB = plyReader.Read(pathB);
+            ////SetModel(PlanesStapler.Stapler(meshA, meshB,
+            ////    visualizer: (x, y) => SbrepVizualizer.ShowEdges(x, y),
+            ////    triVisualizer: (x, y) => SbrepVizualizer.ShowTriangles(x, y)));
+            //SetModel(PlanesStapler.TestStapler(meshA, meshA));
+            //SetSBRepModel(PlanesStapler.SbrepTestStapler(meshA, meshA));
+        }
+
+        private DMesh3 CompaqMesh(DMesh3 mesh, double xScale, double yScale, double zScale, double offsetX = 0, double offsetY= 0)
+        {
+            var vertices = mesh.VertexIndices()
+                .Select(x => mesh.GetVertex(x))
+                .Select(x => new Vector3d((x.x + offsetX) * xScale, (x.y + YOffset) * yScale, x.z * zScale))
+                .ToList();
+            var triangles = mesh.TriangleIndices().Select(x => 
+            {
+                Index3i tri = mesh.GetTriangle(x);
+                if (mesh.GetTriNormal(x).z < 0)
+                    tri = new Index3i(tri.a, tri.c, tri.b);
+                return tri;
+            }).ToList();
+            var faces = mesh.TriangleIndices().Select(x => mesh.GetTriangleGroup(x)).ToList();
+
+            var result = DMesh3Builder.Build<Vector3d, Index3i, Vector3f>(
+                vertices,
+                triangles//,
+                //TriGroups: faces
+                );
+
+            //var meshRepairOrientation = new MeshRepairOrientation(result);
+            //meshRepairOrientation.OrientComponents();
+            //meshRepairOrientation.SolveGlobalOrientation();
+            return result;
         }
 
         public DMesh3 SourceModel => _sourceModel;
@@ -190,7 +261,6 @@ namespace MeshSimplificationTest.SBRepVM
         {
             _sourceModel = model;
 
-            ModelsVM.Clear();
 
             ModelsVM.Add(new Model3DLayerVM(this)
             {
@@ -333,15 +403,15 @@ namespace MeshSimplificationTest.SBRepVM
                 if (contour == null) continue;
                 Contours.Add(contour);
             }
-            
 
+
+            ModelsVM.Clear();
             SetModel(StandardMeshReader.ReadMesh(path));
         }
 
 
         public void SetSBRepModel(SBRepObject model)
         {
-            ModelsVM.Clear();
             var mesh = SBRepToMeshBuilderV2.ConvertParallel(model);
             ModelsVM.Add(new Model3DLayerVM(this)
             {
@@ -349,12 +419,12 @@ namespace MeshSimplificationTest.SBRepVM
                 Visibility = true,
                 Model = ConvertToModel3D(mesh),
             });
-            //ModelsVM.Add(new Model3DLayerVM(this)
-            //{
-            //    Name = "Грани проекции",
-            //    Visibility = true,
-            //    Model = GenerateModelFormSBRepObjectEdges(model)
-            //});
+            ModelsVM.Add(new Model3DLayerVM(this)
+            {
+                Name = "Грани проекции",
+                Visibility = true,
+                Model = GenerateModelFormSBRepObjectEdges(model)
+            });
             OnPropertyChanged(nameof(MainMesh));
             OnPropertyChanged(nameof(ModelsVM));
             OnPropertyChanged(nameof(MeshValid));
@@ -365,7 +435,7 @@ namespace MeshSimplificationTest.SBRepVM
             var fi = new FileInfo(path);
             if (!fi.Exists) return;
 
-
+            ModelsVM.Clear();
             SetSBRepModel(model: SBRepIO.Read(path));
         }
 
@@ -421,7 +491,7 @@ namespace MeshSimplificationTest.SBRepVM
                         bufer_PATH,
                         new List<WriteMesh>() { new WriteMesh(model) },
                         writeOptions);
-                    resultmodels = LoadTriangleMesh(bufer_PATH);
+                    resultmodels = LoadTriangleMesh(bufer_PATH, rnd.Next(1000));
                     resultmodels.Children.Add(DMesh3ColorTriangleWithoutNeighbor(model, Colors.CadetBlue));
                     resultmodels.Children.Add(DMesh3ColorTriangleZeroNormal(model, Colors.GreenYellow));
                 }
@@ -667,7 +737,7 @@ namespace MeshSimplificationTest.SBRepVM
         public Model3D GenerateModelFormSBRepObjectEdges(SBRepObject sbrep)
         {
             var edgesIds = sbrep.Edges.GetIndexes();
-            return ModelFromEdge(sbrep, edgesIds, Colors.Red, 2);
+            return ModelFromEdge(sbrep, edgesIds, Colors.Red, 0.1);
         }
 
         public Model3D GenerateModelFrom2dContour(IEnumerable<Vector2d> contour, Color color, double contsZ = 0, double diameterScale = 1)

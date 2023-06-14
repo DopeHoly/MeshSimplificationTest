@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using static g3.DPolyLine2f;
 
-namespace MeshSimplificationTest.SBRep.Utils
+namespace SBRep.Utils
 {
     public class Point : IIndexed
     {

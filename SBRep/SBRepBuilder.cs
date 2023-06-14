@@ -1,20 +1,11 @@
 ﻿using g3;
-using MeshSimplificationTest.SBRep.Utils;
-using Microsoft.SqlServer.Server;
+using gs;
+using SBRep.Utils;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls;
-using static g3.DPolyLine2f;
 
-namespace MeshSimplificationTest.SBRep
+namespace SBRep
 {
     public class LoopEdge : IIndexed
     {
@@ -544,7 +535,9 @@ namespace MeshSimplificationTest.SBRep
         {
             if (mesh == null)
                 return new SBRepObject();
-            RemeshTool.FixNormals(mesh);
+            var meshRepairOrientation = new MeshRepairOrientation(mesh);
+            meshRepairOrientation.OrientComponents();
+            meshRepairOrientation.SolveGlobalOrientation();
             ///Выделяем из исходного объекта группы связанных треугольников
             ///лежащих на одной плоскости и имеющие одинаковый GroupID
             var planarGroups = BuildPlanarGroups(mesh);
@@ -612,10 +605,11 @@ namespace MeshSimplificationTest.SBRep
 
         public static SBRepObject ConvertSimple(DMesh3 mesh)
         {
-
             if (mesh == null)
                 return new SBRepObject();
-            RemeshTool.FixNormals(mesh);
+            var meshRepairOrientation = new MeshRepairOrientation(mesh);
+            meshRepairOrientation.OrientComponents();
+            meshRepairOrientation.SolveGlobalOrientation();
 
             var sbRepObject = new SBRepObject();
 

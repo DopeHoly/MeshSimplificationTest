@@ -1,6 +1,6 @@
 ﻿using g3;
-using MeshSimplificationTest.SBRep;
-using MeshSimplificationTest.SBRep.Utils;
+using SBRep;
+using SBRep.Utils;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;

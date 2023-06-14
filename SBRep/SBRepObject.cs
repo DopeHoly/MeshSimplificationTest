@@ -1,17 +1,14 @@
 ﻿using g3;
-using MeshSimplificationTest.SBRep.Utils;
-using MeshSimplificationTest.SBRepVM;
+using SBRep.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Security.Cryptography;
+using System.Reflection;
 using System.Text;
-using System.Windows.Media;
-using System.Windows.Media.Media3D;
-using static MeshSimplificationTest.SBRep.SBRepBuilder;
+using static SBRep.SBRepToMeshBuilderV2;
 
-namespace MeshSimplificationTest.SBRep
+namespace SBRep
 {
     public class SBRepObject
     {
@@ -521,14 +518,14 @@ namespace MeshSimplificationTest.SBRep
             throw new Exception($"Ребро {eid} не содержит {vid}");
         }
 
-        private static void Show(SBRepObject obj, IEnumerable<int> edgesIDs)
-        {
-            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
-            keyValuePairs.Add(Colors.Red, edgesIDs);
+        //private static void Show(SBRepObject obj, IEnumerable<int> edgesIDs)
+        //{
+        //    var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+        //    keyValuePairs.Add(Colors.Red, edgesIDs);
 
-            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+        //    SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
            
-        }
+        //}
 
         public static IEnumerable<IEnumerable<int>> BuildLoopsFromEdges(SBRepObject obj, IEnumerable<int> edgesIDs, bool recursiveFix = true)
         {
@@ -553,7 +550,7 @@ namespace MeshSimplificationTest.SBRep
                 var parents = vtx.Parents.Intersect(edgesIDs).ToList();
                 if (parents.Count() % 2 == 1)
                 {
-                    Show(obj, edgesIDs);
+                    //Show(obj, edgesIDs);
                     throw new Exception("Невозможно обойти граф");
                 }
                 vertParentsDict.Add(vtx.ID, parents);
@@ -905,31 +902,22 @@ namespace MeshSimplificationTest.SBRep
         /// <returns></returns>
         public List<Vector2d> ConvertPlaneContourTo2D(IEnumerable<Vector3d> contour, Vector3d normal)
         {
-            //TODO заюзать алгоритм из SBRepToMeshBuilder ConvertTo2D
-            var firstVtx = contour.First();
-            var contourZero = contour.Select(x => x - firstVtx).ToList();
 
-            var NormalX = new Vector3d(0, normal.y, normal.z);
-            var Normaly = new Vector3d(0, 0, normal.z);
+            var transformMatrix = Geometry2DHelper.CalculateTransform(contour.First(), normal);
 
-            var angleX = Vector3d.AngleD(NormalX, normal);
-            var angleY = Vector3d.AngleD(Normaly, normal);
+            var mtx = transformMatrix.Item1;
+            var offset = transformMatrix.Item3;
 
-            Transform3DGroup rotateMtx = new Transform3DGroup();
-            rotateMtx.Children.Add(new RotateTransform3D(
-                new AxisAngleRotation3D(new Vector3D(1, 0, 0), angleY)));
-            rotateMtx.Children.Add(new RotateTransform3D(
-                new AxisAngleRotation3D(new Vector3D(0, 1, 0), angleX)));
-
-            var point3D = contourZero.Select(x =>
+            var points2d = new List<Vector2d>();
+            foreach (var vertice in contour)
             {
-                var vtx = rotateMtx.Transform(
-                    new Vector3D(x.x, x.y, x.z)
-                    );
-                return new Vector3d(vtx.X, vtx.Y, vtx.Z);
+                //смещение в 0
+                var point = new Vector3d(vertice.x - offset.x, vertice.y - offset.y, vertice.z - offset.z);
+                //применение матрицы преобразования в плоскость XOY
+                var point2D = mtx * point;
+                //Добавление в список двухмерных точек
+                points2d.Add(new Vector2d(point2D.x, point2D.y));
             }
-            ).ToList();
-            var points2d = point3D.Select(x => new Vector2d(x.x, x.y)).ToList();
             return points2d;
         }
 
@@ -974,17 +962,17 @@ namespace MeshSimplificationTest.SBRep
         }
 
         public bool AreEquivalent(SBRepObject other, double eps = 1e-2, bool groupIDCheck = true)
-            {
-            if(Faces.Count != other.Faces.Count) return false;
-            if(Loops.Count != other.Loops.Count) return false;
-            if(Verges.Count != other.Verges.Count) return false;
-
-            
-            foreach(var face in Faces)
         {
+            if (Faces.Count != other.Faces.Count) return false;
+            if (Loops.Count != other.Loops.Count) return false;
+            if (Verges.Count != other.Verges.Count) return false;
+
+
+            foreach (var face in Faces)
+            {
                 IEnumerable<SBRep_Face> otherFace = other.Faces;
                 try
-            {
+                {
                     if (groupIDCheck)
                         otherFace = otherFace
                             .Where(x => x.GroupID == face.GroupID).ToList();
@@ -1001,13 +989,13 @@ namespace MeshSimplificationTest.SBRep
                         .ToList();
                 }
                 catch (Exception ex)
-            {
+                {
                     return false;
-            }
+                }
 
 
-                if (otherFace == null || otherFace.Count() != 1)
-                    return false;                
+                if (otherFace == null || otherFace.Count() < 1)
+                    return false;
             }
 
             return true;

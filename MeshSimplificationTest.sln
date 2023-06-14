@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CDT_Simmakers", "CDT_Simmak
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeometryLib", "GeometryLib\GeometryLib.csproj", "{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SBRep", "SBRep\SBRep.csproj", "{2C98A454-04BC-4A20-B36C-104FF6BB8C70}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,18 @@ Global
 		{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}.Release|x64.Build.0 = Release|Any CPU
 		{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}.Release|x86.ActiveCfg = Release|Any CPU
 		{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}.Release|x86.Build.0 = Release|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Debug|x64.Build.0 = Debug|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Debug|x86.Build.0 = Debug|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Release|x64.ActiveCfg = Release|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Release|x64.Build.0 = Release|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Release|x86.ActiveCfg = Release|Any CPU
+		{2C98A454-04BC-4A20-B36C-104FF6BB8C70}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

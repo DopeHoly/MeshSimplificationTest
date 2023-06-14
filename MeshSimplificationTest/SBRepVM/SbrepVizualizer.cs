@@ -1,7 +1,7 @@
 ﻿using g3;
 using HelixToolkit.Wpf;
-using MeshSimplificationTest.SBRep;
-using MeshSimplificationTest.SBRep.Utils;
+using SBRep;
+using SBRep.Utils;
 using OxyPlot;
 using OxyPlot.Series;
 using System;
@@ -214,5 +214,68 @@ namespace MeshSimplificationTest.SBRepVM
             _ = vizualizer.ShowDialog();
         }
 
+        public static void ShowEdges(IEnumerable<Vector2d> vertices, IEnumerable<Index2i> edges)
+        {
+            var plotModel = new PlotModel();
+
+            foreach (var edge in edges)
+            {
+                var plotSeries = new LineSeries()
+                {
+                    MarkerType = OxyPlot.MarkerType.Circle,
+                    LineStyle = OxyPlot.LineStyle.Solid,
+                };
+                if (edge.a >= vertices.Count() || edge.b >= vertices.Count())
+                  throw new ArgumentOutOfRangeException();
+                
+                var points = new List<Vector2d>() { vertices.ElementAt(edge.a), vertices.ElementAt(edge.b) };
+                foreach (var item in points)
+                {
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(item.x, item.y));
+                }
+                //plotSeries.Points.Add(new OxyPlot.DataPoint(points.First().x, points.First().y));
+                plotModel.Series.Add(plotSeries);
+            }
+
+            var vizualizer = new OxyplotVizualizer();
+            vizualizer.Model = plotModel;
+            vizualizer.OnPropertyChanged("Model");
+            _ = vizualizer.ShowDialog();
+        }
+
+        public static void ShowTriangles(IEnumerable<Vector2d> vertices, IEnumerable<Index3i> triangles)
+        {
+            var plotModel = new PlotModel();
+
+            foreach (var tri in triangles)
+            {
+                var plotSeries = new LineSeries()
+                {
+                    MarkerType = OxyPlot.MarkerType.Circle,
+                    LineStyle = OxyPlot.LineStyle.Solid,
+                };
+                if (tri.a >= vertices.Count() || tri.b >= vertices.Count() || tri.c >= vertices.Count())
+                    throw new ArgumentOutOfRangeException();
+
+                var points = new List<Vector2d>() 
+                { 
+                    vertices.ElementAt(tri.a), 
+                    vertices.ElementAt(tri.b), 
+                    vertices.ElementAt(tri.c), 
+                    vertices.ElementAt(tri.a) 
+                };
+                foreach (var item in points)
+                {
+                    plotSeries.Points.Add(new OxyPlot.DataPoint(item.x, item.y));
+                }
+                //plotSeries.Points.Add(new OxyPlot.DataPoint(points.First().x, points.First().y));
+                plotModel.Series.Add(plotSeries);
+            }
+
+            var vizualizer = new OxyplotVizualizer();
+            vizualizer.Model = plotModel;
+            vizualizer.OnPropertyChanged("Model");
+            _ = vizualizer.ShowDialog();
+        }
     }
 }

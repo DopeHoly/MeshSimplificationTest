@@ -90,6 +90,10 @@
       <Project>{81789145-74E4-4139-9F7B-4AA740B9EE6C}</Project>
       <Name>MeshSimplificationTest</Name>
     </ProjectReference>
+    <ProjectReference Include="..\SBRep\SBRep.csproj">
+      <Project>{2C98A454-04BC-4A20-B36C-104FF6BB8C70}</Project>
+      <Name>SBRep</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

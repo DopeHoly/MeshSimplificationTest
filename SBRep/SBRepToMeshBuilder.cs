@@ -1,17 +1,12 @@
 ﻿using g3;
-using HelixToolkit.Logger;
-using MeshSimplificationTest.SBRep.Utils;
+using SBRep.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Media.Media3D;
-using System.Windows.Navigation;
-using System.Xaml;
 
-namespace MeshSimplificationTest.SBRep
+namespace SBRep
 {
     public static class SBRepToMeshBuilder
     {
