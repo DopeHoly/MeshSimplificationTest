@@ -9,53 +9,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
-using OxyPlot.Axes;
 
 namespace MeshSimplificationTest.SBRepVM
 {
     public static class SbrepVizualizer
     {
-        public static void FuncMonteCarloTest(Func<double, double, double> func,
-            double begin = -3.0,
-            double end = 7,
-            double step = 1e-2)
-        {
-            var plotModel = new PlotModel();
-            plotModel.Axes.Clear();
-            plotModel.Axes.Add(new LinearColorAxis
-            {
-                Palette = OxyPalettes.Plasma(50),                
-            });
-            var size = (int)((end - begin) / step) + 1; 
-            var data = new double[size, size];
-            int iIndex = 0;
-            int jIndex = 0;
-            for (double i = begin; i <= end; i += step, ++iIndex)
-            {
-                jIndex = 0;
-                for (double j = begin; j <= end; j += step, ++jIndex)
-                {
-                    data[iIndex, jIndex] = func(i, j);
-                }
-            }
-                
-
-            var map = new HeatMapSeries()
-            {
-                X0 = begin, Y0 = begin,
-                X1 = end, Y1 = end,
-                Data = data,
-                RenderMethod = HeatMapRenderMethod.Bitmap,
-                Interpolate = false
-            }; 
-            plotModel.Series.Add(map);
-
-
-            var vizualizer = new OxyplotVizualizer();
-            vizualizer.Model = plotModel;
-            vizualizer.OnPropertyChanged("Model");
-            _ = vizualizer.ShowDialog();
-        }
         public static Model3D ModelFromEdge(SBRepObject mesh,
             IEnumerable<int> edgesIDs,
             Color color, double diameterScale = 0.5, double zZero = 0)

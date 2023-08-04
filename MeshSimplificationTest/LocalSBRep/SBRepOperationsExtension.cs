@@ -1,17 +1,19 @@
 ﻿using g3;
+using MeshSimplificationTest.SBRepVM;
 using SBRep.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Media;
 
 namespace SBRep
 {
     public static class SBRepOperationsExtension
     {
         private static bool EnableVisualizator = false;
-
+        public const double EPS = 1e-8;
         private static IntersectContour GetContourFromLoop(SBRepObject sbrep, int lid)
         {
             var loopVertices = sbrep.GetClosedContourVtx(lid);
@@ -104,10 +106,10 @@ namespace SBRep
                 var insideLoops = face.InsideLoops.Select(lid =>
                  new IntersectContour(GetContourFromLoop(obj, lid)))
                     .ToList();
-                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
+                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop, eps: EPS);
                 foreach (var insideLoop in insideLoops)
                 {
-                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
+                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop, eps: EPS);
                 }
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID, true);
                 ++count;
@@ -193,10 +195,10 @@ namespace SBRep
                 var insideLoops = face.InsideLoops.Select(lid =>
                  new IntersectContour(GetContourFromLoop(obj, lid)))
                     .ToList();
-                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop);
+                var resultIntersect = IntersectContour.Intersect(projContour, outsideLoop, eps: EPS);
                 foreach (var insideLoop in insideLoops)
                 {
-                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop);
+                    resultIntersect = IntersectContour.Difference(resultIntersect, insideLoop, eps: EPS);
                 }
                 ApplyIntersectContourToFace(obj, faceID, resultIntersect, groupIDsDict, ref maxGroupID, false);
             }
@@ -289,6 +291,7 @@ namespace SBRep
 
             //вычисляем, какие рёбра внутри, какие снаружи
             var faceEdgesPosition = GetEdgesInsideOutside(sbrep, faceID, contour);
+            ShowDictEdges(sbrep, faceEdgesPosition);
 
             //Если нет новых рёбер, лежащих внутри данной грани и нет рёбер грани, лежащих внутри, то ничего больше с гранью не делаем
             if (addedEdges.Where(x => x.Value == true).Count() == 0 && faceEdgesPosition
@@ -333,6 +336,7 @@ namespace SBRep
                     oldFacesEdgesPriority.Add(edge, false);
                 }
             }
+            ShowDictEdges(sbrep, oldFacesEdgesPriority);
             oldFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, oldFacesEdgesPriority);
 
             //собираем петли для новых граней
@@ -358,6 +362,7 @@ namespace SBRep
                     newFacesEdgesPriority.Add(edge, true);
                 }
             }
+            ShowDictEdges(sbrep, newFacesEdgesPriority);
             newFacesLoops = BuildLoopsFromEdgesV5(sbrep, faceID, newFacesEdgesPriority);
 
             //end BuildLoopsFromEdges v3
@@ -537,7 +542,7 @@ namespace SBRep
                 var points = sbrep.GetEdgeCoordinates(edge);
                 var a = points.Item1.xy;
                 var b = points.Item2.xy;
-                faceEdgesPosition.Add(edge, contour.EdgeInsideDeep(a, b, 1e-12));
+                faceEdgesPosition.Add(edge, contour.EdgeInsideDeep(a, b, EPS));
             }
             return faceEdgesPosition;
         }
@@ -808,7 +813,7 @@ namespace SBRep
         public static double signedAngle(Vector3d v1, Vector3d v2, Vector3d norm)
         {
             Vector3d v3 = v1.Cross(v2); 
-            if (v3.Length < 1e-6)
+            if (v3.Length < EPS)
             {
                 if (Geometry2DHelper.EqualVectors(v1.Normalized, v2.Normalized))
                     return 0;
@@ -865,28 +870,50 @@ namespace SBRep
         {
             if(!EnableVisualizator)
                 return;
-            //var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
 
-            //var boundary = edgesIDsWithPosition
-            //    .Where(idPos => idPos.Value == true)
-            //    .Select(idPos => idPos.Key);
-            //var inner = edgesIDsWithPosition
-            //    .Where(idPos => idPos.Value == false)
-            //    .Select(idPos => idPos.Key);
+            var boundary = edgesIDsWithPosition
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key);
+            var inner = edgesIDsWithPosition
+                .Where(idPos => idPos.Value == false)
+                .Select(idPos => idPos.Key);
 
-            //keyValuePairs.Add(Colors.Red, boundary);
-            //keyValuePairs.Add(Colors.Blue, inner);
+            keyValuePairs.Add(Colors.Red, boundary);
+            keyValuePairs.Add(Colors.Blue, inner);
 
-            //SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+        }
+        private static void ShowDictEdges(SBRepObject obj, Dictionary<int, bool?> edgesIDsWithPosition)
+        {
+            if(!EnableVisualizator)
+                return;
+            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+
+            var boundary = edgesIDsWithPosition
+                .Where(idPos => idPos.Value == true)
+                .Select(idPos => idPos.Key);
+            var inner = edgesIDsWithPosition
+                .Where(idPos => idPos.Value == false)
+                .Select(idPos => idPos.Key);
+            var other = edgesIDsWithPosition
+                .Where(idPos => idPos.Value == null)
+                .Select(idPos => idPos.Key);
+
+            keyValuePairs.Add(Colors.Red, boundary);
+            keyValuePairs.Add(Colors.Blue, inner);
+            keyValuePairs.Add(Colors.Green, other);
+
+            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
         }
         private static void ShowDictEdges(SBRepObject obj, IEnumerable<int> edges)
         {
             if (!EnableVisualizator)
                 return;
-            //var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
-            //keyValuePairs.Add(Colors.Blue, edges);
+            var keyValuePairs = new Dictionary<Color, IEnumerable<int>>();
+            keyValuePairs.Add(Colors.Blue, edges);
 
-            //SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
+            SbrepVizualizer.ShowEdgePlot(obj, keyValuePairs);
         }
 
 

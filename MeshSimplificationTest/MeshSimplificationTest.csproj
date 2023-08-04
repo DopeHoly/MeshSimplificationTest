@@ -102,6 +102,21 @@
     <Compile Include="BooleanTool.cs" />
     <Compile Include="BoolToVisibilityConverter.cs" />
     <Compile Include="GeometryUtils.cs" />
+    <Compile Include="LocalSBRep\SBRepBuilder.cs" />
+    <Compile Include="LocalSBRep\SBRepIO.cs" />
+    <Compile Include="LocalSBRep\SBRepObject.cs" />
+    <Compile Include="LocalSBRep\SBRepOperationsExtension.cs" />
+    <Compile Include="LocalSBRep\SBRepToMeshBuilder.cs" />
+    <Compile Include="LocalSBRep\SBRepToMeshBuilderV2.cs" />
+    <Compile Include="LocalSBRep\SBRep_Primitives.cs" />
+    <Compile Include="LocalSBRep\Utils\Geometry2DHelper.cs" />
+    <Compile Include="LocalSBRep\Utils\Graph.cs" />
+    <Compile Include="LocalSBRep\Utils\IndexedCollection.cs" />
+    <Compile Include="LocalSBRep\Utils\IntersectContour.cs" />
+    <Compile Include="LocalSBRep\Utils\PlaneFace.cs" />
+    <Compile Include="LocalSBRep\Utils\PositionClasses.cs" />
+    <Compile Include="LocalSBRep\Utils\TriangulationCaller.cs" />
+    <Compile Include="LocalSBRep\Utils\TriPlanarGroup.cs" />
     <Compile Include="MasterView.xaml.cs">
       <DependentUpon>MasterView.xaml</DependentUpon>
     </Compile>
@@ -197,10 +212,6 @@
     <ProjectReference Include="..\GeometryLib\GeometryLib.csproj">
       <Project>{96A3D5CB-3939-46DB-A8B7-8D5740E0CE39}</Project>
       <Name>GeometryLib</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\SBRep\SBRep.csproj">
-      <Project>{2c98a454-04bc-4a20-b36c-104ff6bb8c70}</Project>
-      <Name>SBRep</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

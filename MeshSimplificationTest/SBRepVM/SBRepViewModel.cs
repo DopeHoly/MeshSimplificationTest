@@ -147,8 +147,8 @@ namespace MeshSimplificationTest.SBRepVM
             //var pathA = @"D:\Задачи\Газпром грунты\формат ply+свойства\110000_top.ply";
             //var pathB = @"D:\Задачи\Газпром грунты\формат ply+свойства\110000_bot.ply";
 
-            var pathA = @"D:\Задачи\Газпром грунты\формат ply+свойства\220010_top.ply";
-            var pathB = @"D:\Задачи\Газпром грунты\формат ply+свойства\220010_bot.ply";
+            //var pathA = @"D:\Задачи\Газпром грунты\формат ply+свойства\220010_top.ply";
+            //var pathB = @"D:\Задачи\Газпром грунты\формат ply+свойства\220010_bot.ply";
 
             //var vertices = new List<g3.Vector2d>();
             //var edges = new List<g3.Index2i>();
@@ -183,26 +183,26 @@ namespace MeshSimplificationTest.SBRepVM
             //    out triVertices, out triangulationTri);
 
             //SbrepVizualizer.ShowTriangles(vertices, triangulationTri);
-            var path = @"D:\Задачи\Газпром грунты\формат ply+свойства\";
+            //var path = @"D:\Задачи\Газпром грунты\формат ply+свойства\";
 
-            var dir = new DirectoryInfo(path);
-            if (!dir.Exists)
-                return;
+            //var dir = new DirectoryInfo(path);
+            //if (!dir.Exists)
+            //    return;
 
-            var plyReader = new PlyReader();
-            var files = dir.GetFiles("*.ply");
-            var offsetX = 526701.42214999557;
-            var offsetY = 1623689.0564871004;
-            foreach ( var file in files)
-            {
-                var mesh = plyReader.Read(file.FullName);
-                ModelsVM.Add(new Model3DLayerVM(this)
-                {
-                    Name = file.Name,
-                    Visibility = true,
-                    Model = ConvertToModel3D(CompaqMesh(mesh, 0.02, 0.02, 0.02, -offsetX, -offsetY)),
-                });
-            }
+            //var plyReader = new PlyReader();
+            //var files = dir.GetFiles("*.ply");
+            //var offsetX = 526701.42214999557;
+            //var offsetY = 1623689.0564871004;
+            //foreach ( var file in files)
+            //{
+            //    var mesh = plyReader.Read(file.FullName);
+            //    ModelsVM.Add(new Model3DLayerVM(this)
+            //    {
+            //        Name = file.Name,
+            //        Visibility = true,
+            //        Model = ConvertToModel3D(CompaqMesh(mesh, 0.02, 0.02, 0.02, -offsetX, -offsetY)),
+            //    });
+            //}
             //var plyReader = new PlyReader();
             //var meshA = plyReader.Read(pathA);
             //var meshB = plyReader.Read(pathB);
@@ -268,28 +268,17 @@ namespace MeshSimplificationTest.SBRepVM
                 Model = ConvertToModel3D(SourceModel),
             });
 
-            //var contour = Contour;
-
             var contour1 = new List<Vector2d>();
             contour1.Add(new Vector2d(-5, -5));
             contour1.Add(new Vector2d(-5, 100));
             contour1.Add(new Vector2d(100, -5));
-            //Contours.Add(new ContourVM()
-            //{
-            //    Name = "TestContour",
-            //    Value = contour1,
-            //});
-
-            //var contour2 = new List<Vector2d>();
-            //contour2.Add(new Vector2d(3, 1));
-            //contour2.Add(new Vector2d(3, 3));
-            //contour2.Add(new Vector2d(1, 2));
 
             var triPlanarGroup = SBRepBuilder.BuildPlanarGroups(model);
             SBRepObject projectionObject = null;
             try
             {
                 var sbrep = SBRepBuilder.Convert(model);
+                //var sbrep = SBRepBuilder.ConvertSimple(model);
                 projectionObject = new SBRepObject(sbrep);
                 ModelsVM.Add(new Model3DLayerVM(this)
                 {

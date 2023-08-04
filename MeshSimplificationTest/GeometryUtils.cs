@@ -507,6 +507,7 @@ namespace MeshSimplificationTest
         /// </summary>
         public static double GetTargetEdgeLength(DMesh3 mesh)
         {
+            if(mesh == null) return 0;
             double mine, maxe, avge;
             MeshQueries.EdgeLengthStats(mesh, out mine, out maxe, out avge);
 

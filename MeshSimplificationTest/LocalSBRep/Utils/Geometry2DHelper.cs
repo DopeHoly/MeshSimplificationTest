@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Controls;
 
 namespace SBRep.Utils
 {
@@ -187,13 +188,22 @@ namespace SBRep.Utils
             double sum = 0;
             for (int i = 0; i < contour.Count - 1; i++)
             {
-                if (IsPointOnLineSegment(point, contour[i], contour[i + 1], 1e-6))
+                if (IsPointOnLineSegment(point, contour[i], contour[i + 1], eps))
                     return false;
                 sum += Vector2d.AngleD(
                     contour[i] - point,
                     contour[i + 1] - point);
             }
             return Math.Abs(sum) > eps;
+        }
+
+        public static Vector2d RotateVector(Vector2d pt, double sin, double cos, bool cwDirrect = true, double offsetX = 0, double offsetY = 0)
+        {
+            var sign = cwDirrect? 1 : -1;
+            return new Vector2d(
+                pt.x * cos + sign * pt.y * sin + offsetX,
+                -1 * sign * pt.x * sin + pt.y * cos + offsetY
+                );
         }
 
         /// <summary>
@@ -209,17 +219,69 @@ namespace SBRep.Utils
                 return true;
             if (EqualPoints(pt, l2, eps))
                 return true;
-            if (IsPointOnLine(pt, l1, l2, eps))
+
+            if (eps == 0) eps = 1e-12;
+
+            var lineVector = l2 - l1;
+            var axisXVector = new Vector2d(1, 0);
+
+            var cosAngle = lineVector.Normalized.Dot(axisXVector);
+            cosAngle = Math.Round(cosAngle, 12, MidpointRounding.AwayFromZero);
+            var sinAngle = Math.Sqrt(1 - cosAngle * cosAngle);
+            sinAngle = Math.Round(sinAngle, 12, MidpointRounding.AwayFromZero);
+
+            var ptR = RotateVector(pt - l1, sinAngle, cosAngle, lineVector.y >= 0);
+            var maxX = lineVector.Length;
+            
+            var x = ptR.x;
+            var y = ptR.y;
+            return x >= 0 && x <= maxX && Math.Abs(y) <= eps;
+        }
+
+        public static bool PointInRectangle(Vector2d m,
+            Vector2d a,
+            Vector2d b,
+            Vector2d c,
+            Vector2d d)
+        {
+            var AB = a - b;
+            var AM = a - m;
+            var BC = b - c;
+            var BM = b - m;
+            var dotABAM = AB.Dot(AM);
+            var dotABAB = AB.Dot(AB);
+            var dotBCBM = BC.Dot(BM);
+            var dotBCBC = BC.Dot(BC);
+            return 0 <= dotABAM && dotABAM <= dotABAB && 0 <= dotBCBM && dotBCBM <= dotBCBC;
+        }
+
+        public static double PointToLineDistance(Vector2d pt, Vector2d l1, Vector2d l2)
+        {
+            double a = l2.y - l1.y;
+            double b = -(l2.x - l1.x);
+            double c = l1.y*l2.x - l2.y * l1.x;
+            var devider = Math.Sqrt(a * a + b * b);
+            if(devider == 0)
             {
-                if (Between(pt.x, l1.x, l2.x, 0) && Between(pt.y, l1.y, l2.y, 0))
-                    return true;
+                return (pt - l1).Length;
             }
-            return false;
+            var distance = Math.Abs(a * pt.x + b * pt.y + c) / devider;
+            return distance;
         }
 
         public static bool IsPointOnLine(Vector2d pt, Vector2d l1, Vector2d l2, double eps = 0.0)
         {
-            return Math.Abs((pt.x - l1.x) * (l2.y - l1.y) - (pt.y - l1.y) * (l2.x - l1.x)) <= eps;
+            return PointToLineDistance(pt, l1, l2) <= eps;
+        }
+
+        public static Vector2d PerpendicularClockwise(this Vector2d vector2)
+        {
+            return new Vector2d(-vector2.x, vector2.y);
+        }
+
+        public static Vector2d PerpendicularCounterClockwise(this Vector2d vector2)
+        {
+            return new Vector2d(vector2.x, -vector2.y);
         }
 
 
@@ -246,7 +308,6 @@ namespace SBRep.Utils
 
         private static double CalcT(Vector2d a, Vector2d b, KeyValuePair<int, Vector2d> point, double eps = 1e-12)
         {
-            var p = point.Value;
             var leftOperand = (Math.Abs(b.x - a.x) > eps);
             var rightOperand = (Math.Abs(b.y - a.y) > eps);
             double sum = 0.0;
