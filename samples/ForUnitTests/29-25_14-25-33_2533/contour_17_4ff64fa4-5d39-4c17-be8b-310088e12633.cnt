@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfVector2d xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Vector2d>
+    <x>91.726625474</x>
+    <y>31.859533208</y>
+  </Vector2d>
+  <Vector2d>
+    <x>96.262648772</x>
+    <y>34.765439764</y>
+  </Vector2d>
+  <Vector2d>
+    <x>99.49178945</x>
+    <y>37.822119955</y>
+  </Vector2d>
+  <Vector2d>
+    <x>101.335320202</x>
+    <y>40.974193708</y>
+  </Vector2d>
+  <Vector2d>
+    <x>99.342069881</x>
+    <y>41.108268842</y>
+  </Vector2d>
+  <Vector2d>
+    <x>97.543764626</x>
+    <y>38.145867558</y>
+  </Vector2d>
+  <Vector2d>
+    <x>94.390141868</x>
+    <y>35.269430715</y>
+  </Vector2d>
+  <Vector2d>
+    <x>90.018898066</x>
+    <y>32.570971568</y>
+  </Vector2d>
+  <Vector2d>
+    <x>91.726625474</x>
+    <y>31.859533208</y>
+  </Vector2d>
+</ArrayOfVector2d>

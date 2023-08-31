@@ -5,7 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Windows.Documents.DocumentStructures;
 using System.Windows.Media;
 
 namespace SBRep
@@ -13,13 +15,14 @@ namespace SBRep
     public static class SBRepOperationsExtension
     {
         private static bool EnableVisualizator = false;
-        public const double EPS = 1e-8;
+        public static double EPS = 1e-8;
         private static IntersectContour GetContourFromLoop(SBRepObject sbrep, int lid)
         {
             var loopVertices = sbrep.GetClosedContourVtx(lid);
             var loopEdges = sbrep.GetClosedContourEdgesFromLoopID(lid);
             return IntersectContour.FromSBRepLoop(loopVertices, loopEdges);
         }
+        private static int previewID = 0;
 
         private static IntersectContour GetProjectionContourFromPoint(List<Vector2d> contour)
         {
@@ -102,6 +105,14 @@ namespace SBRep
             foreach (var face in filteredFaces)
             {
                 var projContour = new IntersectContour(projectionContour);
+                //if(face.ID == 53)
+                //{
+                //    EnableVisualizator = true;
+                //    SbrepVizualizer.ShowContours(new List<IntersectContour>() { GetContourFromLoop(sbrep, face.OutsideLoop), projContour });
+                //    EnableVisualizator = false;
+                //}
+                //else
+                //    EnableVisualizator = false;
                 var outsideLoop = new IntersectContour(GetContourFromLoop(obj, face.OutsideLoop));
                 var insideLoops = face.InsideLoops.Select(lid =>
                  new IntersectContour(GetContourFromLoop(obj, lid)))
@@ -113,6 +124,7 @@ namespace SBRep
                 }
                 ApplyIntersectContourToFace(obj, face.ID, resultIntersect, groupIDsDict, ref maxGroidID, true);
                 ++count;
+                previewID = face.ID;
             }
 
             return obj;
@@ -459,15 +471,26 @@ namespace SBRep
                 facesLoopsColectionNew.Add(loop.ID, insideLoopsIds);
             }
 
+            double oldArea = 0;
+            oldArea = sbrep.GetFaceArea(faceID);
+
+
+            //var contorBlackList = new List<IntersectContour>();
+            //contorBlackList.AddRange(blackList.Select(x => GetContourFromLoop(sbrep, x)));
+            //contorBlackList.AddRange(blackListNew.Select(x => GetContourFromLoop(sbrep, x)));
+            //SbrepVizualizer.ShowContours(contorBlackList);
+
             //сносим старую грань
             sbrep.RemoveFace(faceID);
 
+            var newArea = 0.0;
             //добавляем новые грани
             foreach (var facedLoops in facesLoopsColectionOld)
             {
                 if (blackList.Contains(facedLoops.Key))
                     continue;
-                sbrep.AddFace(face.GroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
+                var currentId = sbrep.AddFace(face.GroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
+                newArea += sbrep.GetFaceArea(currentId);
             }
             ++maxGroidID;
             foreach (var facedLoops in facesLoopsColectionNew)
@@ -475,8 +498,24 @@ namespace SBRep
                 if (blackListNew.Contains(facedLoops.Key))
                     continue;
                 var newGroupID = GetNewGroupIDFromDictionary(face.GroupID, groupIDsDict, ref maxGroidID);
-                sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
+                var currentId = sbrep.AddFace(newGroupID, face.Plane, face.Normal, facedLoops.Key, facedLoops.Value);
+                newArea += sbrep.GetFaceArea(currentId);
             }
+
+            //if (Math.Abs(oldArea - newArea) > 1.01)
+            //{
+            //    EnableVisualizator = true;
+            //    ShowDictEdges(sbrep, oldFacesEdgesPriority);
+            //    ShowDictEdges(sbrep, newFacesEdgesPriority);
+            //    ShowDictEdges(sbrep, faceEdgesPosition);
+            //    ShowDictEdges(sbrep, addedEdges);
+            //    var contorBlackList = new List<IntersectContour>();
+            //    contorBlackList.AddRange(blackList.Select(x => GetContourFromLoop(sbrep, x)));
+            //    contorBlackList.AddRange(blackListNew.Select(x => GetContourFromLoop(sbrep, x)));
+            //    SbrepVizualizer.ShowContours(contorBlackList);
+            //    EnableVisualizator = false;
+            //    //throw new Exception("проебали грань");
+            //}
         }
 
         public static IEnumerable<int> GetInsideLoops(SBRepObject sbrep, SBRep_Loop mainLoop, IEnumerable<SBRep_Loop> checkedLoop)
@@ -485,8 +524,27 @@ namespace SBRep
             var contour = new IntersectContour(GetContourFromLoop(sbrep, mainLoop.ID));
             foreach (var loop in checkedLoop)
             {
+                bool needAddedLoop = false;
                 if (LoopInsideContour(contour, sbrep, loop))
+                {
+                    needAddedLoop = true;
+                }
+
+                if(needAddedLoop)
+                    foreach (var l2 in checkedLoop)
+                    {
+                        if (loop == l2) continue;
+
+                        if (LoopInsideContour(new IntersectContour(GetContourFromLoop(sbrep, l2.ID)), sbrep, loop))
+                        {
+                            needAddedLoop = false;
+                            break;
+                        }
+                    }
+
+                if(needAddedLoop)
                     resultCollection.Add(loop.ID);
+
             }
             return resultCollection;
         }
@@ -497,7 +555,7 @@ namespace SBRep
             foreach (var eid in edgesIDs)
             {
                 var coords = sbrep.GetEdgeCoordinates(eid);
-                var result = contour.EdgeInsideDeep(coords.Item1.xy, coords.Item2.xy);
+                var result = contour.EdgeInsideDeep2(coords.Item1.xy, coords.Item2.xy);
                 if (result != true)
                     return false;
             }
@@ -542,7 +600,7 @@ namespace SBRep
                 var points = sbrep.GetEdgeCoordinates(edge);
                 var a = points.Item1.xy;
                 var b = points.Item2.xy;
-                faceEdgesPosition.Add(edge, contour.EdgeInsideDeep(a, b, EPS));
+                faceEdgesPosition.Add(edge, contour.EdgeInsideDeep2(a, b, EPS));
             }
             return faceEdgesPosition;
         }
@@ -642,7 +700,7 @@ namespace SBRep
                 package.Add(point.ID, point.Coord);
             }
             //сортировка
-            var sorted = Geometry2DHelper.SortPointsOnEdge(a, b, package);
+            var sorted = Geometry2DHelper.SortPointsOnEdge(a, b, package, EPS);
             //распаковка
             var tmp = new Dictionary<int, Utils.Point>();
             foreach (var point in points)
@@ -755,7 +813,7 @@ namespace SBRep
                 return;
             var contour1 = IntersectContour.FromPoints(new List<Vector2d> { Vector2d.Zero, v1.xy });
             var contour2 = IntersectContour.FromPoints(new List<Vector2d> { Vector2d.Zero, v2.xy });
-            //SbrepVizualizer.ShowContours(new List<IntersectContour>() { contour1, contour2 });
+            SbrepVizualizer.ShowContours(new List<IntersectContour>() { contour1, contour2 });
         }
 
         /// <summary>
@@ -815,7 +873,7 @@ namespace SBRep
             Vector3d v3 = v1.Cross(v2); 
             if (v3.Length < EPS)
             {
-                if (Geometry2DHelper.EqualVectors(v1.Normalized, v2.Normalized))
+                if (Geometry2DHelper.EqualVectors(v1.Normalized, v2.Normalized, EPS))
                     return 0;
                 return Math.PI;
             }

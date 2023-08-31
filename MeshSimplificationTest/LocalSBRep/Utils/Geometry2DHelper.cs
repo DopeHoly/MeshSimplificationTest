@@ -17,17 +17,17 @@ namespace SBRep.Utils
                 ((x >= (maxX - eps)) && (x <= (minX + eps))));
         }
 
-        public static bool EqualPoints(Vector2d p1, Vector2d p2, double eps = 1e-6)
+        public static bool EqualPoints(Vector2d p1, Vector2d p2, double eps)
         {
             return (p1 - p2).LengthSquared <= eps * eps;
         }
 
-        public static bool EqualVectors(Vector3d p1, Vector3d p2, double eps = 1e-6)
+        public static bool EqualVectors(Vector3d p1, Vector3d p2, double eps)
         {
             return (p1 - p2).LengthSquared <= eps * eps;
         }
 
-        public static bool EqualZero(Vector2d p1, double eps = 1e-6)
+        public static bool EqualZero(Vector2d p1, double eps)
         {
             return EqualPoints(p1, Vector2d.Zero, eps);
         }
@@ -318,9 +318,9 @@ namespace SBRep.Utils
             return sum;
         }
 
-        public static Dictionary<int, Vector2d> SortPointsOnEdge(Vector2d a, Vector2d b, Dictionary<int, Vector2d> points)
+        public static Dictionary<int, Vector2d> SortPointsOnEdge(Vector2d a, Vector2d b, Dictionary<int, Vector2d> points, double eps)
         {
-            if (Geometry2DHelper.EqualPoints(a, b))
+            if (Geometry2DHelper.EqualPoints(a, b, eps))
             {
                 //throw new Exception("Точки a и b совпадают. Сортировка невозможна");
                 return points;

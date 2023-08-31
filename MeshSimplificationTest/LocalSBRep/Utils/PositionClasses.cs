@@ -109,22 +109,25 @@ namespace SBRep.Utils
                 {
                     if (IntersectionType == other.IntersectionType)
                     {
-                        if (IntersectionType == EdgeIntersectionType.Point ||
-                            IntersectionType == EdgeIntersectionType.ExistingPoint)
+                        if (IntersectionType == EdgeIntersectionType.Point)
                         {
-                            return Geometry2DHelper.EqualPoints(Point0, other.Point0);
+                            return Geometry2DHelper.EqualPoints(Point0, other.Point0, SBRepOperationsExtension.EPS);
+                        }
+                        if(IntersectionType == EdgeIntersectionType.ExistingPoint)
+                        {
+                            return VtxID == other.VtxID;
                         }
                         if (IntersectionType == EdgeIntersectionType.Segment ||
                             IntersectionType == EdgeIntersectionType.AllEdge)
                         {
-                            return Geometry2DHelper.EqualPoints(Point0, other.Point0) &&
-                                Geometry2DHelper.EqualPoints(Point1, other.Point1);
+                            return Geometry2DHelper.EqualPoints(Point0, other.Point0, SBRepOperationsExtension.EPS) &&
+                                Geometry2DHelper.EqualPoints(Point1, other.Point1, SBRepOperationsExtension.EPS);
                         }
                     }
                     else
                         return false;
                 }
-                return true;
+                return false;
             }
             return false;
         }
@@ -226,13 +229,22 @@ namespace SBRep.Utils
 
     public class ShortEdgePosition
     {
-        public ShortEdgePositionMode Mode;
-        public int EdgeId = -1;
+        public ShortEdgePositionMode Mode { get; set; }
+        private int _edgeId = -1;
+        public int EdgeId
+        {
+            get => _edgeId;
+            set
+            {
+                if (value < 0) throw new ArgumentOutOfRangeException("value");
+                _edgeId = value;
+            }
+        }
         public ShortEdgePosition() { }
         public ShortEdgePosition(ShortEdgePosition other)
         {
             Mode = other.Mode;
-            EdgeId = other.EdgeId;
+            _edgeId = other.EdgeId;
         }
         public override string ToString()
         {

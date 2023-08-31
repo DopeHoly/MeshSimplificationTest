@@ -1,4 +1,5 @@
 ﻿using g3;
+using MeshSimplificationTest.SBRepVM;
 using SBRep.Utils;
 using System;
 using System.Collections.Generic;
@@ -6,12 +7,15 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Windows.Media;
 using static SBRep.SBRepToMeshBuilderV2;
 
 namespace SBRep
 {
     public class SBRepObject
     {
+        public static double EPS = 1e-8;
+
         public IndexedCollection<SBRep_Vtx> Vertices { get; private set; }
         public IndexedCollection<SBRep_Edge> Edges { get; private set; }
         public IndexedCollection<SBRep_Verge> Verges { get; private set; }
@@ -66,7 +70,7 @@ namespace SBRep
         {
             foreach (var vtx in Vertices)
             {
-                if (Geometry2DHelper.EqualVectors(vtx.Coordinate, vertex))
+                if (Geometry2DHelper.EqualVectors(vtx.Coordinate, vertex, EPS))
                     return vtx.ID;
             }
             return -1;
@@ -87,7 +91,10 @@ namespace SBRep
 
         public int AddEdge(int indexA, int indexB, int parentVergeID = -1)
         {
-            if (!(Vertices.ContainsKey(indexA) && Vertices.ContainsKey(indexB))) return -1;
+            if (indexA == indexB)
+                throw new ArgumentException("indexA equal indexB");
+            if (!(Vertices.ContainsKey(indexA) && Vertices.ContainsKey(indexB)))
+                throw new ArgumentException("indexA or indexB vertice not exist");
             var newEdge = new SBRep_Edge()
             {
                 Vertices = new Index2i(indexA, indexB),
@@ -265,6 +272,8 @@ namespace SBRep
                     currentPointId = indexB;
                 else
                     currentPointId = pointsIndexesDictionary.ElementAt(i).Value;
+                if (currentPointId == previewsPointId)
+                    throw new Exception("в ребро пытается добавиться существующая точка");
                 var newEdgeId = AddEdge(previewsPointId, currentPointId, parent);
                 edges.Add(newEdgeId);
                 previewsPointId = currentPointId;
@@ -333,7 +342,7 @@ namespace SBRep
             }
             foreach (var vtx in Vertices)
             {
-                vtx.Parents = new List<int>();
+                vtx.Parents.Clear();
             }
 
             foreach (var face in Faces)
@@ -860,7 +869,12 @@ namespace SBRep
 
                 var nextEdge = vtx.Parents.Where(eid => eid != currentEdge && edgesIDs.Contains(eid)).ToList();
                 if (nextEdge.Count != 1)
+                {
+                    var dict = new Dictionary<Color, IEnumerable<int>>();
+                    dict.Add(Colors.Blue, edgesIDs);
+                    SbrepVizualizer.ShowEdgePlot(this, dict);
                     throw new Exception("У петли почему то появилась развилка");
+                }
                 currentEdge = nextEdge.First();
                 edgesOrderList.Add(Edges[currentEdge]);
             }

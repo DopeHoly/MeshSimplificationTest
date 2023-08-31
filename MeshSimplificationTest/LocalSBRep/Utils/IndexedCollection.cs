@@ -47,6 +47,12 @@ namespace SBRep.Utils
             map = new Dictionary<int, T>();
         }
 
+        public IndexedCollection(IndexedCollection<T> values)
+        {
+            _maxIndex = values._maxIndex;
+            map = new Dictionary<int, T>(values.map);
+        }
+
         private int GetNextIndex()
         {
             ++_maxIndex;

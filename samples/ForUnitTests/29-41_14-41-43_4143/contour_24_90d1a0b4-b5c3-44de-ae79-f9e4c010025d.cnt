@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfVector2d xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Vector2d>
+    <x>83.04</x>
+    <y>51.5</y>
+  </Vector2d>
+  <Vector2d>
+    <x>84.75</x>
+    <y>52.25</y>
+  </Vector2d>
+  <Vector2d>
+    <x>89.16</x>
+    <y>49.86</y>
+  </Vector2d>
+  <Vector2d>
+    <x>92.1</x>
+    <y>47.38</y>
+  </Vector2d>
+  <Vector2d>
+    <x>90.12</x>
+    <y>47.1</y>
+  </Vector2d>
+  <Vector2d>
+    <x>88.05</x>
+    <y>48.85</y>
+  </Vector2d>
+  <Vector2d>
+    <x>86</x>
+    <y>50.09</y>
+  </Vector2d>
+  <Vector2d>
+    <x>83.04</x>
+    <y>51.5</y>
+  </Vector2d>
+</ArrayOfVector2d>
